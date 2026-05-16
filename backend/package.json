@@ -5,6 +5,7 @@
     "dev": "ts-node-dev --respawn src/index.ts",
     "build": "tsc",
     "start": "tsx src/index.ts",
+    "postinstall": "cd ../frontend && npm install && npm run build",
     "migrate": "ts-node src/config/database.ts"
   },
   "dependencies": {
