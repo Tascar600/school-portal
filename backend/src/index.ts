@@ -29,6 +29,10 @@ app.use(express.urlencoded({ extended: true }));
 
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
+// Serve built frontend
+const frontendDist = path.join(__dirname, '../../frontend/dist');
+app.use(express.static(frontendDist));
+
 app.use('/api/auth', authRoutes);
 app.use('/api/fees', feeRoutes);
 app.use('/api/timetables', timetableRoutes);
@@ -46,6 +50,11 @@ app.use('/api/themes', themeRoutes);
 
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+// SPA fallback — serve index.html for any non-API path
+app.get('*', (_req, res) => {
+  res.sendFile(path.join(frontendDist, 'index.html'));
 });
 
 initDatabase().then(() => {

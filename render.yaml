@@ -3,7 +3,7 @@ services:
     name: school-portal-api
     env: node
     rootDir: backend
-    buildCommand: npm install
+    buildCommand: cd ../frontend && npm install && npm run build && cd ../backend && npm install
     startCommand: npx tsx src/index.ts
     healthCheckPath: /api/auth/login
     envVars:
