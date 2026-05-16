@@ -132,4 +132,27 @@ router.delete('/subjects/:id', async (req: AuthRequest, res: Response) => {
   }
 });
 
+// SQL console — run raw queries (admin only)
+router.post('/sql', async (req: AuthRequest, res: Response) => {
+  try {
+    const { sql, params } = req.body;
+    if (!sql || typeof sql !== 'string') {
+      return res.status(400).json({ message: 'SQL query is required' });
+    }
+
+    const trimmed = sql.trim().toLowerCase();
+    const isRead = trimmed.startsWith('select') || trimmed.startsWith('pragma');
+
+    if (isRead) {
+      const rows = await query<any[]>(sql, params || []);
+      return res.json({ rows, type: 'select' });
+    }
+
+    const result = await execute(sql, params || []);
+    return res.json({ type: 'write', ...result });
+  } catch (err: any) {
+    res.status(400).json({ message: err.message });
+  }
+});
+
 export default router;
