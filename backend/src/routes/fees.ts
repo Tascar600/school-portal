@@ -89,11 +89,8 @@ router.get('/accounts', authenticate, authorize('admin'), async (req: AuthReques
 // Teacher: get fee accounts for their students
 router.get('/accounts/my-students', authenticate, authorize('teacher'), async (req: AuthRequest, res: Response) => {
   try {
-    const subjects = await query<any[]>(
-      'SELECT DISTINCT class_id FROM homework WHERE teacher_id = ? UNION SELECT class_id FROM timetables WHERE teacher_id = ?',
-      [req.user!.id, req.user!.id]
-    );
-    const classIds = [...new Set([...subjects.map((s: any) => s.class_id)])];
+    const [teacherInfo] = await query<any[]>('SELECT class_id FROM users WHERE id = ?', [req.user!.id]);
+    const classIds = teacherInfo?.class_id ? [teacherInfo.class_id] : [];
     if (classIds.length === 0) { res.json([]); return; }
     const placeholders = classIds.map(() => '?').join(',');
     const accounts = await query<any[]>(

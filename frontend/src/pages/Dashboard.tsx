@@ -83,7 +83,7 @@ export default function Dashboard() {
       {user?.role === 'teacher' && (
         <div className="grid">
           <AnimatedStat value={data.subjects} label="My Subjects" color="#22d3ee" />
-          <AnimatedStat value={data.classes} label="My Classes" color="#a855f7" />
+          <AnimatedStat value={data.className || 'N/A'} label="My Class" color="#a855f7" />
         </div>
       )}
 

@@ -20,7 +20,7 @@ export default function AdminPanel() {
   const [editClassId, setEditClassId] = useState<number | null>(null);
 
   // Subject form
-  const [subjectForm, setSubjectForm] = useState({ name: '', class_id: '', teacher_id: '' });
+  const [subjectForm, setSubjectForm] = useState({ name: '', class_id: '' });
 
   const load = () => {
     adminApi.users().then(r => setUsers(r.data)).catch(() => {});
@@ -90,7 +90,7 @@ export default function AdminPanel() {
     try {
       await adminApi.createSubject(subjectForm);
       setMsg('Subject created');
-      setSubjectForm({ name: '', class_id: '', teacher_id: '' });
+      setSubjectForm({ name: '', class_id: '' });
       load();
     } catch (err: any) { setMsg(err.response?.data?.message || 'Error'); }
   };
@@ -266,9 +266,9 @@ export default function AdminPanel() {
             <form onSubmit={handleSubjectSubmit}>
               <div className="form-row">
                 <div><label>Subject Name</label><input value={subjectForm.name} onChange={e => setSubjectForm({ ...subjectForm, name: e.target.value })} required /></div>
-                <div><label>Class ID</label><input value={subjectForm.class_id} onChange={e => setSubjectForm({ ...subjectForm, class_id: e.target.value })} required /></div>
-                <div><label>Teacher ID</label><input value={subjectForm.teacher_id} onChange={e => setSubjectForm({ ...subjectForm, teacher_id: e.target.value })} required /></div>
+                <div><label>Class</label><select value={subjectForm.class_id} onChange={e => setSubjectForm({ ...subjectForm, class_id: e.target.value })} required><option value="">— Select Class —</option>{classes.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
               </div>
+              <p style={{ color: 'var(--text-dim)', fontSize: '0.8rem' }}>Teacher is auto-assigned from the class teacher.</p>
               <button type="submit" className="btn btn-primary">Create Subject</button>
             </form>
           </div>

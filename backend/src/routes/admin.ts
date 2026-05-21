@@ -129,7 +129,7 @@ router.get('/subjects', async (req: AuthRequest, res: Response) => {
     const subjects = await query<any[]>(
       `SELECT s.*, c.name AS class_name, u.name AS teacher_name FROM subjects s
        JOIN classes c ON c.id = s.class_id
-       JOIN users u ON u.id = s.teacher_id
+       LEFT JOIN users u ON u.id = s.teacher_id
        ORDER BY c.name, s.name`
     );
     res.json(subjects);
@@ -140,7 +140,10 @@ router.get('/subjects', async (req: AuthRequest, res: Response) => {
 
 router.post('/subjects', async (req: AuthRequest, res: Response) => {
   try {
-    const { name, class_id, teacher_id } = req.body;
+    const { name, class_id } = req.body;
+    // Auto-assign teacher who owns this class
+    const teachers = await query<any[]>('SELECT id FROM users WHERE role = ? AND class_id = ? LIMIT 1', ['teacher', class_id]);
+    const teacher_id = teachers[0]?.id || null;
     await execute('INSERT INTO subjects (name, class_id, teacher_id) VALUES (?, ?, ?)',
       [name, class_id, teacher_id]);
     res.status(201).json({ message: 'Subject created' });
