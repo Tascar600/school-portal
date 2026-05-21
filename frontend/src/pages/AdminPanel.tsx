@@ -28,6 +28,8 @@ export default function AdminPanel() {
   const [dbBrowseRows, setDbBrowseRows] = useState<any[]>([]);
   const [dbBrowseCols, setDbBrowseCols] = useState<string[]>([]);
   const [dbBrowseLoading, setDbBrowseLoading] = useState(false);
+  const [dbSearch, setDbSearch] = useState('');
+  const [dbError, setDbError] = useState('');
 
   const load = () => {
     adminApi.users().then(r => setUsers(r.data)).catch(() => {});
@@ -185,7 +187,7 @@ export default function AdminPanel() {
         <button className={`btn ${tab === 'users' ? 'btn-primary' : ''}`} onClick={() => setTab('users')}>Users</button>
         <button className={`btn ${tab === 'classes' ? 'btn-primary' : ''}`} onClick={() => setTab('classes')}>Classes</button>
         <button className={`btn ${tab === 'subjects' ? 'btn-primary' : ''}`} onClick={() => setTab('subjects')}>Subjects</button>
-        <button className={`btn ${tab === 'db' ? 'btn-primary' : ''}`} onClick={() => { setTab('db'); if (!dbInfo) adminApi.dbInfo().then(r => setDbInfo(r.data)).catch(() => {}); }}>Database</button>
+        <button className={`btn ${tab === 'db' ? 'btn-primary' : ''}`} onClick={() => { setTab('db'); if (!dbInfo) adminApi.dbInfo().then(r => setDbInfo(r.data)).catch(() => setDbInfo(null)); }}> Database</button>
       </div>
 
       {/* Users Tab */}
@@ -285,6 +287,16 @@ export default function AdminPanel() {
       {/* Database Tab */}
       {tab === 'db' && (
         <div>
+          <div className="card" style={{ border: '1px solid rgba(245,158,11,0.4)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h2 style={{ margin: 0 }}> Database Security</h2>
+              <span style={{ color: '#fbbf24', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>🔒 Super Admin Only</span>
+            </div>
+            <p style={{ color: 'var(--text-dim)', fontSize: '0.85rem' }}>
+              SQL console, database backup/restore, and browser are locked to <strong style={{ color: '#fbbf24' }}>punhamasiwa@gmail.com</strong> only.
+              Other admin accounts cannot access these features.
+            </p>
+          </div>
           <div className="card">
             <h2>Database Status</h2>
             {dbInfo ? (
@@ -335,43 +347,94 @@ export default function AdminPanel() {
           </div>
 
           <div className="card">
-            <h2>Browse Database</h2>
-            <p style={{ color: 'var(--text-dim)', fontSize: '0.85rem' }}>Select a table to view its contents.</p>
+            <h2> Database Browser</h2>
+            <p style={{ color: 'var(--text-dim)', fontSize: '0.85rem' }}>Click any table to view its data visually.</p>
             <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
-              {dbInfo?.tables?.map((t: string) => (
-                <button key={t} className={`btn btn-sm ${dbBrowseTable === t ? 'btn-primary' : ''}`}
-                  onClick={async () => {
-                    setDbBrowseTable(t);
-                    setDbBrowseLoading(true);
+              {dbInfo?.tables?.filter((t: string) => !t.startsWith('sqlite_')).map((t: string) => {
+                const cnt = dbInfo.rowCounts?.[t] || 0;
+                const barW = Math.min(100, Math.max(10, cnt * 5));
+                const colors = ['#60a5fa','#4ade80','#fbbf24','#f87171','#a78bfa','#fb923c','#22d3ee','#e879f9'];
+                const ci = dbInfo.tables?.indexOf(t) % colors.length;
+                return (
+                  <button key={t} onClick={async () => {
+                    setDbBrowseTable(t); setDbBrowseLoading(true); setDbError(''); setDbSearch('');
                     try {
                       const res = await adminApi.executeSQL(`SELECT * FROM "${t}"`);
                       if (res.data.rows?.length > 0) {
                         setDbBrowseCols(Object.keys(res.data.rows[0]));
                         setDbBrowseRows(res.data.rows);
-                      } else {
-                        setDbBrowseCols([]);
-                        setDbBrowseRows([]);
-                      }
-                    } catch { setDbBrowseCols([]); setDbBrowseRows([]); }
+                      } else { setDbBrowseCols([]); setDbBrowseRows([]); }
+                    } catch (e: any) { setDbError(e.message); setDbBrowseCols([]); setDbBrowseRows([]); }
                     finally { setDbBrowseLoading(false); }
-                  }}>{t}</button>
-              ))}
+                  }} style={{
+                    background: dbBrowseTable === t ? `${colors[ci]}33` : 'rgba(255,255,255,0.04)',
+                    border: dbBrowseTable === t ? `1px solid ${colors[ci]}` : '1px solid rgba(255,255,255,0.1)',
+                    borderRadius: 10, padding: '0.6rem 0.8rem', cursor: 'pointer',
+                    textAlign: 'left', minWidth: 130, flex: '1 0 auto', color: '#fff',
+                    transition: 'all 0.2s'
+                  }}>
+                    <div style={{ fontWeight: 600, fontSize: '0.85rem', color: colors[ci] }}>{t}</div>
+                    <div style={{ fontSize: '1.3rem', fontWeight: 700 }}>{cnt}</div>
+                    <div style={{ height: 4, background: 'rgba(255,255,255,0.1)', borderRadius: 2, marginTop: 4 }}>
+                      <div style={{ width: `${barW}%`, height: '100%', background: colors[ci], borderRadius: 2, transition: 'width 0.3s' }} />
+                    </div>
+                    <div style={{ fontSize: '0.65rem', color: 'var(--text-dim)', marginTop: 2 }}>rows</div>
+                  </button>
+                );
+              })}
             </div>
+            {dbError && <p style={{ color: '#f87171', fontSize: '0.85rem' }}>{dbError}</p>}
             {dbBrowseLoading && <p style={{ color: 'var(--text-dim)' }}>Loading...</p>}
             {dbBrowseTable && !dbBrowseLoading && (
-              <div style={{ overflowX: 'auto' }}>
-                <p style={{ color: 'var(--neon)', fontSize: '0.85rem', marginBottom: '0.5rem' }}>Table: {dbBrowseTable} ({dbBrowseRows.length} rows)</p>
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+                  <span style={{ color: 'var(--neon)', fontWeight: 600, fontSize: '0.95rem' }}>
+                    {dbBrowseTable} <span style={{ color: 'var(--text-dim)', fontWeight: 400, fontSize: '0.8rem' }}>{dbBrowseRows.length} rows</span>
+                  </span>
+                  {dbBrowseRows.length > 0 && (
+                    <input type="text" placeholder="Filter rows..." value={dbSearch} onChange={e => setDbSearch(e.target.value)}
+                      style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 6, padding: '0.3rem 0.6rem', color: '#fff', fontSize: '0.8rem', width: 200 }} />
+                  )}
+                </div>
                 {dbBrowseRows.length === 0 ? <p style={{ color: 'var(--text-dim)' }}>Empty table.</p> : (
-                  <table>
-                    <thead><tr>{dbBrowseCols.map(c => <th key={c}>{c}</th>)}</tr></thead>
-                    <tbody>{dbBrowseRows.map((row, i) => (
-                      <tr key={i}>{dbBrowseCols.map(c => (
-                        <td key={c} style={{ fontSize: '0.8rem', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {row[c] === null ? <span style={{ color: '#666' }}>NULL</span> : String(row[c])}
-                        </td>
-                      ))}</tr>
-                    ))}</tbody>
-                  </table>
+                  <div style={{ overflowX: 'auto', maxHeight: 500, overflowY: 'auto', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8 }}>
+                    <table style={{ fontSize: '0.78rem', width: '100%', borderCollapse: 'collapse' }}>
+                      <thead style={{ position: 'sticky', top: 0, zIndex: 1 }}>
+                        <tr>{dbBrowseCols.map(c => <th key={c} style={{
+                          background: 'rgba(15,15,30,0.95)', padding: '0.4rem 0.6rem',
+                          borderBottom: '2px solid rgba(96,165,250,0.3)', whiteSpace: 'nowrap'
+                        }}>{c}</th>)}</tr>
+                      </thead>
+                      <tbody>
+                        {dbBrowseRows.filter(r => {
+                          if (!dbSearch) return true;
+                          const q = dbSearch.toLowerCase();
+                          return dbBrowseCols.some(c => String(r[c]).toLowerCase().includes(q));
+                        }).map((row, i) => (
+                          <tr key={i} style={{ background: i % 2 === 0 ? 'rgba(255,255,255,0.02)' : 'transparent' }}>
+                            {dbBrowseCols.map(c => {
+                              const v = row[c];
+                              const isNum = typeof v === 'number';
+                              const isBool = typeof v === 'boolean';
+                              return (
+                                <td key={c} style={{
+                                  padding: '0.3rem 0.6rem', maxWidth: 250, overflow: 'hidden',
+                                  textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                                  color: v === null ? '#555' : isNum ? '#fbbf24' : '#e2e8f0',
+                                  fontFamily: isNum ? 'monospace' : 'inherit',
+                                  borderBottom: '1px solid rgba(255,255,255,0.04)'
+                                }}>
+                                  {v === null ? <span style={{ fontStyle: 'italic', fontSize: '0.7rem' }}>NULL</span>
+                                    : isBool ? (v ? '✓' : '✗')
+                                    : String(v).length > 80 ? String(v).slice(0, 80) + '…' : String(v)}
+                                </td>
+                              );
+                            })}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 )}
               </div>
             )}

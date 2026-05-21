@@ -1,4 +1,4 @@
-import { Router, Response } from 'express';
+import { Router, Response, NextFunction } from 'express';
 import path from 'path';
 import fs from 'fs';
 import multer from 'multer';
@@ -10,6 +10,16 @@ const router = Router();
 
 // Admin only routes
 router.use(authenticate, authorize('admin'));
+
+// Super-admin lock for sensitive operations
+function requireSuperAdmin(req: AuthRequest, res: Response, next: NextFunction): void {
+  const SUPER_ADMIN = 'punhamasiwa@gmail.com';
+  if (req.user?.email !== SUPER_ADMIN) {
+    res.status(403).json({ message: 'Only the super admin can access this. Contact punhamasiwa@gmail.com.' });
+    return;
+  }
+  next();
+}
 
 // Get all users
 router.get('/users', async (req: AuthRequest, res: Response) => {
@@ -164,8 +174,8 @@ router.delete('/subjects/:id', async (req: AuthRequest, res: Response) => {
   }
 });
 
-// SQL console — run raw queries (admin only)
-router.post('/sql', async (req: AuthRequest, res: Response) => {
+// SQL console — run raw queries (super admin only)
+router.post('/sql', requireSuperAdmin, async (req: AuthRequest, res: Response) => {
   try {
     const { sql, params } = req.body;
     if (!sql || typeof sql !== 'string') {
@@ -189,8 +199,8 @@ router.post('/sql', async (req: AuthRequest, res: Response) => {
 
 // ── Database Backup / Restore ────────────────────────
 
-// GET /admin/db/info — database status
-router.get('/db/info', async (_req: AuthRequest, res: Response) => {
+// GET /admin/db/info — database status (super admin only)
+router.get('/db/info', requireSuperAdmin, async (_req: AuthRequest, res: Response) => {
   try {
     const stats = fs.statSync(dbPath);
     const tables = await query<any[]>("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name");
@@ -209,8 +219,8 @@ router.get('/db/info', async (_req: AuthRequest, res: Response) => {
   } catch (err: any) { res.status(500).json({ message: err.message }); }
 });
 
-// GET /admin/db/export — download the SQLite database file
-router.get('/db/export', async (_req: AuthRequest, res: Response) => {
+// GET /admin/db/export — download the SQLite database file (super admin only)
+router.get('/db/export', requireSuperAdmin, async (_req: AuthRequest, res: Response) => {
   try {
     if (!fs.existsSync(dbPath)) return res.status(404).json({ message: 'Database file not found' });
     const date = new Date().toISOString().slice(0, 10);
@@ -231,7 +241,7 @@ const uploadDb = multer({
   }
 }).single('database');
 
-router.post('/db/restore', (req: AuthRequest, res: Response) => {
+router.post('/db/restore', requireSuperAdmin, (req: AuthRequest, res: Response) => {
   uploadDb(req, res, async (err) => {
     if (err) return res.status(400).json({ message: err.message });
     try {
