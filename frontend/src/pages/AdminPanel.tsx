@@ -138,7 +138,7 @@ export default function AdminPanel() {
               <div><label>Full Name</label><input value={quickStudentForm.name} onChange={e => setQuickStudentForm({ ...quickStudentForm, name: e.target.value })} required /></div>
               <div><label>Email</label><input type="email" value={quickStudentForm.email} onChange={e => setQuickStudentForm({ ...quickStudentForm, email: e.target.value })} required /></div>
               <div><label>Password</label><input value={quickStudentForm.password} onChange={e => setQuickStudentForm({ ...quickStudentForm, password: e.target.value })} required /></div>
-              <div><label>Class ID</label><input value={quickStudentForm.class_id} onChange={e => setQuickStudentForm({ ...quickStudentForm, class_id: e.target.value })} placeholder="e.g. 1" /></div>
+              <div><label>Class</label><select value={quickStudentForm.class_id} onChange={e => setQuickStudentForm({ ...quickStudentForm, class_id: e.target.value })} required><option value="">— Select Class —</option>{classes.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
             </div>
             <button type="submit" className="btn btn-success">Create Student</button>
             <button type="button" className="btn" onClick={() => setShowQuickAdd(false)}>Cancel</button>
@@ -165,7 +165,16 @@ export default function AdminPanel() {
               <div className="form-row">
                 <div><label>Password {editUserId && '(leave blank to keep)'}</label><input type="password" value={userForm.password} onChange={e => setUserForm({ ...userForm, password: e.target.value })} required={!editUserId} /></div>
                 <div><label>Role</label><select value={userForm.role} onChange={e => setUserForm({ ...userForm, role: e.target.value })}><option value="student">Student</option><option value="teacher">Teacher</option><option value="admin">Admin</option></select></div>
-                <div><label>Class ID</label><input value={userForm.class_id} onChange={e => setUserForm({ ...userForm, class_id: e.target.value })} /></div>
+                <div><label>Class</label>
+                  {userForm.role === 'student' ? (
+                    <select value={userForm.class_id} onChange={e => setUserForm({ ...userForm, class_id: e.target.value })} required>
+                      <option value="">— Select Class —</option>
+                      {classes.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    </select>
+                  ) : (
+                    <input value={userForm.class_id} onChange={e => setUserForm({ ...userForm, class_id: e.target.value })} placeholder="optional" />
+                  )}
+                </div>
               </div>
               <button type="submit" className="btn btn-primary">{editUserId ? 'Update' : 'Create'} User</button>
               {editUserId && <button type="button" className="btn" onClick={() => { setEditUserId(null); setUserForm({ name: '', email: '', password: '', role: 'student', class_id: '' }); }}>Cancel</button>}
@@ -183,7 +192,7 @@ export default function AdminPanel() {
                     <td>{u.name}</td>
                     <td>{u.email}</td>
                     <td><span className={`alert-${u.role === 'admin' ? 'error' : u.role === 'teacher' ? 'info' : 'success'}`} style={{ padding: '2px 8px', borderRadius: 4 }}>{u.role}</span></td>
-                    <td>{u.class_id || '-'}</td>
+                    <td>{u.class_name || '-'}</td>
                     <td>
                       <button className="btn btn-warning btn-sm" onClick={() => editUser(u)}>Edit</button>
                       <button className="btn btn-danger btn-sm" onClick={() => deleteUser(u.id)}>Delete</button>

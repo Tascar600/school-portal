@@ -11,7 +11,10 @@ router.use(authenticate, authorize('admin'));
 // Get all users
 router.get('/users', async (req: AuthRequest, res: Response) => {
   try {
-    const users = await query<any[]>('SELECT id, name, email, role, class_id FROM users ORDER BY role, name');
+    const users = await query<any[]>(
+      `SELECT u.id, u.name, u.email, u.role, u.class_id, c.name AS class_name
+       FROM users u LEFT JOIN classes c ON c.id = u.class_id ORDER BY u.role, u.name`
+    );
     res.json(users);
   } catch (err: any) {
     res.status(500).json({ message: err.message });

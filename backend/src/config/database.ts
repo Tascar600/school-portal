@@ -270,6 +270,31 @@ function createTables(): void {
   `);
 }
 
+function seedZimbabweClasses(): void {
+  const existing = db.exec("SELECT COUNT(*) AS cnt FROM classes");
+  if (existing[0]?.values[0][0] > 0) return;
+
+  const classes = [
+    { name: 'ECD A', grade: 'ECD', section: 'A' },
+    { name: 'ECD B', grade: 'ECD', section: 'B' },
+    { name: 'Grade 1', grade: '1', section: '' },
+    { name: 'Grade 2', grade: '2', section: '' },
+    { name: 'Grade 3', grade: '3', section: '' },
+    { name: 'Grade 4', grade: '4', section: '' },
+    { name: 'Grade 5', grade: '5', section: '' },
+    { name: 'Grade 6', grade: '6', section: '' },
+    { name: 'Grade 7', grade: '7', section: '' },
+  ];
+  const stmt = db.prepare('INSERT INTO classes (name, grade, section) VALUES (?, ?, ?)');
+  for (const c of classes) {
+    stmt.bind([c.name, c.grade, c.section]);
+    stmt.step();
+    stmt.reset();
+  }
+  stmt.free();
+  console.log('Seeded Zimbabwe primary classes (ECD A – Grade 7)');
+}
+
 export async function initDatabase(): Promise<void> {
   const SQL = await initSqlJs();
   if (fs.existsSync(dbPath)) {
@@ -280,6 +305,7 @@ export async function initDatabase(): Promise<void> {
   }
   db.run('PRAGMA foreign_keys = ON');
   createTables();
+  seedZimbabweClasses();
   save();
   console.log('Database initialized at', dbPath);
 }
