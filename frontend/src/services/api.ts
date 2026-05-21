@@ -58,9 +58,11 @@ export const timetableApi = {
   create: (data: any) => api.post('/timetables', data),
   my: () => api.get('/timetables/my'),
   all: () => api.get('/timetables/all'),
+  getProposals: (classId: number) => api.get(`/timetables/proposals/${classId}`),
   update: (id: number, data: any) => api.put(`/timetables/${id}`, data),
   delete: (id: number) => api.delete(`/timetables/${id}`),
   getByClass: (classId: number) => api.get(`/timetables/class/${classId}`),
+  publish: (classId: number) => api.post(`/timetables/publish/${classId}`),
   generate: (classId: number) => api.post(`/timetables/generate/${classId}`),
 };
 
