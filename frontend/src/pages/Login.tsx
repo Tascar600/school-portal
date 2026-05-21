@@ -58,7 +58,7 @@ export default function Login() {
           </button>
         </form>
         <p style={{ marginTop: '1.25rem', textAlign: 'center', color: 'var(--text-dim)', fontSize: '0.9rem' }}>
-          Got a student number?{' '}
+          Got a registration number?{' '}
           <a href="/activate" style={{ color: 'var(--neon)', textDecoration: 'none' }}>Activate Account</a>
         </p>
       </div>

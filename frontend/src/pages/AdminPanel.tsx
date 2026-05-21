@@ -7,9 +7,9 @@ export default function AdminPanel() {
   const [subjects, setSubjects] = useState<any[]>([]);
   const [tab, setTab] = useState<'users' | 'classes' | 'subjects'>('users');
   const [msg, setMsg] = useState('');
-  const [quickStudentForm, setQuickStudentForm] = useState({ first_name: '', last_name: '', class_id: '' });
+  const [quickAddForm, setQuickAddForm] = useState({ first_name: '', last_name: '', role: 'student', class_id: '' });
   const [showQuickAdd, setShowQuickAdd] = useState(false);
-  const [lastStudentNumber, setLastStudentNumber] = useState('');
+  const [lastRegNumber, setLastRegNumber] = useState('');
 
   // User form
   const [userForm, setUserForm] = useState({ name: '', email: '', password: '', role: 'student', class_id: '' });
@@ -117,33 +117,42 @@ export default function AdminPanel() {
       {/* Quick Add Student */}
       <div className="card" style={{ padding: '0.75rem 1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
         <strong>Quick Actions:</strong>
-        <button className="btn btn-success" onClick={() => setShowQuickAdd(!showQuickAdd)}>+ Add Student</button>
+        <button className="btn btn-success" onClick={() => { setQuickAddForm({ first_name: '', last_name: '', role: 'student', class_id: '' }); setShowQuickAdd(!showQuickAdd); }}>+ Add Student</button>
+        <button className="btn btn-info" onClick={() => { setQuickAddForm({ first_name: '', last_name: '', role: 'teacher', class_id: '' }); setShowQuickAdd(!showQuickAdd); }}>+ Add Teacher</button>
         <button className="btn btn-primary" onClick={() => { setTab('users'); document.querySelector('input[name="email"]')?.scrollIntoView(); }}>+ Add User</button>
         <button className="btn" onClick={() => setTab('classes')}>+ Add Class</button>
       </div>
 
       {showQuickAdd && (
-        <div className="card" style={{ border: '2px solid #2e7d32' }}>
-          <h2>Quick Add Student</h2>
+        <div className="card" style={{ border: '2px solid ' + (quickAddForm.role === 'student' ? '#2e7d32' : '#0891b2') }}>
+          <h2>Quick Add {quickAddForm.role === 'student' ? 'Student' : 'Teacher'}</h2>
           <form onSubmit={async (e) => {
             e.preventDefault();
             try {
-              const res = await adminApi.createUser({ first_name: quickStudentForm.first_name, last_name: quickStudentForm.last_name, role: 'student', class_id: parseInt(quickStudentForm.class_id) });
-              const num = res.data?.student_number || '';
-              setLastStudentNumber(num);
-              const fullName = (quickStudentForm.first_name + ' ' + quickStudentForm.last_name).trim();
-              setMsg(`${fullName || 'Student'} created! Number: ${num} — give this to the student to activate.`);
-              setQuickStudentForm({ first_name: '', last_name: '', class_id: '' });
+              const res = await adminApi.createUser({
+                first_name: quickAddForm.first_name,
+                last_name: quickAddForm.last_name,
+                role: quickAddForm.role,
+                class_id: quickAddForm.role === 'student' ? parseInt(quickAddForm.class_id) : undefined
+              });
+              const num = res.data?.reg_number || '';
+              setLastRegNumber(num);
+              const fullName = (quickAddForm.first_name + ' ' + quickAddForm.last_name).trim();
+              const label = quickAddForm.role === 'student' ? 'Student' : 'Teacher';
+              setMsg(`${fullName || label} created! Reg Number: ${num}`);
+              setQuickAddForm({ first_name: '', last_name: '', role: 'student', class_id: '' });
               setShowQuickAdd(false);
               adminApi.users().then(r => setUsers(r.data));
             } catch (err: any) { setMsg(err.response?.data?.message || 'Error'); }
           }}>
             <div className="form-row">
-              <div><label>First Name</label><input value={quickStudentForm.first_name} onChange={e => setQuickStudentForm({ ...quickStudentForm, first_name: e.target.value })} required /></div>
-              <div><label>Last Name</label><input value={quickStudentForm.last_name} onChange={e => setQuickStudentForm({ ...quickStudentForm, last_name: e.target.value })} required /></div>
-              <div><label>Class</label><select value={quickStudentForm.class_id} onChange={e => setQuickStudentForm({ ...quickStudentForm, class_id: e.target.value })} required><option value="">— Select Class —</option>{classes.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
+              <div><label>First Name</label><input value={quickAddForm.first_name} onChange={e => setQuickAddForm({ ...quickAddForm, first_name: e.target.value })} required /></div>
+              <div><label>Last Name</label><input value={quickAddForm.last_name} onChange={e => setQuickAddForm({ ...quickAddForm, last_name: e.target.value })} required /></div>
+              {quickAddForm.role === 'student' && (
+                <div><label>Class</label><select value={quickAddForm.class_id} onChange={e => setQuickAddForm({ ...quickAddForm, class_id: e.target.value })} required><option value="">— Select Class —</option>{classes.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
+              )}
             </div>
-            <button type="submit" className="btn btn-success">Generate Student Number</button>
+            <button type="submit" className="btn btn-success">Generate Reg Number</button>
             <button type="button" className="btn" onClick={() => setShowQuickAdd(false)}>Cancel</button>
           </form>
         </div>

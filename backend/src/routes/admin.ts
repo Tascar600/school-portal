@@ -21,12 +21,12 @@ router.get('/users', async (req: AuthRequest, res: Response) => {
   }
 });
 
-// Generate unique student number — format: c260001
-async function generateStudentNumber(): Promise<string> {
+// Generate unique reg number — format: c260001 (student) or t260001 (teacher)
+async function generateRegNumber(prefix: string): Promise<string> {
   const year = String(new Date().getFullYear()).slice(-2);
-  const rows = await query<any[]>("SELECT COALESCE(MAX(CAST(SUBSTR(student_number, 4) AS INTEGER)), 0) + 1 AS next FROM users WHERE student_number LIKE 'c" + year + "%'");
+  const rows = await query<any[]>("SELECT COALESCE(MAX(CAST(SUBSTR(student_number, 4) AS INTEGER)), 0) + 1 AS next FROM users WHERE student_number LIKE '" + prefix + year + "%'");
   const next = rows[0]?.next || 1;
-  return 'c' + year + String(next).padStart(5, '0');
+  return prefix + year + String(next).padStart(5, '0');
 }
 
 // Create user
@@ -34,17 +34,18 @@ router.post('/users', async (req: AuthRequest, res: Response) => {
   try {
     const { first_name, last_name, name, email, password, role, class_id } = req.body;
 
-    if (role === 'student') {
-      const student_number = await generateStudentNumber();
+    if (role === 'student' || role === 'teacher') {
+      const prefix = role === 'student' ? 'c' : 't';
+      const reg_number = await generateRegNumber(prefix);
       const fullName = (first_name || '') + ' ' + (last_name || '');
-      const studentName = fullName.trim() || name || '';
-      const studentEmail = email || (student_number + '@temp.school');
-      const studentPass = password ? hashPassword(password) : '';
+      const userName = fullName.trim() || name || '';
+      const userEmail = email || (reg_number + '@temp.school');
+      const userPass = password ? hashPassword(password) : '';
       await execute(
         'INSERT INTO users (name, email, password, role, class_id, student_number, is_active) VALUES (?, ?, ?, ?, ?, ?, 0)',
-        [studentName, studentEmail, studentPass, role, class_id || null, student_number]
+        [userName, userEmail, userPass, role, class_id || null, reg_number]
       );
-      return res.status(201).json({ message: 'Student created', student_number });
+      return res.status(201).json({ message: role === 'student' ? 'Student created' : 'Teacher created', reg_number });
     }
 
     const hashed = hashPassword(password);

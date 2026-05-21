@@ -23,6 +23,9 @@ router.post('/register', async (req: AuthRequest, res: Response) => {
     if (role === 'student') {
       return res.status(403).json({ message: 'Students must activate via student number' });
     }
+    if (role === 'teacher') {
+      return res.status(403).json({ message: 'Teachers must be created by admin' });
+    }
     const existing = await query<UserRow[]>('SELECT id FROM users WHERE email = ?', [email]);
     if (existing.length > 0) {
       return res.status(400).json({ message: 'Email already registered' });
@@ -45,11 +48,11 @@ router.post('/activate', async (req: AuthRequest, res: Response) => {
   try {
     const { student_number, email, password } = req.body;
     if (!student_number || !email || !password) {
-      return res.status(400).json({ message: 'student_number, email, and password are required' });
+      return res.status(400).json({ message: 'Registration number, email, and password are required' });
     }
     const users = await query<any[]>('SELECT id, name, email, role, class_id, is_active FROM users WHERE student_number = ?', [student_number]);
     if (users.length === 0) {
-      return res.status(404).json({ message: 'Invalid student number' });
+      return res.status(404).json({ message: 'Invalid registration number' });
     }
     const user = users[0];
     if (user.is_active) {
