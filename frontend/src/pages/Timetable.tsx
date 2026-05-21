@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { timetableApi, subjectApi } from '../services/api';
+import { PrintButton } from '../components/PrintDownload';
 
 const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
 
@@ -157,7 +158,12 @@ export default function Timetable() {
 
   return (
     <div>
-      <h1>Timetable</h1>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+        <h1 style={{ margin: 0 }}>Timetable</h1>
+        <div style={{ display: 'flex', gap: '0.3rem' }}>
+          <PrintButton />
+        </div>
+      </div>
       {msg && <div className="alert alert-info">{msg}</div>}
 
       {/* TEACHER: Propose Entry */}

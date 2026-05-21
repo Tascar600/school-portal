@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { sportApi } from '../services/api';
+import { PrintButton, DownloadCSV } from '../components/PrintDownload';
 
 export default function Sports() {
   const { user } = useAuth();
@@ -48,9 +49,23 @@ export default function Sports() {
 
   const isCoach = (sport: any) => user?.role === 'admin' || (user?.role === 'teacher' && sport.coach_id === user.id);
 
+  const csvData = sports.map(s => ({
+    'Name': s.name,
+    'Description': s.description || '',
+    'Coach': s.coach_name || 'TBD',
+    'Participants': s.participant_count,
+    'Max Participants': s.max_participants > 0 ? String(s.max_participants) : 'Unlimited'
+  }));
+
   return (
     <div>
-      <h1>Sports</h1>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+        <h1 style={{ margin: 0 }}>Sports</h1>
+        <div style={{ display: 'flex', gap: '0.3rem' }}>
+          <PrintButton />
+          <DownloadCSV data={csvData} headers={['Name', 'Description', 'Coach', 'Participants', 'Max Participants']} filename="sports.csv" label=" CSV" />
+        </div>
+      </div>
       {msg && <div className="alert alert-info">{msg}</div>}
 
       {/* Admin/Teacher: Create Sport */}

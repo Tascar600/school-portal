@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { attendanceApi } from '../services/api';
+import { PrintButton, DownloadCSV } from '../components/PrintDownload';
 
 export default function Register() {
   const { user } = useAuth();
@@ -62,9 +63,16 @@ export default function Register() {
   const statusColors: Record<string, string> = { present: '#2e7d32', absent: '#c62828', late: '#f57f17', excused: '#1565c0' };
 
   if (user?.role === 'teacher') {
+    const csvData = students.map(s => ({ 'Student': s.name, 'Status': records[s.id] || 'present' }));
     return (
       <div>
-        <h1>Register / Attendance</h1>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+          <h1 style={{ margin: 0 }}>Register / Attendance</h1>
+          <div style={{ display: 'flex', gap: '0.3rem' }}>
+            <PrintButton />
+            <DownloadCSV data={csvData} headers={['Student', 'Status']} filename="attendance_register.csv" label=" CSV" />
+          </div>
+        </div>
         {msg && <div className="alert alert-info">{msg}</div>}
 
         <div className="card">
@@ -121,9 +129,16 @@ export default function Register() {
   }
 
   // Student view
+  const csvData = myAttendance.map(a => ({ 'Date': a.date, 'Status': a.status }));
   return (
     <div>
-      <h1>My Attendance</h1>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+        <h1 style={{ margin: 0 }}>My Attendance</h1>
+        <div style={{ display: 'flex', gap: '0.3rem' }}>
+          <PrintButton />
+          <DownloadCSV data={csvData} headers={['Date', 'Status']} filename="my_attendance.csv" label=" CSV" />
+        </div>
+      </div>
       <div className="card">
         {myAttendance.length === 0 ? <p>No attendance records yet.</p> : (
           <table>

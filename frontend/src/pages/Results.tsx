@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { resultApi, subjectApi } from '../services/api';
+import { PrintButton, DownloadCSV } from '../components/PrintDownload';
 
 export default function Results() {
   const { user } = useAuth();
@@ -59,9 +60,24 @@ export default function Results() {
     catch (err: any) { setMsg(err.response?.data?.message || 'Error'); }
   };
 
+  const csvData = results.map(r => ({
+    'Student': r.student_name || '',
+    'Subject': r.subject_name,
+    'Term': r.term,
+    'Year': r.academic_year,
+    'Score': r.score,
+    'Grade': r.grade || '-'
+  }));
+
   return (
     <div>
-      <h1>Results</h1>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+        <h1 style={{ margin: 0 }}>Results</h1>
+        <div style={{ display: 'flex', gap: '0.3rem' }}>
+          <PrintButton />
+          <DownloadCSV data={csvData} headers={['Student', 'Subject', 'Term', 'Year', 'Score', 'Grade']} filename="results.csv" label=" CSV" />
+        </div>
+      </div>
       {msg && <div className="alert alert-info">{msg}</div>}
 
       {(user?.role === 'teacher' || user?.role === 'admin') && (

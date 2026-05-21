@@ -53,6 +53,7 @@ function createTables(): void {
       amount REAL NOT NULL,
       proof_file TEXT NOT NULL DEFAULT '',
       notes TEXT DEFAULT '',
+      receipt_number TEXT DEFAULT '',
       status TEXT DEFAULT 'pending' CHECK(status IN ('pending','verified','rejected')),
       verified_by INTEGER,
       created_at TEXT DEFAULT (datetime('now')),
@@ -328,6 +329,7 @@ export async function initDatabase(): Promise<void> {
   db.run('PRAGMA foreign_keys = ON');
   createTables();
   try { db.run("ALTER TABLE payments ADD COLUMN notes TEXT DEFAULT ''"); } catch {}
+  try { db.run("ALTER TABLE payments ADD COLUMN receipt_number TEXT DEFAULT ''"); } catch {}
   try { db.run("CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)"); } catch {}
   seedZimbabweClasses();
   seedAdmin();

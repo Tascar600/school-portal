@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { adminApi } from '../services/api';
+import { PrintButton, DownloadCSV } from '../components/PrintDownload';
 
 export default function AdminPanel() {
   const [users, setUsers] = useState<any[]>([]);
@@ -101,9 +102,25 @@ export default function AdminPanel() {
     catch (err: any) { setMsg(err.response?.data?.message || 'Error'); }
   };
 
+  const csvData = users.map(u => ({
+    'ID': u.id,
+    'Name': u.name,
+    'Email': u.email,
+    'Role': u.role,
+    'Class': u.class_name || '-',
+    'Student #': u.student_number || '-',
+    'Active': u.is_active ? 'Yes' : 'No'
+  }));
+
   return (
     <div>
-      <h1>Admin Control Panel</h1>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+        <h1 style={{ margin: 0 }}>Admin Control Panel</h1>
+        <div style={{ display: 'flex', gap: '0.3rem' }}>
+          <PrintButton />
+          <DownloadCSV data={csvData} headers={['ID', 'Name', 'Email', 'Role', 'Class', 'Student #', 'Active']} filename="users.csv" label=" CSV" />
+        </div>
+      </div>
       {msg && <div className="alert alert-info">{msg}</div>}
 
       {/* Quick Stats */}

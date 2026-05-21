@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { homeworkApi, subjectApi } from '../services/api';
+import { PrintButton, DownloadCSV } from '../components/PrintDownload';
 
 export default function Homework() {
   const { user } = useAuth();
@@ -71,9 +72,22 @@ export default function Homework() {
     catch (err: any) { setMsg(err.response?.data?.message || 'Error'); }
   };
 
+  const csvData = homework.map(h => ({
+    'Title': h.title,
+    'Subject': h.subject_name,
+    'Class': h.class_name || '',
+    'Due Date': new Date(h.due_date).toLocaleString()
+  }));
+
   return (
     <div>
-      <h1>Homework</h1>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+        <h1 style={{ margin: 0 }}>Homework</h1>
+        <div style={{ display: 'flex', gap: '0.3rem' }}>
+          <PrintButton />
+          <DownloadCSV data={csvData} headers={['Title', 'Subject', 'Class', 'Due Date']} filename="homework.csv" label=" CSV" />
+        </div>
+      </div>
       {msg && <div className="alert alert-info">{msg}</div>}
 
       {user?.role === 'teacher' && (
