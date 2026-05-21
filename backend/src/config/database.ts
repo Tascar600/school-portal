@@ -12,11 +12,13 @@ function createTables(): void {
   db.run(`
     CREATE TABLE IF NOT EXISTS users (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT NOT NULL,
+      name TEXT NOT NULL DEFAULT '',
       email TEXT UNIQUE NOT NULL,
-      password TEXT NOT NULL,
+      password TEXT NOT NULL DEFAULT '',
       role TEXT NOT NULL CHECK(role IN ('admin','teacher','student')),
       class_id INTEGER,
+      student_number TEXT UNIQUE DEFAULT NULL,
+      is_active INTEGER DEFAULT 0,
       created_at TEXT DEFAULT (datetime('now')),
       updated_at TEXT DEFAULT (datetime('now'))
     );

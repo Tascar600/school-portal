@@ -12,7 +12,7 @@ router.use(authenticate, authorize('admin'));
 router.get('/users', async (req: AuthRequest, res: Response) => {
   try {
     const users = await query<any[]>(
-      `SELECT u.id, u.name, u.email, u.role, u.class_id, c.name AS class_name
+      `SELECT u.id, u.name, u.email, u.role, u.class_id, u.student_number, u.is_active, c.name AS class_name
        FROM users u LEFT JOIN classes c ON c.id = u.class_id ORDER BY u.role, u.name`
     );
     res.json(users);
@@ -21,11 +21,30 @@ router.get('/users', async (req: AuthRequest, res: Response) => {
   }
 });
 
+// Generate unique student number
+async function generateStudentNumber(): Promise<string> {
+  const prefix = 'STU';
+  const year = new Date().getFullYear();
+  const rows = await query<any[]>("SELECT COALESCE(MAX(CAST(SUBSTR(student_number, 9) AS INTEGER)), 0) + 1 AS next FROM users WHERE student_number LIKE '" + prefix + "-" + year + "-%'");
+  const next = rows[0]?.next || 1;
+  return `${prefix}-${year}-${String(next).padStart(4, '0')}`;
+}
+
 // Create user
 router.post('/users', async (req: AuthRequest, res: Response) => {
   try {
     const { name, email, password, role, class_id } = req.body;
     const hashed = hashPassword(password);
+
+    if (role === 'student') {
+      const student_number = await generateStudentNumber();
+      await execute(
+        'INSERT INTO users (name, email, password, role, class_id, student_number, is_active) VALUES (?, ?, ?, ?, ?, ?, 0)',
+        ['', student_number + '@temp.school', '', role, class_id || null, student_number]
+      );
+      return res.status(201).json({ message: 'Student created', student_number });
+    }
+
     await execute(
       'INSERT INTO users (name, email, password, role, class_id) VALUES (?, ?, ?, ?, ?)',
       [name, email, hashed, role, class_id || null]

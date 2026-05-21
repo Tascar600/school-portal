@@ -7,8 +7,9 @@ export default function AdminPanel() {
   const [subjects, setSubjects] = useState<any[]>([]);
   const [tab, setTab] = useState<'users' | 'classes' | 'subjects'>('users');
   const [msg, setMsg] = useState('');
-  const [quickStudentForm, setQuickStudentForm] = useState({ name: '', email: '', password: 'student123', class_id: '' });
+  const [quickStudentForm, setQuickStudentForm] = useState({ class_id: '' });
   const [showQuickAdd, setShowQuickAdd] = useState(false);
+  const [lastStudentNumber, setLastStudentNumber] = useState('');
 
   // User form
   const [userForm, setUserForm] = useState({ name: '', email: '', password: '', role: 'student', class_id: '' });
@@ -127,20 +128,19 @@ export default function AdminPanel() {
           <form onSubmit={async (e) => {
             e.preventDefault();
             try {
-              await adminApi.createUser({ ...quickStudentForm, role: 'student', class_id: quickStudentForm.class_id ? parseInt(quickStudentForm.class_id) : null });
-              setMsg(`Student ${quickStudentForm.name} created! Password: ${quickStudentForm.password || 'student123'}`);
-              setQuickStudentForm({ name: '', email: '', password: 'student123', class_id: '' });
+              const res = await adminApi.createUser({ role: 'student', class_id: parseInt(quickStudentForm.class_id) });
+              const num = res.data?.student_number || '';
+              setLastStudentNumber(num);
+              setMsg(`Student created! Student Number: ${num} — give this to the student to activate.`);
+              setQuickStudentForm({ class_id: '' });
               setShowQuickAdd(false);
               adminApi.users().then(r => setUsers(r.data));
             } catch (err: any) { setMsg(err.response?.data?.message || 'Error'); }
           }}>
             <div className="form-row">
-              <div><label>Full Name</label><input value={quickStudentForm.name} onChange={e => setQuickStudentForm({ ...quickStudentForm, name: e.target.value })} required /></div>
-              <div><label>Email</label><input type="email" value={quickStudentForm.email} onChange={e => setQuickStudentForm({ ...quickStudentForm, email: e.target.value })} required /></div>
-              <div><label>Password</label><input value={quickStudentForm.password} onChange={e => setQuickStudentForm({ ...quickStudentForm, password: e.target.value })} required /></div>
-              <div><label>Class</label><select value={quickStudentForm.class_id} onChange={e => setQuickStudentForm({ ...quickStudentForm, class_id: e.target.value })} required><option value="">— Select Class —</option>{classes.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
+              <div style={{ flex: 1 }}><label>Class</label><select value={quickStudentForm.class_id} onChange={e => setQuickStudentForm({ ...quickStudentForm, class_id: e.target.value })} required><option value="">— Select Class —</option>{classes.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
             </div>
-            <button type="submit" className="btn btn-success">Create Student</button>
+            <button type="submit" className="btn btn-success">Generate Student Number</button>
             <button type="button" className="btn" onClick={() => setShowQuickAdd(false)}>Cancel</button>
           </form>
         </div>
@@ -184,7 +184,7 @@ export default function AdminPanel() {
           <div className="card">
             <h2>All Users ({users.length})</h2>
             <table>
-              <thead><tr><th>ID</th><th>Name</th><th>Email</th><th>Role</th><th>Class</th><th>Actions</th></tr></thead>
+              <thead><tr><th>ID</th><th>Name</th><th>Email</th><th>Role</th><th>Class</th><th>Student #</th><th>Active</th><th>Actions</th></tr></thead>
               <tbody>
                 {users.map((u: any) => (
                   <tr key={u.id}>
@@ -193,6 +193,8 @@ export default function AdminPanel() {
                     <td>{u.email}</td>
                     <td><span className={`alert-${u.role === 'admin' ? 'error' : u.role === 'teacher' ? 'info' : 'success'}`} style={{ padding: '2px 8px', borderRadius: 4 }}>{u.role}</span></td>
                     <td>{u.class_name || '-'}</td>
+                    <td style={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>{u.student_number || '-'}</td>
+                    <td>{u.is_active ? '✓' : '✗'}</td>
                     <td>
                       <button className="btn btn-warning btn-sm" onClick={() => editUser(u)}>Edit</button>
                       <button className="btn btn-danger btn-sm" onClick={() => deleteUser(u.id)}>Delete</button>

@@ -3,6 +3,7 @@ import { useAuth } from './contexts/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import Layout from './components/Layout';
 import Login from './pages/Login';
+import ActivateAccount from './pages/ActivateAccount';
 import Dashboard from './pages/Dashboard';
 import Fees from './pages/Fees';
 import Timetable from './pages/Timetable';
@@ -26,6 +27,7 @@ export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
+      <Route path="/activate" element={<ActivateAccount />} />
       <Route path="/" element={<Navigate to="/dashboard" replace />} />
       <Route
         path="/dashboard"

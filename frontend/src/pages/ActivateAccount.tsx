@@ -1,28 +1,26 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
+import { authApi } from '../services/api';
 import ParticleBackground from '../components/ParticleBackground';
 
-export default function Login() {
-  const { login, user } = useAuth();
+export default function ActivateAccount() {
   const navigate = useNavigate();
-  const [form, setForm] = useState({ email: '', password: '' });
+  const [form, setForm] = useState({ student_number: '', name: '', email: '', password: '' });
   const [error, setError] = useState('');
-
-  if (user) { navigate('/dashboard'); return null; }
+  const [success, setSuccess] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setSuccess('');
     try {
-      await login(form.email, form.password);
-      navigate('/dashboard');
+      const res = await authApi.activate(form);
+      localStorage.setItem('token', res.data.token);
+      localStorage.setItem('user', JSON.stringify(res.data.user));
+      setSuccess('Account activated! Redirecting...');
+      setTimeout(() => navigate('/dashboard'), 1500);
     } catch (err: any) {
-      if (err.code === 'ERR_NETWORK' || !err.response) {
-        setError('Cannot reach server. Make sure the backend is running on port 5000.');
-      } else {
-        setError(err.response?.data?.message || err.message || 'An error occurred');
-      }
+      setError(err.response?.data?.message || err.message || 'Activation failed');
     }
   };
 
@@ -41,25 +39,30 @@ export default function Login() {
             fontSize: '1.5rem',
           }}>✦</div>
           <h2 style={{ marginBottom: 0, color: '#fff', fontSize: '1.5rem' }}>
-            NEXUS PORTAL 3030
+            Activate Account
           </h2>
           <p style={{ color: 'var(--text-dim)', fontSize: '0.85rem', marginTop: '0.5rem' }}>
-            Authenticate to continue
+            Enter your student number to activate
           </p>
         </div>
         {error && <div className="alert alert-error">{error}</div>}
+        {success && <div className="alert alert-success">{success}</div>}
         <form onSubmit={handleSubmit}>
+          <label>Student Number</label>
+          <input value={form.student_number} onChange={e => setForm({ ...form, student_number: e.target.value })} required placeholder="e.g. STU-2026-0001" />
+          <label>Full Name</label>
+          <input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} required placeholder="Enter your name" />
           <label>Email</label>
-          <input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required placeholder="you@school.com" />
+          <input type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} required placeholder="you@school.com" />
           <label>Password</label>
-          <input type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required placeholder="••••••••" />
+          <input type="password" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} required placeholder="Create a password" />
           <button type="submit" className="btn btn-primary" style={{ width: '100%', marginTop: '0.75rem', padding: '0.8rem', fontSize: '1rem' }}>
-            ✦ LOGIN
+            ✦ ACTIVATE
           </button>
         </form>
         <p style={{ marginTop: '1.25rem', textAlign: 'center', color: 'var(--text-dim)', fontSize: '0.9rem' }}>
-          Got a student number?{' '}
-          <a href="/activate" style={{ color: 'var(--neon)', textDecoration: 'none' }}>Activate Account</a>
+          Already activated?{' '}
+          <a href="/login" style={{ color: 'var(--neon)', textDecoration: 'none' }}>Login</a>
         </p>
       </div>
     </div>
