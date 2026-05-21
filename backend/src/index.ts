@@ -2,6 +2,8 @@ import express from 'express';
 import cors from 'cors';
 import path from 'path';
 import fs from 'fs';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
 import { initDatabase } from './config/database';
 import authRoutes from './routes/auth';
@@ -25,9 +27,35 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-app.use(cors());
+// Security headers
+app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
+
+// CORS — allow the deployed frontend only
+const allowedOrigins = [
+  'https://school-portal-r4h0.onrender.com',
+  'http://localhost:5173',
+  'http://localhost:5000',
+];
+app.use(cors({
+  origin: (origin, cb) => { cb(null, !origin || allowedOrigins.includes(origin)); },
+  credentials: true,
+}));
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Rate limit on auth endpoints — max 10 attempts per 15 min
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  message: { message: 'Too many attempts. Try again in 15 minutes.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// Block direct access to the SQLite database file
+app.use('/school_portal.db', (_req, res) => res.status(403).json({ message: 'Forbidden' }));
+app.use('/backend/school_portal.db', (_req, res) => res.status(403).json({ message: 'Forbidden' }));
 
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
@@ -35,7 +63,7 @@ app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 const frontendDist = path.join(__dirname, '../../frontend/dist');
 app.use(express.static(frontendDist));
 
-app.use('/api/auth', authRoutes);
+app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/fees', feeRoutes);
 app.use('/api/timetables', timetableRoutes);
 app.use('/api/results', resultRoutes);
