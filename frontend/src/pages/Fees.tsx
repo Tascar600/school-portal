@@ -103,7 +103,7 @@ export default function Fees() {
     finally { setLoading(false); }
   };
 
-  const proofUrl = (path: string) => path ? path : null;
+  const proofUrl = (path: string) => path ? path : undefined;
 
   const renderBalance = (a: any) => {
     if (a.balance <= 0) return <span style={{ color: '#4ade80', fontWeight: 700 }}>FULLY PAID</span>;
