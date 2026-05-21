@@ -5,7 +5,7 @@ import ParticleBackground from '../components/ParticleBackground';
 
 export default function ActivateAccount() {
   const navigate = useNavigate();
-  const [form, setForm] = useState({ student_number: '', name: '', email: '', password: '' });
+  const [form, setForm] = useState({ student_number: '', email: '', password: '' });
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
@@ -42,17 +42,15 @@ export default function ActivateAccount() {
             Activate Account
           </h2>
           <p style={{ color: 'var(--text-dim)', fontSize: '0.85rem', marginTop: '0.5rem' }}>
-            Enter your student number to activate
+            Enter your student number to create your account
           </p>
         </div>
         {error && <div className="alert alert-error">{error}</div>}
         {success && <div className="alert alert-success">{success}</div>}
         <form onSubmit={handleSubmit}>
           <label>Student Number</label>
-          <input value={form.student_number} onChange={e => setForm({ ...form, student_number: e.target.value })} required placeholder="e.g. STU-2026-0001" />
-          <label>Full Name</label>
-          <input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} required placeholder="Enter your name" />
-          <label>Email</label>
+          <input value={form.student_number} onChange={e => setForm({ ...form, student_number: e.target.value })} required placeholder="e.g. c2600001" />
+          <label>Email (for login)</label>
           <input type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} required placeholder="you@school.com" />
           <label>Password</label>
           <input type="password" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} required placeholder="Create a password" />

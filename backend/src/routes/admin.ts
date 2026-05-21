@@ -21,23 +21,23 @@ router.get('/users', async (req: AuthRequest, res: Response) => {
   }
 });
 
-// Generate unique student number
+// Generate unique student number — format: c260001
 async function generateStudentNumber(): Promise<string> {
-  const prefix = 'STU';
-  const year = new Date().getFullYear();
-  const rows = await query<any[]>("SELECT COALESCE(MAX(CAST(SUBSTR(student_number, 9) AS INTEGER)), 0) + 1 AS next FROM users WHERE student_number LIKE '" + prefix + "-" + year + "-%'");
+  const year = String(new Date().getFullYear()).slice(-2);
+  const rows = await query<any[]>("SELECT COALESCE(MAX(CAST(SUBSTR(student_number, 4) AS INTEGER)), 0) + 1 AS next FROM users WHERE student_number LIKE 'c" + year + "%'");
   const next = rows[0]?.next || 1;
-  return `${prefix}-${year}-${String(next).padStart(4, '0')}`;
+  return 'c' + year + String(next).padStart(5, '0');
 }
 
 // Create user
 router.post('/users', async (req: AuthRequest, res: Response) => {
   try {
-    const { name, email, password, role, class_id } = req.body;
+    const { first_name, last_name, name, email, password, role, class_id } = req.body;
 
     if (role === 'student') {
       const student_number = await generateStudentNumber();
-      const studentName = name || '';
+      const fullName = (first_name || '') + ' ' + (last_name || '');
+      const studentName = fullName.trim() || name || '';
       const studentEmail = email || (student_number + '@temp.school');
       const studentPass = password ? hashPassword(password) : '';
       await execute(

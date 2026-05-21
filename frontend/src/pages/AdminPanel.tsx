@@ -7,7 +7,7 @@ export default function AdminPanel() {
   const [subjects, setSubjects] = useState<any[]>([]);
   const [tab, setTab] = useState<'users' | 'classes' | 'subjects'>('users');
   const [msg, setMsg] = useState('');
-  const [quickStudentForm, setQuickStudentForm] = useState({ class_id: '' });
+  const [quickStudentForm, setQuickStudentForm] = useState({ first_name: '', last_name: '', class_id: '' });
   const [showQuickAdd, setShowQuickAdd] = useState(false);
   const [lastStudentNumber, setLastStudentNumber] = useState('');
 
@@ -128,17 +128,20 @@ export default function AdminPanel() {
           <form onSubmit={async (e) => {
             e.preventDefault();
             try {
-              const res = await adminApi.createUser({ role: 'student', class_id: parseInt(quickStudentForm.class_id) });
+              const res = await adminApi.createUser({ first_name: quickStudentForm.first_name, last_name: quickStudentForm.last_name, role: 'student', class_id: parseInt(quickStudentForm.class_id) });
               const num = res.data?.student_number || '';
               setLastStudentNumber(num);
-              setMsg(`Student created! Student Number: ${num} — give this to the student to activate.`);
-              setQuickStudentForm({ class_id: '' });
+              const fullName = (quickStudentForm.first_name + ' ' + quickStudentForm.last_name).trim();
+              setMsg(`${fullName || 'Student'} created! Number: ${num} — give this to the student to activate.`);
+              setQuickStudentForm({ first_name: '', last_name: '', class_id: '' });
               setShowQuickAdd(false);
               adminApi.users().then(r => setUsers(r.data));
             } catch (err: any) { setMsg(err.response?.data?.message || 'Error'); }
           }}>
             <div className="form-row">
-              <div style={{ flex: 1 }}><label>Class</label><select value={quickStudentForm.class_id} onChange={e => setQuickStudentForm({ ...quickStudentForm, class_id: e.target.value })} required><option value="">— Select Class —</option>{classes.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
+              <div><label>First Name</label><input value={quickStudentForm.first_name} onChange={e => setQuickStudentForm({ ...quickStudentForm, first_name: e.target.value })} required /></div>
+              <div><label>Last Name</label><input value={quickStudentForm.last_name} onChange={e => setQuickStudentForm({ ...quickStudentForm, last_name: e.target.value })} required /></div>
+              <div><label>Class</label><select value={quickStudentForm.class_id} onChange={e => setQuickStudentForm({ ...quickStudentForm, class_id: e.target.value })} required><option value="">— Select Class —</option>{classes.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
             </div>
             <button type="submit" className="btn btn-success">Generate Student Number</button>
             <button type="button" className="btn" onClick={() => setShowQuickAdd(false)}>Cancel</button>

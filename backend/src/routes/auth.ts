@@ -40,7 +40,7 @@ router.post('/register', async (req: AuthRequest, res: Response) => {
 // Student activation — use student_number to set email & password
 router.post('/activate', async (req: AuthRequest, res: Response) => {
   try {
-    const { student_number, name, email, password } = req.body;
+    const { student_number, email, password } = req.body;
     if (!student_number || !email || !password) {
       return res.status(400).json({ message: 'student_number, email, and password are required' });
     }
@@ -52,18 +52,18 @@ router.post('/activate', async (req: AuthRequest, res: Response) => {
     if (user.is_active) {
       return res.status(400).json({ message: 'Account already activated' });
     }
-    const emailExists = await query<UserRow[]>('SELECT id FROM users WHERE email = ? AND id != ?', [email, user.id]);
+    const emailExists = await query<any[]>('SELECT id FROM users WHERE email = ? AND id != ?', [email, user.id]);
     if (emailExists.length > 0) {
       return res.status(400).json({ message: 'Email already in use' });
     }
     const hashed = hashPassword(password);
     await execute(
-      'UPDATE users SET name = ?, email = ?, password = ?, is_active = 1 WHERE id = ?',
-      [name || user.name, email, hashed, user.id]
+      'UPDATE users SET email = ?, password = ?, is_active = 1 WHERE id = ?',
+      [email, hashed, user.id]
     );
     const payload: TokenPayload = { id: user.id, email, role: user.role };
     const token = generateToken(payload);
-    res.json({ token, user: { id: user.id, name: name || user.name, email, role: user.role, class_id: user.class_id } });
+    res.json({ token, user: { id: user.id, name: user.name, email, role: user.role, class_id: user.class_id } });
   } catch (err: any) {
     res.status(500).json({ message: err.message || 'Activation failed' });
   }
