@@ -438,6 +438,13 @@ select option {
   box-shadow: 0 0 20px rgba(245,158,11,0.3);
 }
 
+.btn-info {
+  background: linear-gradient(135deg, #0891b2, #06b6d4);
+  border-color: #0891b2;
+  color: #fff;
+  box-shadow: 0 0 20px rgba(8,145,178,0.3);
+}
+
 .btn-sm { padding: 0.4rem 1rem; font-size: 0.8rem; border-radius: 8px; }
 .btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
 
