@@ -7,8 +7,6 @@ export default function AdminPanel() {
   const [classes, setClasses] = useState<any[]>([]);
   const [subjects, setSubjects] = useState<any[]>([]);
   const [tab, setTab] = useState<'users' | 'classes' | 'subjects' | 'db'>('users');
-  const [dbInfo, setDbInfo] = useState<any>(null);
-  const [dbRestoreFile, setDbRestoreFile] = useState<File | null>(null);
   const [msg, setMsg] = useState('');
   const [quickAddForm, setQuickAddForm] = useState({ first_name: '', last_name: '', role: 'student', class_id: '' });
   const [showQuickAdd, setShowQuickAdd] = useState(false);
@@ -24,6 +22,12 @@ export default function AdminPanel() {
 
   // Subject form
   const [subjectForm, setSubjectForm] = useState({ name: '', class_id: '' });
+
+  // DB browser
+  const [dbBrowseTable, setDbBrowseTable] = useState('');
+  const [dbBrowseRows, setDbBrowseRows] = useState<any[]>([]);
+  const [dbBrowseCols, setDbBrowseCols] = useState<string[]>([]);
+  const [dbBrowseLoading, setDbBrowseLoading] = useState(false);
 
   const load = () => {
     adminApi.users().then(r => setUsers(r.data)).catch(() => {});
@@ -328,6 +332,49 @@ export default function AdminPanel() {
               <input type="file" accept=".db,.sqlite,.sqlite3" onChange={e => setDbRestoreFile(e.target.files?.[0] || null)} required />
               <button type="submit" className="btn btn-danger" style={{ marginTop: '0.5rem' }}>Restore Database</button>
             </form>
+          </div>
+
+          <div className="card">
+            <h2>Browse Database</h2>
+            <p style={{ color: 'var(--text-dim)', fontSize: '0.85rem' }}>Select a table to view its contents.</p>
+            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
+              {dbInfo?.tables?.map((t: string) => (
+                <button key={t} className={`btn btn-sm ${dbBrowseTable === t ? 'btn-primary' : ''}`}
+                  onClick={async () => {
+                    setDbBrowseTable(t);
+                    setDbBrowseLoading(true);
+                    try {
+                      const res = await adminApi.executeSQL(`SELECT * FROM "${t}"`);
+                      if (res.data.rows?.length > 0) {
+                        setDbBrowseCols(Object.keys(res.data.rows[0]));
+                        setDbBrowseRows(res.data.rows);
+                      } else {
+                        setDbBrowseCols([]);
+                        setDbBrowseRows([]);
+                      }
+                    } catch { setDbBrowseCols([]); setDbBrowseRows([]); }
+                    finally { setDbBrowseLoading(false); }
+                  }}>{t}</button>
+              ))}
+            </div>
+            {dbBrowseLoading && <p style={{ color: 'var(--text-dim)' }}>Loading...</p>}
+            {dbBrowseTable && !dbBrowseLoading && (
+              <div style={{ overflowX: 'auto' }}>
+                <p style={{ color: 'var(--neon)', fontSize: '0.85rem', marginBottom: '0.5rem' }}>Table: {dbBrowseTable} ({dbBrowseRows.length} rows)</p>
+                {dbBrowseRows.length === 0 ? <p style={{ color: 'var(--text-dim)' }}>Empty table.</p> : (
+                  <table>
+                    <thead><tr>{dbBrowseCols.map(c => <th key={c}>{c}</th>)}</tr></thead>
+                    <tbody>{dbBrowseRows.map((row, i) => (
+                      <tr key={i}>{dbBrowseCols.map(c => (
+                        <td key={c} style={{ fontSize: '0.8rem', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {row[c] === null ? <span style={{ color: '#666' }}>NULL</span> : String(row[c])}
+                        </td>
+                      ))}</tr>
+                    ))}</tbody>
+                  </table>
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}
