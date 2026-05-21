@@ -271,6 +271,12 @@ function createTables(): void {
       accent_color TEXT DEFAULT '#1a237e',
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     );
+
+    -- Global fee settings
+    CREATE TABLE IF NOT EXISTS settings (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL
+    );
   `);
 }
 
@@ -322,6 +328,7 @@ export async function initDatabase(): Promise<void> {
   db.run('PRAGMA foreign_keys = ON');
   createTables();
   try { db.run("ALTER TABLE payments ADD COLUMN notes TEXT DEFAULT ''"); } catch {}
+  try { db.run("CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)"); } catch {}
   seedZimbabweClasses();
   seedAdmin();
   save();

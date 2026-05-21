@@ -11,8 +11,9 @@ export default function Fees() {
   const [file, setFile] = useState<File | null>(null);
   const [msg, setMsg] = useState('');
   const [msgType, setMsgType] = useState<'info' | 'error'>('info');
-  const [showCreate, setShowCreate] = useState(false);
-  const [accForm, setAccForm] = useState({ student_id: '', account_type: 'SDC', total_fee: '' });
+  const [showFeeSetup, setShowFeeSetup] = useState(false);
+  const [feeForm, setFeeForm] = useState({ sdc_fee: '', ssf_fee: '' });
+  const [currentSettings, setCurrentSettings] = useState<any>(null);
   const [showTermEnd, setShowTermEnd] = useState(false);
   const [termForm, setTermForm] = useState({ sdc_fee: '', ssf_fee: '' });
   const [showYearEnd, setShowYearEnd] = useState(false);
@@ -29,6 +30,7 @@ export default function Fees() {
     if (user?.role === 'admin') {
       feesApi.accounts().then(r => setAccounts(r.data));
       feesApi.pending().then(r => setPendingPayments(r.data));
+      feesApi.getSettings().then(r => setCurrentSettings(r.data));
     }
     if (user?.role === 'teacher') feesApi.teacherAccounts().then(r => setAccounts(r.data));
   };
@@ -69,21 +71,30 @@ export default function Fees() {
     catch (err: any) { showMsg(err.response?.data?.message || 'Error', 'error'); }
   };
 
-  const handleCreateAccount = async (e: React.FormEvent) => {
+  const handleSetFees = async (e: React.FormEvent) => {
     e.preventDefault();
+    setLoading(true);
     try {
-      await feesApi.createAccount({ ...accForm, total_fee: parseFloat(accForm.total_fee) });
-      setShowCreate(false);
-      setAccForm({ student_id: '', account_type: 'SDC', total_fee: '' });
+      const res = await feesApi.setSettings({
+        sdc_fee: parseFloat(feeForm.sdc_fee),
+        ssf_fee: parseFloat(feeForm.ssf_fee)
+      });
+      showMsg(res.data.message);
+      setShowFeeSetup(false);
+      setFeeForm({ sdc_fee: '', ssf_fee: '' });
       load();
     } catch (err: any) { showMsg(err.response?.data?.message || 'Error', 'error'); }
+    finally { setLoading(false); }
   };
 
   const handleTermEnd = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     try {
-      const res = await feesApi.termEnd({ sdc_fee: parseFloat(termForm.sdc_fee), ssf_fee: parseFloat(termForm.ssf_fee) });
+      const res = await feesApi.termEnd({
+        sdc_fee: parseFloat(termForm.sdc_fee),
+        ssf_fee: parseFloat(termForm.ssf_fee)
+      });
       showMsg(res.data.message);
       setShowTermEnd(false);
       setTermForm({ sdc_fee: '', ssf_fee: '' });
@@ -158,7 +169,7 @@ export default function Fees() {
 
         {accounts.length === 0 && (
           <div className="card" style={{ textAlign: 'center', padding: '2rem' }}>
-            <p style={{ color: 'var(--text-dim)' }}>No fee accounts set up for you yet. Contact the admin.</p>
+            <p style={{ color: 'var(--text-dim)' }}>No fee accounts set up yet. Admin has not set fee amounts.</p>
           </div>
         )}
 
@@ -222,16 +233,45 @@ export default function Fees() {
 
   // === ADMIN VIEW ===
   if (user?.role === 'admin') {
+    const isConfigured = currentSettings?.sdc_fee && currentSettings?.ssf_fee;
     return (
       <div>
         <h1>Fee Management</h1>
         {msg && <div className={`alert alert-${msgType === 'error' ? 'error' : 'info'}`}>{msg}</div>}
 
         <div style={{ marginBottom: '1rem', display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-          <button className="btn btn-success" onClick={() => setShowCreate(true)}>+ Create Fee Account</button>
-          <button className="btn btn-warning" onClick={() => setShowTermEnd(true)}> Term End</button>
+          <button className="btn btn-success" onClick={() => {
+            setFeeForm({
+              sdc_fee: currentSettings?.sdc_fee?.toString() || '',
+              ssf_fee: currentSettings?.ssf_fee?.toString() || ''
+            });
+            setShowFeeSetup(true);
+          }}>
+            {isConfigured ? 'Update Fee Amounts' : 'Set Fee Amounts'}
+          </button>
+          <button className="btn btn-warning" disabled={!isConfigured} onClick={() => {
+            setTermForm({
+              sdc_fee: currentSettings?.sdc_fee?.toString() || '',
+              ssf_fee: currentSettings?.ssf_fee?.toString() || ''
+            });
+            setShowTermEnd(true);
+          }}> Term End</button>
           <button className="btn btn-danger" onClick={() => setShowYearEnd(true)}> Year End</button>
         </div>
+
+        {!isConfigured && (
+          <div className="card" style={{ textAlign: 'center', padding: '2rem', border: '1px solid rgba(245,158,11,0.3)' }}>
+            <p style={{ color: '#fbbf24', fontWeight: 600 }}>No fee amounts set yet.</p>
+            <p style={{ color: 'var(--text-dim)', fontSize: '0.85rem' }}>Click "Set Fee Amounts" to configure SDC and SSF fees for all students.</p>
+          </div>
+        )}
+
+        {isConfigured && (
+          <div className="card" style={{ padding: '0.75rem 1rem', marginBottom: '1rem', background: 'rgba(74,222,128,0.05)', border: '1px solid rgba(74,222,128,0.2)' }}>
+            <span style={{ color: '#4ade80', fontWeight: 600 }}>Current Fees:</span>{' '}
+            SDC <strong>${currentSettings.sdc_fee?.toFixed(2)}</strong>  |  SSF <strong>${currentSettings.ssf_fee?.toFixed(2)}</strong>
+          </div>
+        )}
 
         <div className="card">
           <h2>Pending Payments ({pendingPayments.length})</h2>
@@ -261,7 +301,7 @@ export default function Fees() {
 
         <div className="card">
           <h2>All Fee Accounts ({accounts.length})</h2>
-          {accounts.length === 0 ? <p>No accounts created yet.</p> : (
+          {accounts.length === 0 ? <p>No accounts yet. Students will get accounts automatically once they visit the Fees page.</p> : (
             <table>
               <thead><tr><th>Student</th><th>Account</th><th>Total</th><th>Balance</th><th>Payment History</th></tr></thead>
               <tbody>
@@ -279,24 +319,24 @@ export default function Fees() {
           )}
         </div>
 
-        {/* Create Account Modal */}
-        {showCreate && (
-          <div className="modal-overlay" onClick={() => setShowCreate(false)}>
+        {/* Set Fee Amounts Modal */}
+        {showFeeSetup && (
+          <div className="modal-overlay" onClick={() => setShowFeeSetup(false)}>
             <div className="modal" onClick={e => e.stopPropagation()}>
-              <h2>Create Fee Account</h2>
-              <form onSubmit={handleCreateAccount}>
-                <label>Student ID</label>
-                <input value={accForm.student_id} onChange={e => setAccForm({ ...accForm, student_id: e.target.value })} required placeholder="e.g. 5" />
-                <label>Account Type</label>
-                <select value={accForm.account_type} onChange={e => setAccForm({ ...accForm, account_type: e.target.value })}>
-                  <option value="SDC">S.D.C (School Development Committee)</option>
-                  <option value="SSF">S.S.F (School Support Fund)</option>
-                </select>
-                <label>Total Fee ($)</label>
-                <input type="number" step="0.01" value={accForm.total_fee} onChange={e => setAccForm({ ...accForm, total_fee: e.target.value })} required placeholder="e.g. 100.00" />
+              <h2>{isConfigured ? 'Update Fee Amounts' : 'Set Fee Amounts'}</h2>
+              <p style={{ color: 'var(--text-dim)', fontSize: '0.85rem' }}>
+                These amounts will be visible to all students. Each student's account is created automatically with these values.
+              </p>
+              <form onSubmit={handleSetFees}>
+                <label>SDC Fee ($)</label>
+                <input type="number" step="0.01" value={feeForm.sdc_fee} onChange={e => setFeeForm({ ...feeForm, sdc_fee: e.target.value })} required placeholder="e.g. 50.00" />
+                <label>SSF Fee ($)</label>
+                <input type="number" step="0.01" value={feeForm.ssf_fee} onChange={e => setFeeForm({ ...feeForm, ssf_fee: e.target.value })} required placeholder="e.g. 30.00" />
                 <div style={{ marginTop: '1rem' }}>
-                  <button type="submit" className="btn btn-primary">Create Account</button>
-                  <button type="button" className="btn" onClick={() => setShowCreate(false)}>Cancel</button>
+                  <button type="submit" className="btn btn-success" disabled={loading}>
+                    {loading ? 'Saving...' : isConfigured ? 'Update Fees' : 'Set Fees'}
+                  </button>
+                  <button type="button" className="btn" onClick={() => setShowFeeSetup(false)}>Cancel</button>
                 </div>
               </form>
             </div>
@@ -309,7 +349,7 @@ export default function Fees() {
             <div className="modal" onClick={e => e.stopPropagation()}>
               <h2>Term End — Set New Fees</h2>
               <p style={{ color: 'var(--text-dim)', fontSize: '0.85rem' }}>
-                This resets all fee accounts to the new term amounts. Credits (overpayments) carry forward automatically.
+                Resets all fee accounts to the new amounts. Credits (overpayments) carry forward.
               </p>
               <form onSubmit={handleTermEnd}>
                 <label>SDC Fee for New Term ($)</label>
@@ -333,10 +373,10 @@ export default function Fees() {
               <div style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 8, padding: '1rem', marginBottom: '1rem' }}>
                 <strong style={{ color: '#f87171' }}>⚠ Warning</strong>
                 <ul style={{ marginTop: '0.5rem', paddingLeft: '1.2rem', color: 'var(--text-dim)', fontSize: '0.85rem' }}>
-                  <li>All students will move to the next class</li>
-                  <li>Students in the final class will graduate (class removed)</li>
-                  <li>All teacher class assignments will be reset to unassigned</li>
-                  <li>This action cannot be undone</li>
+                  <li>All students move to the next class</li>
+                  <li>Students in the final class graduate</li>
+                  <li>All teacher class assignments reset to unassigned</li>
+                  <li>Cannot be undone</li>
                 </ul>
               </div>
               <div style={{ display: 'flex', gap: '0.5rem' }}>

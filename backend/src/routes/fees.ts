@@ -5,21 +5,68 @@ import { uploadPayment } from '../middleware/upload';
 
 const router = Router();
 
-// Admin: create fee account for a student
-router.post('/accounts', authenticate, authorize('admin'), async (req: AuthRequest, res: Response) => {
-  try {
-    const { student_id, account_type, total_fee } = req.body;
+// Helpers
+const getSetting = async (key: string): Promise<string | null> => {
+  const rows = await query<any[]>('SELECT value FROM settings WHERE key = ?', [key]);
+  return rows[0]?.value || null;
+};
+const setSetting = async (key: string, value: string) => {
+  await execute('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', [key, value]);
+};
+const ensureFeeAccounts = async (studentId: number) => {
+  const existing = await query<any[]>(
+    'SELECT COUNT(*) AS cnt FROM fee_accounts WHERE student_id = ?', [studentId]
+  );
+  if (existing[0]?.cnt > 0) return;
+  const sdc = await getSetting('sdc_fee');
+  const ssf = await getSetting('ssf_fee');
+  if (sdc) {
     await execute(
       'INSERT INTO fee_accounts (student_id, account_type, total_fee, balance) VALUES (?, ?, ?, ?)',
-      [student_id, account_type, total_fee, total_fee]
+      [studentId, 'SDC', parseFloat(sdc), parseFloat(sdc)]
     );
-    res.status(201).json({ message: 'Fee account created' });
+  }
+  if (ssf) {
+    await execute(
+      'INSERT INTO fee_accounts (student_id, account_type, total_fee, balance) VALUES (?, ?, ?, ?)',
+      [studentId, 'SSF', parseFloat(ssf), parseFloat(ssf)]
+    );
+  }
+};
+
+// Admin: set global fee amounts (visible to all students)
+router.post('/settings', authenticate, authorize('admin'), async (req: AuthRequest, res: Response) => {
+  try {
+    const { sdc_fee, ssf_fee } = req.body;
+    if (!sdc_fee || !ssf_fee) {
+      res.status(400).json({ message: 'Both SDC and SSF fee amounts are required' });
+      return;
+    }
+    const sdc = parseFloat(sdc_fee);
+    const ssf = parseFloat(ssf_fee);
+    if (isNaN(sdc) || isNaN(ssf) || sdc <= 0 || ssf <= 0) {
+      res.status(400).json({ message: 'Fee amounts must be positive numbers' });
+      return;
+    }
+    await setSetting('sdc_fee', sdc.toString());
+    await setSetting('ssf_fee', ssf.toString());
+    res.json({ message: `Fee amounts set: SDC $${sdc.toFixed(2)}, SSF $${ssf.toFixed(2)}` });
   } catch (err: any) { res.status(500).json({ message: err.message }); }
 });
 
-// Student: get own fee accounts
+// Admin: get current global fee settings
+router.get('/settings', authenticate, authorize('admin'), async (_req: AuthRequest, res: Response) => {
+  try {
+    const sdc = await getSetting('sdc_fee');
+    const ssf = await getSetting('ssf_fee');
+    res.json({ sdc_fee: sdc ? parseFloat(sdc) : null, ssf_fee: ssf ? parseFloat(ssf) : null });
+  } catch (err: any) { res.status(500).json({ message: err.message }); }
+});
+
+// Student: get own fee accounts (auto-creates from global settings if needed)
 router.get('/my', authenticate, authorize('student'), async (req: AuthRequest, res: Response) => {
   try {
+    await ensureFeeAccounts(req.user!.id);
     const accounts = await query<any[]>(
       'SELECT * FROM fee_accounts WHERE student_id = ?',
       [req.user!.id]
@@ -34,7 +81,7 @@ router.get('/my', authenticate, authorize('student'), async (req: AuthRequest, r
   } catch (err: any) { res.status(500).json({ message: err.message }); }
 });
 
-// Student: make a payment (proof file is optional)
+// Student: make a payment
 router.post('/pay', authenticate, authorize('student'), (req: AuthRequest, res: Response) => {
   uploadPayment(req, res, async (err) => {
     if (err) { res.status(400).json({ message: err.message }); return; }
@@ -42,18 +89,19 @@ router.post('/pay', authenticate, authorize('student'), (req: AuthRequest, res: 
       const { account_type, amount, notes } = req.body;
       const parsedAmount = parseFloat(amount);
       if (isNaN(parsedAmount) || parsedAmount <= 0) {
-        res.status(400).json({ message: 'Invalid amount' });
-        return;
+        res.status(400).json({ message: 'Invalid amount' }); return;
       }
-      // Check current balance — cannot overpay
-      const [account] = await query<any[]>('SELECT * FROM fee_accounts WHERE student_id = ? AND account_type = ?', [req.user!.id, account_type]);
+      // Auto-create accounts if needed, then check balance
+      await ensureFeeAccounts(req.user!.id);
+      const [account] = await query<any[]>(
+        'SELECT * FROM fee_accounts WHERE student_id = ? AND account_type = ?',
+        [req.user!.id, account_type]
+      );
       if (!account) {
-        res.status(400).json({ message: 'No fee account found for this type' });
-        return;
+        res.status(400).json({ message: 'No fee account found for this type' }); return;
       }
       if (parsedAmount > account.balance) {
-        res.status(400).json({ message: `Payment exceeds balance ($${account.balance.toFixed(2)}). You cannot pay more than the amount owing.` });
-        return;
+        res.status(400).json({ message: `Payment exceeds balance ($${account.balance.toFixed(2)}). You cannot pay more than the amount owing.` }); return;
       }
       const proofPath = req.file ? '/uploads/payments/' + req.file.filename : '';
       await execute(
@@ -146,20 +194,21 @@ router.put('/verify/:paymentId', authenticate, authorize('admin'), async (req: A
   } catch (err: any) { res.status(500).json({ message: err.message }); }
 });
 
-// Admin: TERM END — reset fees, carry forward credit only
+// Admin: TERM END — reset all fee accounts, carry forward credits
 router.post('/term-end', authenticate, authorize('admin'), async (req: AuthRequest, res: Response) => {
   try {
     const { sdc_fee, ssf_fee } = req.body;
     if (!sdc_fee || !ssf_fee) {
-      res.status(400).json({ message: 'Both sdc_fee and ssf_fee amounts are required' });
-      return;
+      res.status(400).json({ message: 'Both sdc_fee and ssf_fee amounts are required' }); return;
     }
     const feeSDC = parseFloat(sdc_fee);
     const feeSSF = parseFloat(ssf_fee);
     if (isNaN(feeSDC) || isNaN(feeSSF) || feeSDC <= 0 || feeSSF <= 0) {
-      res.status(400).json({ message: 'Invalid fee amounts' });
-      return;
+      res.status(400).json({ message: 'Invalid fee amounts' }); return;
     }
+    // Update global settings
+    await setSetting('sdc_fee', feeSDC.toString());
+    await setSetting('ssf_fee', feeSSF.toString());
 
     const accounts = await query<any[]>('SELECT * FROM fee_accounts');
     let updated = 0;
@@ -170,26 +219,21 @@ router.post('/term-end', authenticate, authorize('admin'), async (req: AuthReque
       await execute('UPDATE fee_accounts SET total_fee = ?, balance = ? WHERE id = ?', [newFee, newBalance, acc.id]);
       updated++;
     }
-    res.json({ message: `Term ended. ${updated} accounts reset. Credits carried forward.` });
+    res.json({ message: `Term ended. ${updated} accounts reset to SDC $${feeSDC.toFixed(2)} / SSF $${feeSSF.toFixed(2)}. Credits carried forward.` });
   } catch (err: any) { res.status(500).json({ message: err.message }); }
 });
 
-// Admin: YEAR END — promote students to next class, reset teachers
+// Admin: YEAR END — promote students, reset teachers
 router.post('/year-end', authenticate, authorize('admin'), async (req: AuthRequest, res: Response) => {
   try {
-    // Get all classes ordered by id for progression mapping
     const classes = await query<any[]>('SELECT id FROM classes ORDER BY id');
     const classIds = classes.map((c: any) => c.id);
-
-    // Promote students: class_id increments to next class in order
     const students = await query<any[]>('SELECT id, class_id FROM users WHERE role = ?', ['student']);
-    let promoted = 0;
-    let graduated = 0;
+    let promoted = 0, graduated = 0;
     for (const s of students) {
       if (!s.class_id) continue;
       const idx = classIds.indexOf(s.class_id);
       if (idx === -1 || idx === classIds.length - 1) {
-        // Last class or unknown — graduate
         await execute('UPDATE users SET class_id = NULL WHERE id = ?', [s.id]);
         graduated++;
       } else {
@@ -197,11 +241,8 @@ router.post('/year-end', authenticate, authorize('admin'), async (req: AuthReque
         promoted++;
       }
     }
-
-    // Reset teacher class assignments
     await execute("UPDATE users SET class_id = NULL WHERE role = 'teacher'");
-
-    res.json({ message: `Year ended. ${promoted} students promoted, ${graduated} graduated. ${students.length} students processed. Teacher class assignments reset.` });
+    res.json({ message: `Year ended. ${promoted} promoted, ${graduated} graduated. Teacher assignments reset.` });
   } catch (err: any) { res.status(500).json({ message: err.message }); }
 });
 
