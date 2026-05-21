@@ -51,7 +51,8 @@ function createTables(): void {
       student_id INTEGER NOT NULL,
       account_type TEXT NOT NULL CHECK(account_type IN ('SDC','SSF')),
       amount REAL NOT NULL,
-      proof_file TEXT NOT NULL,
+      proof_file TEXT NOT NULL DEFAULT '',
+      notes TEXT DEFAULT '',
       status TEXT DEFAULT 'pending' CHECK(status IN ('pending','verified','rejected')),
       verified_by INTEGER,
       created_at TEXT DEFAULT (datetime('now')),
@@ -320,6 +321,7 @@ export async function initDatabase(): Promise<void> {
   }
   db.run('PRAGMA foreign_keys = ON');
   createTables();
+  try { db.run("ALTER TABLE payments ADD COLUMN notes TEXT DEFAULT ''"); } catch {}
   seedZimbabweClasses();
   seedAdmin();
   save();

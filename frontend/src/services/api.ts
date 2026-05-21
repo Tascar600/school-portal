@@ -51,6 +51,8 @@ export const feesApi = {
   accounts: () => api.get('/fees/accounts'),
   createAccount: (data: any) => api.post('/fees/accounts', data),
   teacherAccounts: () => api.get('/fees/accounts/my-students'),
+  termEnd: (data: { sdc_fee: number; ssf_fee: number }) => api.post('/fees/term-end', data),
+  yearEnd: () => api.post('/fees/year-end'),
 };
 
 // Timetables

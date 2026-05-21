@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import path from 'path';
+import fs from 'fs';
 import dotenv from 'dotenv';
 import { initDatabase } from './config/database';
 import authRoutes from './routes/auth';
@@ -58,6 +59,13 @@ app.get('/api/health', (_req, res) => {
 app.get('*', (_req, res) => {
   res.sendFile(path.join(frontendDist, 'index.html'));
 });
+
+// Ensure upload directories exist (Render ephemeral filesystem)
+const uploadDirs = ['uploads/payments', 'uploads/homework'];
+for (const dir of uploadDirs) {
+  const p = path.join(__dirname, '..', dir);
+  if (!fs.existsSync(p)) fs.mkdirSync(p, { recursive: true });
+}
 
 initDatabase().then(() => {
   app.listen(PORT, () => {
