@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { timetableApi } from '../services/api';
+import { timetableApi, subjectApi } from '../services/api';
 
 export default function Timetable() {
   const { user } = useAuth();
   const [entries, setEntries] = useState<any[]>([]);
   const [organized, setOrganized] = useState<any>({});
-  const [form, setForm] = useState({ class_id: '', subject_id: '', day: 'Monday', start_time: '', end_time: '', room: '' });
+  const [subjects, setSubjects] = useState<any[]>([]);
+  const [form, setForm] = useState({ class_id: user?.role === 'teacher' && user?.class_id ? String(user.class_id) : '', subject_id: '', day: 'Monday', start_time: '', end_time: '', room: '' });
   const [generateClassId, setGenerateClassId] = useState('');
   const [generated, setGenerated] = useState<any>(null);
   const [msg, setMsg] = useState('');
@@ -25,6 +26,12 @@ export default function Timetable() {
   };
 
   useEffect(() => { load(); }, [user]);
+
+  useEffect(() => {
+    if (user?.role === 'teacher' && user?.class_id) {
+      subjectApi.byClass(user.class_id).then(r => setSubjects(r.data)).catch(() => {});
+    }
+  }, [user]);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -68,12 +75,19 @@ export default function Timetable() {
           <form onSubmit={handleCreate}>
             <div className="form-row">
               <div>
-                <label>Class ID</label>
-                <input value={form.class_id} onChange={e => setForm({ ...form, class_id: e.target.value })} required />
+                <label>Class</label>
+                <input value={form.class_id} onChange={e => setForm({ ...form, class_id: e.target.value })} required disabled={user?.role === 'teacher'} />
               </div>
               <div>
-                <label>Subject ID</label>
-                <input value={form.subject_id} onChange={e => setForm({ ...form, subject_id: e.target.value })} required />
+                <label>Subject</label>
+                {user?.role === 'teacher' && subjects.length > 0 ? (
+                  <select value={form.subject_id} onChange={e => setForm({ ...form, subject_id: e.target.value })} required>
+                    <option value="">— Select Subject —</option>
+                    {subjects.map((s: any) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                  </select>
+                ) : (
+                  <input value={form.subject_id} onChange={e => setForm({ ...form, subject_id: e.target.value })} required placeholder="Subject ID" />
+                )}
               </div>
             </div>
             <div className="form-row">

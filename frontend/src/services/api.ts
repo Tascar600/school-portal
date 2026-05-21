@@ -104,6 +104,12 @@ export const quizApi = {
   delete: (id: number) => api.delete(`/quizzes/${id}`),
 };
 
+// Subjects
+export const subjectApi = {
+  byClass: (classId: number) => api.get(`/subjects/class/${classId}`),
+  studentsByClass: (classId: number) => api.get(`/subjects/students/${classId}`),
+};
+
 // Courses
 export const courseApi = {
   create: (data: any) => api.post('/courses', data),

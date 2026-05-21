@@ -7,7 +7,7 @@ export default function Register() {
   const [students, setStudents] = useState<any[]>([]);
   const [records, setRecords] = useState<Record<number, string>>({});
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
-  const [classId, setClassId] = useState('');
+  const [classId, setClassId] = useState(user?.role === 'teacher' && user?.class_id ? String(user.class_id) : '');
   const [attendanceHistory, setAttendanceHistory] = useState<any[]>([]);
   const [myAttendance, setMyAttendance] = useState<any[]>([]);
   const [msg, setMsg] = useState('');
@@ -70,7 +70,7 @@ export default function Register() {
         <div className="card">
           <h2>Mark Register</h2>
           <div className="form-row">
-            <div><label>Class ID</label><input value={classId} onChange={e => setClassId(e.target.value)} placeholder="e.g. 1" /></div>
+            <div><label>Class</label><input value={classId} onChange={e => setClassId(e.target.value)} placeholder="e.g. 1" disabled={user?.role === 'teacher'} /></div>
             <div><label>Date</label><input type="date" value={date} onChange={e => { setDate(e.target.value); }} /></div>
           </div>
           {classId && <button className="btn btn-primary" onClick={loadForDate} style={{ marginBottom: '1rem' }}>Load Register</button>}

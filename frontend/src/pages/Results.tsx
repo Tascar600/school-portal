@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { resultApi } from '../services/api';
+import { resultApi, subjectApi } from '../services/api';
 
 export default function Results() {
   const { user } = useAuth();
   const [results, setResults] = useState<any[]>([]);
+  const [subjects, setSubjects] = useState<any[]>([]);
+  const [students, setStudents] = useState<any[]>([]);
   const [form, setForm] = useState({ student_id: '', subject_id: '', term: 'Term 1', academic_year: new Date().getFullYear().toString(), score: '', grade: '', remarks: '' });
   const [editId, setEditId] = useState<number | null>(null);
   const [msg, setMsg] = useState('');
@@ -16,6 +18,13 @@ export default function Results() {
   };
 
   useEffect(() => { load(); }, [user]);
+
+  useEffect(() => {
+    if (user?.role === 'teacher' && user?.class_id) {
+      subjectApi.byClass(user.class_id).then(r => setSubjects(r.data)).catch(() => {});
+      subjectApi.studentsByClass(user.class_id).then(r => setStudents(r.data)).catch(() => {});
+    }
+  }, [user]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -61,12 +70,26 @@ export default function Results() {
           <form onSubmit={handleSubmit}>
             <div className="form-row">
               <div>
-                <label>Student ID</label>
-                <input value={form.student_id} onChange={e => setForm({ ...form, student_id: e.target.value })} required disabled={!!editId} />
+                <label>Student</label>
+                {user?.role === 'teacher' && students.length > 0 ? (
+                  <select value={form.student_id} onChange={e => setForm({ ...form, student_id: e.target.value })} required disabled={!!editId}>
+                    <option value="">— Select Student —</option>
+                    {students.map((s: any) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                  </select>
+                ) : (
+                  <input value={form.student_id} onChange={e => setForm({ ...form, student_id: e.target.value })} required disabled={!!editId} placeholder="Student ID" />
+                )}
               </div>
               <div>
-                <label>Subject ID</label>
-                <input value={form.subject_id} onChange={e => setForm({ ...form, subject_id: e.target.value })} required disabled={!!editId} />
+                <label>Subject</label>
+                {user?.role === 'teacher' && subjects.length > 0 ? (
+                  <select value={form.subject_id} onChange={e => setForm({ ...form, subject_id: e.target.value })} required disabled={!!editId}>
+                    <option value="">— Select Subject —</option>
+                    {subjects.map((s: any) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                  </select>
+                ) : (
+                  <input value={form.subject_id} onChange={e => setForm({ ...form, subject_id: e.target.value })} required disabled={!!editId} placeholder="Subject ID" />
+                )}
               </div>
             </div>
             <div className="form-row">
