@@ -34,17 +34,20 @@ async function generateStudentNumber(): Promise<string> {
 router.post('/users', async (req: AuthRequest, res: Response) => {
   try {
     const { name, email, password, role, class_id } = req.body;
-    const hashed = hashPassword(password);
 
     if (role === 'student') {
       const student_number = await generateStudentNumber();
+      const studentName = name || '';
+      const studentEmail = email || (student_number + '@temp.school');
+      const studentPass = password ? hashPassword(password) : '';
       await execute(
         'INSERT INTO users (name, email, password, role, class_id, student_number, is_active) VALUES (?, ?, ?, ?, ?, ?, 0)',
-        ['', student_number + '@temp.school', '', role, class_id || null, student_number]
+        [studentName, studentEmail, studentPass, role, class_id || null, student_number]
       );
       return res.status(201).json({ message: 'Student created', student_number });
     }
 
+    const hashed = hashPassword(password);
     await execute(
       'INSERT INTO users (name, email, password, role, class_id) VALUES (?, ?, ?, ?, ?)',
       [name, email, hashed, role, class_id || null]
