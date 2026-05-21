@@ -1,5 +1,8 @@
 import { Router, Response } from 'express';
-import { query, execute } from '../config/database';
+import path from 'path';
+import fs from 'fs';
+import multer from 'multer';
+import { query, execute, dbPath } from '../config/database';
 import { authenticate, authorize, AuthRequest } from '../middleware/auth';
 import { hashPassword } from '../config/auth';
 
@@ -182,6 +185,65 @@ router.post('/sql', async (req: AuthRequest, res: Response) => {
   } catch (err: any) {
     res.status(400).json({ message: err.message });
   }
+});
+
+// ── Database Backup / Restore ────────────────────────
+
+// GET /admin/db/info — database status
+router.get('/db/info', async (_req: AuthRequest, res: Response) => {
+  try {
+    const stats = fs.statSync(dbPath);
+    const tables = await query<any[]>("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name");
+    const counts: Record<string, number> = {};
+    for (const t of tables) {
+      const r = await query<any[]>(`SELECT COUNT(*) AS cnt FROM \`${t.name}\``);
+      counts[t.name] = r[0]?.cnt || 0;
+    }
+    res.json({
+      exists: fs.existsSync(dbPath),
+      sizeBytes: stats.size,
+      lastModified: stats.mtime,
+      tables: tables.map((t: any) => t.name),
+      rowCounts: counts,
+    });
+  } catch (err: any) { res.status(500).json({ message: err.message }); }
+});
+
+// GET /admin/db/export — download the SQLite database file
+router.get('/db/export', async (_req: AuthRequest, res: Response) => {
+  try {
+    if (!fs.existsSync(dbPath)) return res.status(404).json({ message: 'Database file not found' });
+    const date = new Date().toISOString().slice(0, 10);
+    res.download(dbPath, `school_portal_backup_${date}.db`);
+  } catch (err: any) { res.status(500).json({ message: err.message }); }
+});
+
+// POST /admin/db/restore — upload a database file to restore
+const uploadDb = multer({
+  storage: multer.diskStorage({
+    destination: (_req, _file, cb) => cb(null, path.dirname(dbPath)),
+    filename: (_req, _file, cb) => cb(null, 'restored_' + Date.now() + '.db'),
+  }),
+  fileFilter: (_req: any, file: any, cb: any) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (ext === '.db' || ext === '.sqlite' || ext === '.sqlite3') return cb(null, true);
+    cb(new Error('Only .db / .sqlite / .sqlite3 files allowed'));
+  }
+}).single('database');
+
+router.post('/db/restore', (req: AuthRequest, res: Response) => {
+  uploadDb(req, res, async (err) => {
+    if (err) return res.status(400).json({ message: err.message });
+    try {
+      if (!req.file) return res.status(400).json({ message: 'No file uploaded' });
+      // Overwrite the live database with the uploaded file
+      const uploaded = fs.readFileSync(req.file.path);
+      fs.writeFileSync(dbPath, uploaded);
+      // Cleanup temp upload
+      try { fs.unlinkSync(req.file.path); } catch {}
+      res.json({ message: 'Database restored. Restart the app or wait for auto-reload.' });
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
+  });
 });
 
 export default router;

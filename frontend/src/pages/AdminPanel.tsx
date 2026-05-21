@@ -6,7 +6,9 @@ export default function AdminPanel() {
   const [users, setUsers] = useState<any[]>([]);
   const [classes, setClasses] = useState<any[]>([]);
   const [subjects, setSubjects] = useState<any[]>([]);
-  const [tab, setTab] = useState<'users' | 'classes' | 'subjects'>('users');
+  const [tab, setTab] = useState<'users' | 'classes' | 'subjects' | 'db'>('users');
+  const [dbInfo, setDbInfo] = useState<any>(null);
+  const [dbRestoreFile, setDbRestoreFile] = useState<File | null>(null);
   const [msg, setMsg] = useState('');
   const [quickAddForm, setQuickAddForm] = useState({ first_name: '', last_name: '', role: 'student', class_id: '' });
   const [showQuickAdd, setShowQuickAdd] = useState(false);
@@ -179,6 +181,7 @@ export default function AdminPanel() {
         <button className={`btn ${tab === 'users' ? 'btn-primary' : ''}`} onClick={() => setTab('users')}>Users</button>
         <button className={`btn ${tab === 'classes' ? 'btn-primary' : ''}`} onClick={() => setTab('classes')}>Classes</button>
         <button className={`btn ${tab === 'subjects' ? 'btn-primary' : ''}`} onClick={() => setTab('subjects')}>Subjects</button>
+        <button className={`btn ${tab === 'db' ? 'btn-primary' : ''}`} onClick={() => { setTab('db'); if (!dbInfo) adminApi.dbInfo().then(r => setDbInfo(r.data)).catch(() => {}); }}>Database</button>
       </div>
 
       {/* Users Tab */}
@@ -273,6 +276,60 @@ export default function AdminPanel() {
             </table>
           </div>
         </>
+      )}
+
+      {/* Database Tab */}
+      {tab === 'db' && (
+        <div>
+          <div className="card">
+            <h2>Database Status</h2>
+            {dbInfo ? (
+              <div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '0.5rem' }}>
+                  <div className="stat-card"><h3>{(dbInfo.sizeBytes / 1024).toFixed(1)} KB</h3><p>Size</p></div>
+                  <div className="stat-card"><h3>{new Date(dbInfo.lastModified).toLocaleString()}</h3><p>Last Modified</p></div>
+                  <div className="stat-card"><h3>{dbInfo.tables?.length || 0}</h3><p>Tables</p></div>
+                </div>
+                <div style={{ marginTop: '0.5rem', display: 'flex', flexWrap: 'wrap', gap: '0.3rem' }}>
+                  {dbInfo.tables?.map((t: string) => (
+                    <span key={t} style={{ background: 'rgba(96,165,250,0.15)', color: '#93c5fd', padding: '2px 10px', borderRadius: 12, fontSize: '0.8rem' }}>
+                      {t}: {dbInfo.rowCounts?.[t] || 0}
+                    </span>
+                  ))}
+                </div>
+                <p style={{ color: 'var(--text-dim)', fontSize: '0.8rem', marginTop: '1rem' }}>
+                  ⚠ On Render free tier, the database resets on every deploy. Use the backup tools below.
+                </p>
+              </div>
+            ) : <p style={{ color: 'var(--text-dim)' }}>Loading...</p>}
+          </div>
+
+          <div className="card">
+            <h2>Download Backup</h2>
+            <p style={{ color: 'var(--text-dim)', fontSize: '0.85rem' }}>Download the entire SQLite database file. Keep this file safe — you can restore it later.</p>
+            <a href="/api/admin/db/export" className="btn btn-primary" style={{ textDecoration: 'none', display: 'inline-block' }}> Download Database</a>
+          </div>
+
+          <div className="card">
+            <h2>Restore Backup</h2>
+            <p style={{ color: 'var(--text-dim)', fontSize: '0.85rem' }}>Upload a previously downloaded .db file to restore your data. This replaces ALL current data.</p>
+            <form onSubmit={async (e) => {
+              e.preventDefault();
+              if (!dbRestoreFile) { setMsg('Select a .db file first'); return; }
+              const fd = new FormData();
+              fd.append('database', dbRestoreFile);
+              try {
+                await adminApi.dbRestore(fd);
+                setMsg('Database restored! Refresh the page to see changes.');
+                setDbRestoreFile(null);
+                adminApi.dbInfo().then(r => setDbInfo(r.data)).catch(() => {});
+              } catch (err: any) { setMsg(err.response?.data?.message || 'Restore failed'); }
+            }}>
+              <input type="file" accept=".db,.sqlite,.sqlite3" onChange={e => setDbRestoreFile(e.target.files?.[0] || null)} required />
+              <button type="submit" className="btn btn-danger" style={{ marginTop: '0.5rem' }}>Restore Database</button>
+            </form>
+          </div>
+        </div>
       )}
 
       {/* Subjects Tab */}

@@ -7,7 +7,7 @@ import { hashPassword } from './auth';
 dotenv.config();
 
 let db: SqlJsDatabase;
-const dbPath = path.resolve(__dirname, '../../school_portal.db');
+export const dbPath = path.resolve(__dirname, '../../school_portal.db');
 
 function createTables(): void {
   db.run(`

@@ -177,4 +177,7 @@ export const adminApi = {
   subjects: () => api.get('/admin/subjects'),
   createSubject: (data: any) => api.post('/admin/subjects', data),
   deleteSubject: (id: number) => api.delete(`/admin/subjects/${id}`),
+  dbInfo: () => api.get('/admin/db/info'),
+  dbExport: () => api.get('/admin/db/export', { responseType: 'blob' }),
+  dbRestore: (formData: FormData) => api.post('/admin/db/restore', formData, { headers: { 'Content-Type': 'multipart/form-data' } }),
 };
