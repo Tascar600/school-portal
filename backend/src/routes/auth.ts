@@ -17,6 +17,9 @@ interface UserRow {
 router.post('/register', async (req: AuthRequest, res: Response) => {
   try {
     const { name, email, password, role } = req.body;
+    if (role === 'admin') {
+      return res.status(403).json({ message: 'Admin accounts cannot be registered' });
+    }
     if (role === 'student') {
       return res.status(403).json({ message: 'Students must activate via student number' });
     }

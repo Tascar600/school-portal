@@ -2,6 +2,7 @@ import initSqlJs, { Database as SqlJsDatabase } from 'sql.js';
 import fs from 'fs';
 import path from 'path';
 import dotenv from 'dotenv';
+import { hashPassword } from './auth';
 
 dotenv.config();
 
@@ -297,6 +298,18 @@ function seedZimbabweClasses(): void {
   console.log('Seeded Zimbabwe primary classes (ECD A – Grade 7)');
 }
 
+function seedAdmin(): void {
+  const existing = db.exec("SELECT COUNT(*) AS cnt FROM users WHERE role = 'admin'");
+  if (existing[0]?.values[0][0] > 0) return;
+
+  const hashed = hashPassword('1234');
+  db.run(
+    "INSERT INTO users (name, email, password, role, is_active) VALUES ('Super Admin', 'punhamasiwa@gmail.com', ?, 'admin', 1)",
+    [hashed]
+  );
+  console.log('Seeded admin account: punhamasiwa@gmail.com / 1234');
+}
+
 export async function initDatabase(): Promise<void> {
   const SQL = await initSqlJs();
   if (fs.existsSync(dbPath)) {
@@ -308,6 +321,7 @@ export async function initDatabase(): Promise<void> {
   db.run('PRAGMA foreign_keys = ON');
   createTables();
   seedZimbabweClasses();
+  seedAdmin();
   save();
   console.log('Database initialized at', dbPath);
 }
