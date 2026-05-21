@@ -61,15 +61,37 @@ export default function Timetable() {
     } catch (err: any) { setMsg(err.response?.data?.message || 'Error'); }
   };
 
-  // Admin: publish (generate) timetable
+  // Admin: generate preview from proposals (client-side)
+  const handleGeneratePreview = () => {
+    if (proposals.length === 0) { setMsg('No proposals to generate from'); return; }
+    const timetable: any = {};
+    for (const day of days) {
+      const dayEntries = proposals
+        .filter((e: any) => e.day === day)
+        .sort((a: any, b: any) => a.start_time.localeCompare(b.start_time));
+      if (dayEntries.length > 0) timetable[day] = dayEntries;
+    }
+    setGenerated({ class_id: adminClassId, preview: true, timetable });
+    setMsg('Preview generated — resolve clashes then publish');
+  };
+
+  // Admin: publish timetable
   const handlePublish = async () => {
     if (!adminClassId) return;
     try {
       const res = await timetableApi.publish(parseInt(adminClassId));
-      setGenerated(res.data);
+      setGenerated({ ...res.data, preview: false });
       setMsg(`Published ${res.data.total_entries} entries!`);
       loadProposals();
     } catch (err: any) { setMsg(err.response?.data?.message || 'Error'); }
+  };
+
+  // Admin: undo — reload proposals, clear preview
+  const handleUndo = () => {
+    setGenerated(null);
+    setEditId(null);
+    loadProposals();
+    setMsg('Reverted to original proposals');
   };
 
   // Admin: start editing an entry
@@ -205,10 +227,10 @@ export default function Timetable() {
             <div className="card">
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', marginBottom: '1rem' }}>
                 <h2 style={{ margin: 0 }}>Proposals for Class #{adminClassId}</h2>
-                <div>
-                  <button className="btn btn-success" onClick={handlePublish} style={{ marginRight: '0.5rem' }}>
-                    ✦ Generate & Publish Timetable
-                  </button>
+                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                  <button className="btn btn-primary" onClick={handleGeneratePreview}>🔍 Generate Preview</button>
+                  <button className="btn btn-success" onClick={handlePublish} disabled={!generated || !generated.preview}>✦ Publish Timetable</button>
+                  {generated && <button className="btn btn-warning" onClick={handleUndo}>↩ Undo</button>}
                 </div>
               </div>
               <table>
@@ -262,11 +284,22 @@ export default function Timetable() {
           )}
 
           {generated && (
-            <div className="card glow-border">
-              <h2>Published Timetable — Class #{generated.class_id}</h2>
-              <p style={{ color: 'var(--text-dim)', fontSize: '0.85rem', marginBottom: '1rem' }}>
-                Published at {new Date(generated.published_at).toLocaleString()} · {generated.total_entries} entries
-              </p>
+            <div className={`card ${!generated.preview ? 'glow-border' : ''}`}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap' }}>
+                <h2 style={{ margin: 0 }}>
+                  {generated.preview ? '📋 Preview — Class #' + generated.class_id : '✅ Published Timetable — Class #' + generated.class_id}
+                </h2>
+                {generated.preview && (
+                  <span className="badge" style={{ background: 'rgba(245,158,11,0.2)', color: '#fbbf24', padding: '0.3rem 0.8rem' }}>
+                    PREVIEW — Edit entries below to resolve clashes, then Publish
+                  </span>
+                )}
+              </div>
+              {!generated.preview && generated.published_at && (
+                <p style={{ color: 'var(--text-dim)', fontSize: '0.85rem', marginBottom: '1rem' }}>
+                  Published at {new Date(generated.published_at).toLocaleString()} · {generated.total_entries} entries
+                </p>
+              )}
               {renderTimetable(generated.timetable, true)}
             </div>
           )}
