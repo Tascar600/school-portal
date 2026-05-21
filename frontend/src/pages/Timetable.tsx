@@ -12,7 +12,7 @@ export default function Timetable() {
   const [classList] = useState<any[]>([]);
 
   // Teacher proposal form
-  const [form, setForm] = useState({ class_id: user?.role === 'teacher' && user?.class_id ? String(user.class_id) : '', subject_id: '', day: 'Monday', start_time: '', end_time: '', room: '' });
+  const [form, setForm] = useState({ class_id: user?.role === 'teacher' && user?.class_id ? String(user.class_id) : '', subject_name: '', day: 'Monday', start_time: '', end_time: '', room: '' });
 
   // Admin section
   const [adminClassId, setAdminClassId] = useState('');
@@ -37,9 +37,9 @@ export default function Timetable() {
   const handlePropose = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await timetableApi.create(form);
+      await timetableApi.create({ ...form, subject_name: form.subject_name });
       setMsg('Entry proposed — awaiting admin approval');
-      setForm({ ...form, subject_id: '', day: 'Monday', start_time: '', end_time: '', room: '' });
+      setForm({ ...form, subject_name: '', day: 'Monday', start_time: '', end_time: '', room: '' });
       timetableApi.my().then(r => setEntries(r.data));
     } catch (err: any) { setMsg(err.response?.data?.message || 'Error'); }
   };
@@ -146,11 +146,7 @@ export default function Timetable() {
             <form onSubmit={handlePropose}>
               <div className="form-row">
                 <div><label>Class</label><input value={form.class_id} disabled /></div>
-                <div><label>Subject</label>
-                  <select value={form.subject_id} onChange={e => setForm({ ...form, subject_id: e.target.value })} required>
-                    <option value="">— Select —</option>
-                    {subjects.map((s: any) => <option key={s.id} value={s.id}>{s.name}</option>)}
-                  </select>
+                <div><label>Subject</label><input value={form.subject_name} onChange={e => setForm({ ...form, subject_name: e.target.value })} required placeholder="e.g. Mathematics" />
                 </div>
               </div>
               <div className="form-row">

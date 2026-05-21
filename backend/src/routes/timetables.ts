@@ -9,10 +9,31 @@ const dayOrder = `CASE t.day WHEN 'Monday' THEN 1 WHEN 'Tuesday' THEN 2 WHEN 'We
 // Teacher: propose a timetable entry
 router.post('/', authenticate, authorize('teacher'), async (req: AuthRequest, res: Response) => {
   try {
-    const { class_id, subject_id, day, start_time, end_time, room } = req.body;
+    const { class_id, subject_name, subject_id, day, start_time, end_time, room } = req.body;
+
+    // If subject_name provided, find or create the subject
+    let finalSubjectId = subject_id;
+    if (subject_name && !subject_id) {
+      const existing = await query<any[]>('SELECT id FROM subjects WHERE name = ? AND class_id = ?', [subject_name, class_id]);
+      if (existing.length > 0) {
+        finalSubjectId = existing[0].id;
+      } else {
+        // Auto-create subject for this class
+        const teachers = await query<any[]>('SELECT id FROM users WHERE role = ? AND class_id = ? LIMIT 1', ['teacher', class_id]);
+        const teacher_id = teachers[0]?.id || req.user!.id;
+        const result = await execute('INSERT INTO subjects (name, class_id, teacher_id) VALUES (?, ?, ?)',
+          [subject_name, class_id, teacher_id]);
+        finalSubjectId = result.insertId;
+      }
+    }
+
+    if (!finalSubjectId) {
+      return res.status(400).json({ message: 'Subject is required' });
+    }
+
     await execute(
       'INSERT INTO timetables (class_id, subject_id, teacher_id, day, start_time, end_time, room) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [class_id, subject_id, req.user!.id, day, start_time, end_time, room || '']
+      [class_id, finalSubjectId, req.user!.id, day, start_time, end_time, room || '']
     );
     res.status(201).json({ message: 'Timetable entry proposed' });
   } catch (err: any) { res.status(500).json({ message: err.message }); }
