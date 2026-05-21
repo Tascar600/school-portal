@@ -136,7 +136,7 @@ export default function AdminPanel() {
         <strong>Quick Actions:</strong>
         <button className="btn btn-success" onClick={() => { setQuickAddForm({ first_name: '', last_name: '', role: 'student', class_id: '' }); setShowQuickAdd(!showQuickAdd); }}>+ Add Student</button>
         <button className="btn btn-info" onClick={() => { setQuickAddForm({ first_name: '', last_name: '', role: 'teacher', class_id: '' }); setShowQuickAdd(!showQuickAdd); }}>+ Add Teacher</button>
-        <button className="btn btn-primary" onClick={() => { setTab('users'); document.querySelector('input[name="email"]')?.scrollIntoView(); }}>+ Add User</button>
+        <button className="btn btn-primary" onClick={() => { setTab('users'); setEditUserId(null); setUserForm({ name: '', email: '', password: '', role: 'student', class_id: '' }); }}>+ Add User</button>
         <button className="btn" onClick={() => setTab('classes')}>+ Add Class</button>
       </div>
 
@@ -189,10 +189,10 @@ export default function AdminPanel() {
             <form onSubmit={handleUserSubmit}>
               <div className="form-row">
                 <div><label>Name</label><input value={userForm.name} onChange={e => setUserForm({ ...userForm, name: e.target.value })} required /></div>
-                <div><label>Email</label><input type="email" value={userForm.email} onChange={e => setUserForm({ ...userForm, email: e.target.value })} required /></div>
+                <div><label>Email {userForm.role !== 'admin' && <span style={{ color: 'var(--text-dim)', fontSize: '0.75rem' }}>(optional — student uses reg number)</span>}</label><input type="email" value={userForm.email} onChange={e => setUserForm({ ...userForm, email: e.target.value })} required={userForm.role === 'admin'} /></div>
               </div>
               <div className="form-row">
-                <div><label>Password {editUserId && '(leave blank to keep)'}</label><input type="password" value={userForm.password} onChange={e => setUserForm({ ...userForm, password: e.target.value })} required={!editUserId} /></div>
+                <div><label>Password {editUserId ? '(leave blank to keep)' : userForm.role !== 'admin' ? '(optional — user activates with reg number)' : ''}</label><input type="password" value={userForm.password} onChange={e => setUserForm({ ...userForm, password: e.target.value })} required={!editUserId && userForm.role === 'admin'} /></div>
                 <div><label>Role</label><select value={userForm.role} onChange={e => setUserForm({ ...userForm, role: e.target.value })}><option value="student">Student</option><option value="teacher">Teacher</option><option value="admin">Admin</option></select></div>
                 <div><label>Class</label>
                   {userForm.role === 'student' ? (
