@@ -287,16 +287,7 @@ export default function AdminPanel() {
       {/* Database Tab */}
       {tab === 'db' && (
         <div>
-          <div className="card" style={{ border: '1px solid rgba(245,158,11,0.4)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h2 style={{ margin: 0 }}> Database Security</h2>
-              <span style={{ color: '#fbbf24', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>🔒 Super Admin Only</span>
-            </div>
-            <p style={{ color: 'var(--text-dim)', fontSize: '0.85rem' }}>
-              SQL console, database backup/restore, and browser are locked to <strong style={{ color: '#fbbf24' }}>punhamasiwa@gmail.com</strong> only.
-              Other admin accounts cannot access these features.
-            </p>
-          </div>
+
           <div className="card">
             <h2>Database Status</h2>
             {dbInfo ? (
