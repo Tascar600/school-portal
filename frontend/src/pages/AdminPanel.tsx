@@ -312,6 +312,21 @@ export default function AdminPanel() {
           </div>
 
           <div className="card">
+            <h2> Seed Test Data</h2>
+            <p style={{ color: 'var(--text-dim)', fontSize: '0.85rem' }}>
+              Populate the database with 200 students, 10 teachers, classes, subjects, fees, payments, results, attendance, and timetables.
+            </p>
+            <button className="btn btn-primary" onClick={async () => {
+              try {
+                const r = await adminApi.seed();
+                setMsg(r.data.message);
+                // Refresh DB info
+                adminApi.dbInfo().then(r2 => setDbInfo(r2.data)).catch(() => {});
+              } catch (err: any) { setMsg(err.response?.data?.message || 'Seed failed'); }
+            }}> Seed 200 Students</button>
+          </div>
+
+          <div className="card">
             <h2>Download Backup</h2>
             <p style={{ color: 'var(--text-dim)', fontSize: '0.85rem' }}>Download the entire SQLite database file. Keep this file safe — you can restore it later.</p>
             <a href="/api/admin/db/export" className="btn btn-primary" style={{ textDecoration: 'none', display: 'inline-block' }}> Download Database</a>

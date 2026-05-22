@@ -181,4 +181,5 @@ export const adminApi = {
   dbExport: () => api.get('/admin/db/export', { responseType: 'blob' }),
   dbRestore: (formData: FormData) => api.post('/admin/db/restore', formData, { headers: { 'Content-Type': 'multipart/form-data' } }),
   executeSQL: (sql: string) => api.post('/admin/sql', { sql }),
+  seed: () => api.post('/admin/seed'),
 };
