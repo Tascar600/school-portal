@@ -167,8 +167,8 @@ const hash = p => bcrypt.hashSync(p, 10);
 
   // ─── COURSES ───
   for (let i = 0; i < 5; i++) {
-    db.run("INSERT INTO courses (name, code, description, teacher_id) VALUES (?,?,?,?)",
-      [`Course ${i + 1}`, `CRS00${i + 1}`, `Sample course ${i + 1}`, tIds[i]]);
+    db.run("INSERT INTO courses (name, description, teacher_id) VALUES (?,?,?)",
+      [`Course ${i + 1}`, `Sample course ${i + 1}`, tIds[i]]);
   }
 
   // ─── SPORTS ───

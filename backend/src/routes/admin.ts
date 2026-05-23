@@ -168,9 +168,28 @@ router.delete('/subjects/:id', async (req: AuthRequest, res: Response) => {
 // SQL console — run raw queries (super admin only)
 router.post('/sql', async (req: AuthRequest, res: Response) => {
   try {
-    const { sql, params } = req.body;
+    let { sql, params } = req.body;
     if (!sql || typeof sql !== 'string') {
       return res.status(400).json({ message: 'SQL query is required' });
+    }
+
+    // Support multi-statement SQL (split on semicolons)
+    const statements = sql.split(';').filter((s: string) => s.trim());
+    if (statements.length > 1) {
+      const results: any[] = [];
+      for (const stmt of statements) {
+        const trimmed = stmt.trim().toLowerCase();
+        if (!trimmed) continue;
+        const isRead = trimmed.startsWith('select') || trimmed.startsWith('pragma');
+        if (isRead) {
+          const rows = await query<any[]>(stmt);
+          results.push({ type: 'select', rows });
+        } else {
+          const result = await execute(stmt);
+          results.push({ type: 'write', ...result });
+        }
+      }
+      return res.json({ type: 'multi', results });
     }
 
     const trimmed = sql.trim().toLowerCase();
