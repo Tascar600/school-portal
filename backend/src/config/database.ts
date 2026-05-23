@@ -1,4 +1,5 @@
-import initSqlJs, { Database as SqlJsDatabase } from 'sql.js';
+import initSqlJs from 'sql.js';
+type SqlJsDatabase = Awaited<ReturnType<typeof initSqlJs>>;
 import fs from 'fs';
 import path from 'path';
 import dotenv from 'dotenv';
