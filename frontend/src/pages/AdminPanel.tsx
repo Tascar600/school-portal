@@ -314,7 +314,16 @@ export default function AdminPanel() {
           <div className="card">
             <h2>Download Backup</h2>
             <p style={{ color: 'var(--text-dim)', fontSize: '0.85rem' }}>Download the entire SQLite database file. Keep this file safe — you can restore it later.</p>
-            <a href="/api/admin/db/export" className="btn btn-primary" style={{ textDecoration: 'none', display: 'inline-block' }}> Download Database</a>
+            <button className="btn btn-primary" onClick={async () => {
+              try {
+                const r = await adminApi.dbExport();
+                const url = URL.createObjectURL(new Blob([r.data]));
+                const a = document.createElement('a');
+                a.href = url; a.download = 'school_portal.db';
+                document.body.appendChild(a); a.click();
+                document.body.removeChild(a); URL.revokeObjectURL(url);
+              } catch (err: any) { setMsg(err.response?.data?.message || 'Download failed'); }
+            }}> Download Database</button>
           </div>
 
           <div className="card">
