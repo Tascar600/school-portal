@@ -30,6 +30,8 @@ export default function AdminPanel() {
   const [dbBrowseLoading, setDbBrowseLoading] = useState(false);
   const [dbSearch, setDbSearch] = useState('');
   const [dbError, setDbError] = useState('');
+  const [dbInfo, setDbInfo] = useState<any>(null);
+  const [dbRestoreFile, setDbRestoreFile] = useState<File | null>(null);
 
   const load = () => {
     adminApi.users().then(r => setUsers(r.data)).catch(() => {});
