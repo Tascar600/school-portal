@@ -332,22 +332,22 @@ function seedTestData(): void {
   const classNames = Object.keys(cls);
 
   // Teachers
-  const tdata: [string, string, number | null][] = [
-    ['Tendai Moyo','teacher1@school.com', cls['ECD A']],
-    ['Chido Ndlovu','teacher2@school.com', cls['ECD B']],
-    ['Tafadzwa Sithole','teacher3@school.com', cls['Grade 1']],
-    ['Rumbidzai Dube','teacher4@school.com', cls['Grade 2']],
-    ['Kudzai Khumalo','teacher5@school.com', cls['Grade 3']],
-    ['Nyasha Nyoni','teacher6@school.com', cls['Grade 4']],
-    ['Tanaka Tshuma','teacher7@school.com', cls['Grade 5']],
-    ['Tariro Ncube','teacher8@school.com', cls['Grade 6']],
-    ['Anesu Mpofu','teacher9@school.com', cls['Grade 7']],
-    ['Mufaro Sibanda','teacher10@school.com', null],
+  const tdata: [string, string, number | null, string][] = [
+    ['Tendai Moyo','teacher1@school.com', cls['ECD A'], 't260001c'],
+    ['Chido Ndlovu','teacher2@school.com', cls['ECD B'], 't260002c'],
+    ['Tafadzwa Sithole','teacher3@school.com', cls['Grade 1'], 't260003c'],
+    ['Rumbidzai Dube','teacher4@school.com', cls['Grade 2'], 't260004c'],
+    ['Kudzai Khumalo','teacher5@school.com', cls['Grade 3'], 't260005c'],
+    ['Nyasha Nyoni','teacher6@school.com', cls['Grade 4'], 't260006c'],
+    ['Tanaka Tshuma','teacher7@school.com', cls['Grade 5'], 't260007c'],
+    ['Tariro Ncube','teacher8@school.com', cls['Grade 6'], 't260008c'],
+    ['Anesu Mpofu','teacher9@school.com', cls['Grade 7'], 't260009c'],
+    ['Mufaro Sibanda','teacher10@school.com', null, 't260010c'],
   ];
   const tIds: number[] = [];
-  for (const [name, email, cid] of tdata) {
-    db.run("INSERT INTO users (name, email, password, role, class_id, is_active) VALUES (?,?,?,?,?,1)",
-      [name, email, hash('1234'), 'teacher', cid]);
+  for (const [name, email, cid, reg] of tdata) {
+    db.run("INSERT INTO users (name, email, password, role, class_id, student_number, is_active) VALUES (?,?,?,?,?,?,1)",
+      [name, email, hash('1234'), 'teacher', cid, reg]);
     tIds.push(Number(db.exec("SELECT last_insert_rowid()")[0].values[0][0]));
   }
 
