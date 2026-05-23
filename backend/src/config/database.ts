@@ -465,25 +465,40 @@ function seedTestData(): void {
       [`Course ${i+1}`, `CRS00${i+1}`, `Sample course ${i+1}`, tIds[i]]);
   }
 
-  // Sports
-  const sports = ['Soccer','Netball','Athletics','Basketball','Volleyball'];
-  for (const sport of sports) {
-    for (const sid of sIds.filter(() => Math.random() > 0.85)) {
-      db.run("INSERT INTO sport_participants (sport, student_id, team) VALUES (?,?,?)",
-        [sport, sid, `${sport} Team`]);
+  // Sports + participants
+  const sportNames = ['Soccer','Netball','Athletics','Basketball','Volleyball'];
+  const sportIds: number[] = [];
+  for (const sn of sportNames) {
+    db.run("INSERT INTO sports (name) VALUES (?)", [sn]);
+    sportIds.push(Number(db.exec("SELECT last_insert_rowid()")[0].values[0][0]));
+  }
+  for (const sid of sportIds) {
+    for (const stuId of sIds.filter(() => Math.random() > 0.85)) {
+      db.run("INSERT INTO sport_participants (sport_id, student_id, role) VALUES (?,?,?)",
+        [sid, stuId, 'member']);
     }
   }
 
-  // Nominations + votes
-  const positions = ['Head Boy','Head Girl','Sports Captain','Prefect'];
-  for (const pos of positions) {
-    for (const candId of sIds.filter(() => Math.random() > 0.97)) {
-      const candName = db.exec(`SELECT name FROM users WHERE id = ${candId}`)[0].values[0][0];
-      db.run("INSERT INTO nominations (position, candidate_name, class_id) VALUES (?,?,?)",
-        [pos, candName, cls[classNames[Math.floor(Math.random() * 9)]]]);
-      const nomId = Number(db.exec("SELECT last_insert_rowid()")[0].values[0][0]);
+  // Voting session + nominations + votes
+  const votingSessions = ['Head Boy','Head Girl','Sports Captain','Prefect'];
+  const sessionIds: number[] = [];
+  for (const pos of votingSessions) {
+    db.run("INSERT INTO voting_sessions (title, position, status) VALUES (?,?,?)",
+      [pos + ' Election', pos, 'closed']);
+    sessionIds.push(Number(db.exec("SELECT last_insert_rowid()")[0].values[0][0]));
+  }
+  for (const sessId of sessionIds) {
+    const candidates = sIds.filter(() => Math.random() > 0.97);
+    const nomIds: number[] = [];
+    for (const candId of candidates) {
+      db.run("INSERT INTO nominations (session_id, student_id) VALUES (?,?)",
+        [sessId, candId]);
+      nomIds.push(Number(db.exec("SELECT last_insert_rowid()")[0].values[0][0]));
+    }
+    for (const nomId of nomIds) {
       for (const voterId of sIds.filter(() => Math.random() > 0.95)) {
-        db.run("INSERT INTO votes (nomination_id, voter_id) VALUES (?,?)", [nomId, voterId]);
+        db.run("INSERT INTO votes (session_id, candidate_id, voter_id) VALUES (?,?,?)",
+          [sessId, nomId, voterId]);
       }
     }
   }
