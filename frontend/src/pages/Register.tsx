@@ -124,7 +124,7 @@ export default function Register() {
           {attendanceHistory.length === 0 ? <p>No records yet.</p> : (
             <div style={{ maxHeight: 500, overflowY: 'auto' }}>
               <table>
-                <thead><tr><th>Date</th><th>Students</th><th>Present</th><th>Absent</th><th>Late</th><th>Details</th></tr></thead>
+                <thead><tr><th>Date</th><th>Students</th><th>Present</th><th>Absent</th><th>Late</th><th>Excused</th><th>Details</th></tr></thead>
                 <tbody>
                   {attendanceHistory
                     .filter((a: any) => !historySearch || a.date.includes(historySearch))
@@ -133,6 +133,7 @@ export default function Register() {
                       const present = parsed.filter((r: any) => r.status === 'present').length;
                       const absent = parsed.filter((r: any) => r.status === 'absent').length;
                       const late = parsed.filter((r: any) => r.status === 'late').length;
+                      const excused = parsed.filter((r: any) => r.status === 'excused').length;
                       return (
                         <tr key={a.id}>
                           <td style={{ fontWeight: 600 }}>{a.date}</td>
@@ -140,6 +141,7 @@ export default function Register() {
                           <td style={{ color: '#4ade80' }}>{present}</td>
                           <td style={{ color: '#f87171' }}>{absent}</td>
                           <td style={{ color: '#fbbf24' }}>{late}</td>
+                          <td style={{ color: '#a78bfa' }}>{excused}</td>
                           <td>
                             <button className="btn btn-sm" onClick={() => setExpandedDate(expandedDate === a.date ? null : a.date)}
                               style={{ background: 'rgba(0,240,255,0.1)', color: 'var(--neon)', border: 'none', borderRadius: 4, cursor: 'pointer', padding: '0.2rem 0.6rem', fontSize: '0.75rem' }}>

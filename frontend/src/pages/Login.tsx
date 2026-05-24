@@ -40,9 +40,12 @@ export default function Login() {
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             fontSize: '1.5rem',
           }}>✦</div>
-          <h2 style={{ marginBottom: 0, color: '#fff', fontSize: '1.5rem' }}>
-            NEXUS PORTAL 3030
+          <h2 style={{ marginBottom: 0, color: '#fff', fontSize: '1.3rem' }}>
+            TASCAR
           </h2>
+          <p style={{ color: 'var(--text-dim)', fontSize: '0.8rem', marginTop: '0.3rem' }}>
+            Chakari (GVT) Primary School · Mashonaland West
+          </p>
           <p style={{ color: 'var(--text-dim)', fontSize: '0.85rem', marginTop: '0.5rem' }}>
             Authenticate to continue
           </p>

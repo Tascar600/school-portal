@@ -38,7 +38,7 @@ export default function Layout({ children }: { children: ReactNode }) {
       <nav className="navbar">
         <div className="nav-brand">
           <span className="pulse-dot" />
-          <Link to="/dashboard">NEXUS PORTAL 3030</Link>
+          <Link to="/dashboard">Tascar</Link>
         </div>
         <div className="nav-links">
           {visible.map((item) => (

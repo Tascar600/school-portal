@@ -31,7 +31,7 @@ export default function StudentStats() {
       try {
         const res = await resultApi.studentStats(student.id);
         setStats(res.data);
-      } catch (err) { console.error(err); }
+      } catch (_) {}
     }
   };
 
@@ -51,6 +51,7 @@ export default function StudentStats() {
     { name: 'Present', value: stats.attendance.filter((a: any) => a.status === 'present').length, color: '#4ade80' },
     { name: 'Late', value: stats.attendance.filter((a: any) => a.status === 'late').length, color: '#fbbf24' },
     { name: 'Absent', value: stats.attendance.filter((a: any) => a.status === 'absent').length, color: '#f87171' },
+    { name: 'Excused', value: stats.attendance.filter((a: any) => a.status === 'excused').length, color: '#a78bfa' },
   ].filter(d => d.value > 0) : [];
 
   const filteredStudents = students.filter((s: any) => {
