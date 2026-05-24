@@ -12,6 +12,8 @@ export default function Register() {
   const [attendanceHistory, setAttendanceHistory] = useState<any[]>([]);
   const [myAttendance, setMyAttendance] = useState<any[]>([]);
   const [msg, setMsg] = useState('');
+  const [historySearch, setHistorySearch] = useState('');
+  const [expandedDate, setExpandedDate] = useState<string | null>(null);
 
   useEffect(() => {
     if (user?.role === 'teacher') {
@@ -67,7 +69,7 @@ export default function Register() {
     return (
       <div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-          <h1 style={{ margin: 0 }}>Register / Attendance</h1>
+          <div><h1 style={{ margin: 0 }}>Register / Attendance</h1><p style={{ margin: 0, color: 'var(--text-dim)', fontSize: '0.8rem' }}>Chakari (GVT) Primary School — All records kept permanently</p></div>
           <div style={{ display: 'flex', gap: '0.3rem' }}>
             <PrintButton />
             <DownloadCSV data={csvData} headers={['Student', 'Status']} filename="attendance_register.csv" label=" CSV" />
@@ -117,26 +119,69 @@ export default function Register() {
         </div>
 
         <div className="card">
-          <h2>Attendance History</h2>
-          {attendanceHistory.length === 0 ? <p>No records yet.</p> : attendanceHistory.slice(0, 10).map((a: any) => (
-            <div key={a.id} style={{ borderBottom: '1px solid #e0e0e0', padding: '0.5rem 0' }}>
-              <strong>{a.date}</strong> - {a.records?.length || 0} students marked
+          <h2>Attendance History (All Records — Permanent)</h2>
+          <input placeholder="Search by date (YYYY-MM-DD)..." value={historySearch} onChange={e => setHistorySearch(e.target.value)} style={{ marginBottom: '0.5rem', width: '100%' }} />
+          {attendanceHistory.length === 0 ? <p>No records yet.</p> : (
+            <div style={{ maxHeight: 500, overflowY: 'auto' }}>
+              <table>
+                <thead><tr><th>Date</th><th>Students</th><th>Present</th><th>Absent</th><th>Late</th><th>Details</th></tr></thead>
+                <tbody>
+                  {attendanceHistory
+                    .filter((a: any) => !historySearch || a.date.includes(historySearch))
+                    .map((a: any) => {
+                      const parsed = typeof a.records === 'string' ? JSON.parse(a.records) : (a.records || []);
+                      const present = parsed.filter((r: any) => r.status === 'present').length;
+                      const absent = parsed.filter((r: any) => r.status === 'absent').length;
+                      const late = parsed.filter((r: any) => r.status === 'late').length;
+                      return (
+                        <tr key={a.id}>
+                          <td style={{ fontWeight: 600 }}>{a.date}</td>
+                          <td>{parsed.length}</td>
+                          <td style={{ color: '#4ade80' }}>{present}</td>
+                          <td style={{ color: '#f87171' }}>{absent}</td>
+                          <td style={{ color: '#fbbf24' }}>{late}</td>
+                          <td>
+                            <button className="btn btn-sm" onClick={() => setExpandedDate(expandedDate === a.date ? null : a.date)}
+                              style={{ background: 'rgba(0,240,255,0.1)', color: 'var(--neon)', border: 'none', borderRadius: 4, cursor: 'pointer', padding: '0.2rem 0.6rem', fontSize: '0.75rem' }}>
+                              {expandedDate === a.date ? '▲ Hide' : '▼ View'}
+                            </button>
+                            {expandedDate === a.date && (
+                              <div style={{ marginTop: '0.5rem', fontSize: '0.8rem', maxHeight: 200, overflowY: 'auto' }}>
+                                {parsed.map((r: any, i: number) => {
+                                  const s = students.find((st: any) => st.id === r.student_id);
+                                  return (
+                                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.15rem 0.5rem', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                                      <span>{s?.name || `Student #${r.student_id}`}</span>
+                                      <span style={{ color: r.status === 'present' ? '#4ade80' : r.status === 'absent' ? '#f87171' : r.status === 'late' ? '#fbbf24' : '#aaa', fontWeight: 600 }}>
+                                        {r.status?.toUpperCase()}
+                                      </span>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                </tbody>
+              </table>
             </div>
-          ))}
+          )}
         </div>
       </div>
     );
   }
 
   // Student view
-  const csvData = myAttendance.map(a => ({ 'Date': a.date, 'Status': a.status }));
+  const sCsvData = myAttendance.map(a => ({ 'Date': a.date, 'Status': a.status }));
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-        <h1 style={{ margin: 0 }}>My Attendance</h1>
+        <div><h1 style={{ margin: 0 }}>My Attendance</h1><p style={{ margin: 0, color: 'var(--text-dim)', fontSize: '0.8rem' }}>Chakari (GVT) Primary School</p></div>
         <div style={{ display: 'flex', gap: '0.3rem' }}>
           <PrintButton />
-          <DownloadCSV data={csvData} headers={['Date', 'Status']} filename="my_attendance.csv" label=" CSV" />
+          <DownloadCSV data={sCsvData} headers={['Date', 'Status']} filename="my_attendance.csv" label=" CSV" />
         </div>
       </div>
       <div className="card">
@@ -153,6 +198,7 @@ export default function Register() {
             </tbody>
           </table>
         )}
+        <p style={{ color: 'var(--text-dim)', fontSize: '0.75rem', marginTop: '0.5rem' }}>{myAttendance.length} total records — attendance history is permanent</p>
       </div>
     </div>
   );

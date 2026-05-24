@@ -135,13 +135,16 @@ UPDATE fee_accounts SET balance = balance - (
 );
 
 -- 10. RESULTS — Term 2, ~90% subject coverage for every student
-INSERT INTO results (student_id, subject_id, teacher_id, term, academic_year, score, grade, remarks)
+INSERT INTO results (student_id, subject_id, teacher_id, term, academic_year, coursework, test_score, exam, score, grade, remarks, status, subject_name)
 SELECT s.id, sub.id, sub.teacher_id, 'Term 2', '2026',
-  CAST(20+ABS(RANDOM())%78 AS REAL),
-  CASE WHEN CAST(20+ABS(RANDOM())%78 AS REAL)>=75 THEN 'A'
-       WHEN CAST(20+ABS(RANDOM())%78 AS REAL)>=65 THEN 'B'
-       WHEN CAST(20+ABS(RANDOM())%78 AS REAL)>=50 THEN 'C'
-       WHEN CAST(20+ABS(RANDOM())%78 AS REAL)>=40 THEN 'D' ELSE 'E' END,
+  CAST(5+ABS(RANDOM())%20 AS REAL),
+  CAST(10+ABS(RANDOM())%25 AS REAL),
+  CAST(15+ABS(RANDOM())%40 AS REAL),
+  CAST(5+ABS(RANDOM())%20+10+ABS(RANDOM())%25+15+ABS(RANDOM())%40 AS REAL),
+  CASE WHEN CAST(5+ABS(RANDOM())%20+10+ABS(RANDOM())%25+15+ABS(RANDOM())%40 AS REAL)>=75 THEN 'A'
+       WHEN CAST(5+ABS(RANDOM())%20+10+ABS(RANDOM())%25+15+ABS(RANDOM())%40 AS REAL)>=65 THEN 'B'
+       WHEN CAST(5+ABS(RANDOM())%20+10+ABS(RANDOM())%25+15+ABS(RANDOM())%40 AS REAL)>=50 THEN 'C'
+       WHEN CAST(5+ABS(RANDOM())%20+10+ABS(RANDOM())%25+15+ABS(RANDOM())%40 AS REAL)>=40 THEN 'D' ELSE 'E' END,
   CASE CAST(ABS(RANDOM())%8 AS INTEGER)
     WHEN 0 THEN 'Excellent progress this term. Keep it up!'
     WHEN 1 THEN 'Good effort, showing steady improvement.'
@@ -150,7 +153,9 @@ SELECT s.id, sub.id, sub.teacher_id, 'Term 2', '2026',
     WHEN 4 THEN 'Outstanding performance in this subject.'
     WHEN 5 THEN 'Must focus more in class.'
     ELSE 'Can do better with consistent practice.'
-  END
+  END,
+  'active',
+  sub.name
 FROM users s
 JOIN subjects sub ON sub.class_id=s.class_id
 WHERE s.role='student' AND ABS(RANDOM())%100<90;

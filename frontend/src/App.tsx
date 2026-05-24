@@ -17,6 +17,8 @@ import Register from './pages/Register';
 import Sports from './pages/Sports';
 import Voting from './pages/Voting';
 import Themes from './pages/Themes';
+import AdminAnalytics from './pages/AdminAnalytics';
+import StudentStats from './pages/StudentStats';
 import './App.css';
 
 export default function App() {
@@ -81,6 +83,8 @@ export default function App() {
         path="/themes"
         element={<ProtectedRoute><Layout><Themes /></Layout></ProtectedRoute>}
       />
+      <Route path="/admin/analytics" element={<ProtectedRoute roles={['admin']}><Layout><AdminAnalytics /></Layout></ProtectedRoute>} />
+      <Route path="/admin/student-stats" element={<ProtectedRoute roles={['admin', 'teacher']}><Layout><StudentStats /></Layout></ProtectedRoute>} />
     </Routes>
   );
 }

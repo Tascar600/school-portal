@@ -86,6 +86,11 @@ function createTables(): void {
       score REAL NOT NULL,
       grade TEXT DEFAULT '',
       remarks TEXT DEFAULT '',
+      coursework REAL DEFAULT 0,
+      test_score REAL DEFAULT 0,
+      exam REAL DEFAULT 0,
+      status TEXT DEFAULT 'active' CHECK(status IN ('active','archived')),
+      subject_name TEXT DEFAULT '',
       created_at TEXT DEFAULT (datetime('now')),
       updated_at TEXT DEFAULT (datetime('now')),
       FOREIGN KEY (student_id) REFERENCES users(id) ON DELETE CASCADE,
@@ -371,7 +376,7 @@ function seedTestData(): void {
   const sLNs = ['Muzenda','Makoni','Chigumba','Mkandla','Mlambo','Ndlovu','Sithole','Mpofu','Ncube','Tshuma',
     'Dube','Khumalo','Nyoni','Moyo','Sibanda','Nkala','Maphosa','Ngwenya','Mthembu','Zulu'];
   const sIds: number[] = [];
-  for (let i = 0; i < 70; i++) {
+  for (let i = 0; i < 100; i++) {
     const name = `${sFNs[i % sFNs.length]} ${sLNs[Math.floor(i / sFNs.length) % sLNs.length]}`;
     const seq = String(i + 1).padStart(5, '0');
     const reg = `c26${seq}c`;
@@ -407,17 +412,20 @@ function seedTestData(): void {
     }
   }
 
-  // Results (~85% of subject-student combos)
-  const subjs = (db.exec("SELECT id, class_id FROM subjects ORDER BY id")[0]?.values || []);
+  // Results (~85% of subject-student combos) — now with coursework, test_score, exam
+  const subjs = (db.exec("SELECT id, class_id, name FROM subjects ORDER BY id")[0]?.values || []);
   for (const sid of sIds) {
     const cid = cls[classNames[sIds.indexOf(sid) % 9]];
-    for (const [subjId, scid] of subjs) {
+    for (const [subjId, scid, sname] of subjs) {
       if (Number(scid) !== cid) continue;
       if (Math.random() > 0.85) continue;
-      const score = Math.round(30 + Math.random() * 70);
-      const grade = score >= 75 ? 'A' : score >= 60 ? 'B' : score >= 50 ? 'C' : score >= 40 ? 'D' : 'E';
-      db.run('INSERT INTO results (student_id, subject_id, teacher_id, term, academic_year, score, grade) VALUES (?,?,?,?,?,?,?)',
-        [sid, subjId, tIds[cid % 10], 'Term 1', '2026', score, grade]);
+      const cw = Math.round(5 + Math.random() * 20);
+      const ts = Math.round(10 + Math.random() * 25);
+      const ex = Math.round(15 + Math.random() * 40);
+      const score = cw + ts + ex;
+      const grade = score >= 75 ? 'A' : score >= 65 ? 'B' : score >= 50 ? 'C' : score >= 40 ? 'D' : 'E';
+      db.run('INSERT INTO results (student_id, subject_id, teacher_id, term, academic_year, coursework, test_score, exam, score, grade, status, subject_name) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',
+        [sid, subjId, tIds[cid % 10], 'Term 2', '2026', cw, ts, ex, score, grade, 'active', sname]);
     }
   }
 
@@ -534,6 +542,11 @@ export async function initDatabase(): Promise<void> {
   try { db.run("ALTER TABLE payments ADD COLUMN notes TEXT DEFAULT ''"); } catch {}
   try { db.run("ALTER TABLE payments ADD COLUMN receipt_number TEXT DEFAULT ''"); } catch {}
   try { db.run("CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)"); } catch {}
+  try { db.run("ALTER TABLE results ADD COLUMN coursework REAL DEFAULT 0"); } catch {}
+  try { db.run("ALTER TABLE results ADD COLUMN test_score REAL DEFAULT 0"); } catch {}
+  try { db.run("ALTER TABLE results ADD COLUMN exam REAL DEFAULT 0"); } catch {}
+  try { db.run("ALTER TABLE results ADD COLUMN status TEXT DEFAULT 'active' CHECK(status IN ('active','archived'))"); } catch {}
+  try { db.run("ALTER TABLE results ADD COLUMN subject_name TEXT DEFAULT ''"); } catch {}
   seedZimbabweClasses();
   seedAdmin();
   seedTestData();

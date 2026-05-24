@@ -266,4 +266,65 @@ router.post('/db/restore', (req: AuthRequest, res: Response) => {
   });
 });
 
+// ── Analytics Routes ──
+
+// Get all students with attendance stats
+router.get('/analytics/attendance/:classId', async (req: AuthRequest, res: Response) => {
+  try {
+    const { classId } = req.params;
+    const students = await query<any[]>('SELECT id, name, student_number FROM users WHERE role=? AND class_id=? ORDER BY name', ['student', classId]);
+    const records = await query<any[]>('SELECT date, records FROM attendance WHERE class_id=? ORDER BY date', [classId]);
+    const stats = students.map((s: any) => {
+      let present = 0, absent = 0, late = 0, total = 0;
+      for (const r of records) {
+        const parsed = typeof r.records === 'string' ? JSON.parse(r.records) : r.records;
+        const match = parsed.find((p: any) => p.student_id === s.id);
+        if (match) {
+          total++;
+          if (match.status === 'present') present++;
+          else if (match.status === 'absent') absent++;
+          else if (match.status === 'late') late++;
+        }
+      }
+      return { ...s, present, absent, late, total, attendance_pct: total ? Math.round(present/total*100) : 0 };
+    });
+    res.json(stats);
+  } catch (err: any) { res.status(500).json({ message: err.message }); }
+});
+
+// Class sports stats
+router.get('/analytics/sports/:classId', async (req: AuthRequest, res: Response) => {
+  try {
+    const data = await query<any[]>(
+      `SELECT sp.name AS sport_name, COUNT(sp2.id) AS participants,
+              SUM(CASE WHEN sp2.role='captain' THEN 1 ELSE 0 END) AS captains
+       FROM sports sp
+       LEFT JOIN sport_participants sp2 ON sp2.sport_id=sp.id
+       LEFT JOIN users u ON u.id=sp2.student_id AND u.class_id=?
+       GROUP BY sp.id`,
+      [req.params.classId]
+    );
+    res.json(data);
+  } catch (err: any) { res.status(500).json({ message: err.message }); }
+});
+
+// Homework completion stats
+router.get('/analytics/homework/:classId', async (req: AuthRequest, res: Response) => {
+  try {
+    const data = await query<any[]>(
+      `SELECT u.id AS student_id, u.name, u.student_number,
+              COUNT(DISTINCT h.id) AS total_hw,
+              COUNT(DISTINCT hs.id) AS submitted,
+              AVG(hs.grade) AS avg_grade
+       FROM users u
+       LEFT JOIN homework h ON h.class_id=u.class_id
+       LEFT JOIN homework_submissions hs ON hs.homework_id=h.id AND hs.student_id=u.id
+       WHERE u.role='student' AND u.class_id=?
+       GROUP BY u.id ORDER BY u.name`,
+      [req.params.classId]
+    );
+    res.json(data);
+  } catch (err: any) { res.status(500).json({ message: err.message }); }
+});
+
 export default router;

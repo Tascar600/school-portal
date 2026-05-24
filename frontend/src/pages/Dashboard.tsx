@@ -66,6 +66,8 @@ export default function Dashboard() {
           </p>
         </div>
         <div style={{ textAlign: 'right', color: 'var(--text-dim)', fontSize: '0.85rem' }}>
+          <div>Chakari (GVT) Primary School</div>
+          <div style={{ fontSize: '0.75rem' }}>Mashonaland West · Sanyati District</div>
           <div>NEXUS 3030 v1.0</div>
           <div>{new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</div>
         </div>

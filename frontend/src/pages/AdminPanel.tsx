@@ -29,6 +29,9 @@ export default function AdminPanel() {
   const [dbBrowseCols, setDbBrowseCols] = useState<string[]>([]);
   const [dbBrowseLoading, setDbBrowseLoading] = useState(false);
   const [dbSearch, setDbSearch] = useState('');
+  const [userSearch, setUserSearch] = useState('');
+  const [classSearch, setClassSearch] = useState('');
+  const [subjectSearch, setSubjectSearch] = useState('');
   const [dbError, setDbError] = useState('');
   const [dbInfo, setDbInfo] = useState<any>(null);
   const [dbRestoreFile, setDbRestoreFile] = useState<File | null>(null);
@@ -223,10 +226,15 @@ export default function AdminPanel() {
 
           <div className="card">
             <h2>All Users ({users.length})</h2>
+            <input placeholder="Search by name, email, or reg number..." value={userSearch} onChange={e => setUserSearch(e.target.value)} style={{ marginBottom: '0.5rem', width: '100%' }} />
             <table>
               <thead><tr><th>ID</th><th>Name</th><th>Email</th><th>Role</th><th>Class</th><th>Student #</th><th>Active</th><th>Actions</th></tr></thead>
               <tbody>
-                {users.map((u: any) => (
+                {users.filter((u: any) => {
+                  if (!userSearch) return true;
+                  const q = userSearch.toLowerCase();
+                  return (u.name||'').toLowerCase().includes(q) || (u.email||'').toLowerCase().includes(q) || (u.student_number||'').toLowerCase().includes(q);
+                }).map((u: any) => (
                   <tr key={u.id}>
                     <td>{u.id}</td>
                     <td>{u.name}</td>
@@ -265,10 +273,11 @@ export default function AdminPanel() {
 
           <div className="card">
             <h2>All Classes</h2>
+            <input placeholder="Search class name..." value={classSearch} onChange={e => setClassSearch(e.target.value)} style={{ marginBottom: '0.5rem', width: '100%' }} />
             <table>
               <thead><tr><th>ID</th><th>Name</th><th>Grade</th><th>Section</th><th>Actions</th></tr></thead>
               <tbody>
-                {classes.map((c: any) => (
+                {classes.filter((c: any) => !classSearch || (c.name||'').toLowerCase().includes(classSearch.toLowerCase())).map((c: any) => (
                   <tr key={c.id}>
                     <td>{c.id}</td>
                     <td>{c.name}</td>
@@ -461,10 +470,11 @@ export default function AdminPanel() {
 
           <div className="card">
             <h2>All Subjects</h2>
+            <input placeholder="Search subject name..." value={subjectSearch} onChange={e => setSubjectSearch(e.target.value)} style={{ marginBottom: '0.5rem', width: '100%' }} />
             <table>
               <thead><tr><th>ID</th><th>Name</th><th>Class</th><th>Teacher</th><th>Actions</th></tr></thead>
               <tbody>
-                {subjects.map((s: any) => (
+                {subjects.filter((s: any) => !subjectSearch || (s.name||'').toLowerCase().includes(subjectSearch.toLowerCase())).map((s: any) => (
                   <tr key={s.id}>
                     <td>{s.id}</td>
                     <td>{s.name}</td>

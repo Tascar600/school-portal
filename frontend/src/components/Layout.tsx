@@ -50,6 +50,21 @@ export default function Layout({ children }: { children: ReactNode }) {
               {item.label}
             </Link>
           ))}
+          {user?.role === 'admin' && (
+            <>
+              <Link to="/admin/analytics" className={location.pathname === '/admin/analytics' ? 'nav-link active' : 'nav-link'}>
+                <span className="nav-icon">📊</span> Analytics
+              </Link>
+              <Link to="/admin/student-stats" className={location.pathname === '/admin/student-stats' ? 'nav-link active' : 'nav-link'}>
+                <span className="nav-icon">👤</span> Student Stats
+              </Link>
+            </>
+          )}
+          {user?.role === 'teacher' && (
+            <Link to="/admin/student-stats" className={location.pathname === '/admin/student-stats' ? 'nav-link active' : 'nav-link'}>
+              <span className="nav-icon">👤</span> Student Stats
+            </Link>
+          )}
         </div>
         <div className="nav-user">
           <span>{user?.name} <span className="badge" style={{

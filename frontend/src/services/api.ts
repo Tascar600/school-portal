@@ -75,11 +75,15 @@ export const timetableApi = {
 // Results
 export const resultApi = {
   create: (data: any) => api.post('/results', data),
-  entered: () => api.get('/results/entered'),
+  entered: (params?: any) => api.get('/results/entered', { params }),
   my: () => api.get('/results/my'),
-  all: () => api.get('/results/all'),
+  all: (params?: any) => api.get('/results/all', { params }),
   update: (id: number, data: any) => api.put(`/results/${id}`, data),
   delete: (id: number) => api.delete(`/results/${id}`),
+  classSummary: (classId: number) => api.get(`/results/class-summary/${classId}`),
+  subjectBreakdown: (classId: number) => api.get(`/results/subject-breakdown/${classId}`),
+  studentStats: (studentId: number) => api.get(`/results/student-stats/${studentId}`),
+  archiveTerm: (data: { term: string; academic_year: string }) => api.post('/results/archive-term', data),
 };
 
 // Notices
@@ -155,6 +159,13 @@ export const votingApi = {
   nominate: (data: any) => api.post('/voting/nominate', data),
   vote: (data: any) => api.post('/voting/vote', data),
   deleteSession: (id: number) => api.delete(`/voting/sessions/${id}`),
+};
+
+// Analytics (admin)
+export const analyticsApi = {
+  attendance: (classId: number) => api.get(`/admin/analytics/attendance/${classId}`),
+  sports: (classId: number) => api.get(`/admin/analytics/sports/${classId}`),
+  homework: (classId: number) => api.get(`/admin/analytics/homework/${classId}`),
 };
 
 // Themes
