@@ -10,19 +10,34 @@ export default function StudentStats() {
   const [selectedStudent, setSelectedStudent] = useState<any>(null);
   const [stats, setStats] = useState<any>(null);
   const [searchName, setSearchName] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [msg, setMsg] = useState('');
 
   useEffect(() => {
     if (user?.role === 'teacher' && user?.class_id) {
       adminApi.users().then((r: any) => {
-        const filtered = r.data.filter((u: any) => u.role === 'student' && u.class_id === user.class_id);
+        const arr = Array.isArray(r.data) ? r.data : (r.data?.users || []);
+        const filtered = arr.filter((u: any) => u.role === 'student' && u.class_id === user.class_id);
         setStudents(filtered);
       }).catch(() => {});
     } else if (user?.role === 'admin') {
       adminApi.users().then((r: any) => {
-        setStudents(r.data.filter((u: any) => u.role === 'student'));
+        const arr = Array.isArray(r.data) ? r.data : (r.data?.users || []);
+        setStudents(arr.filter((u: any) => u.role === 'student'));
       }).catch(() => {});
     }
   }, [user]);
+
+  const loadStats = async (studentId: number) => {
+    setLoading(true); setMsg('');
+    try {
+      const res = await resultApi.studentStats(studentId);
+      setStats(res.data);
+    } catch (err: any) {
+      setStats(null);
+      setMsg(err?.response?.data?.message || err?.message || 'Failed to load student stats');
+    } finally { setLoading(false); }
+  };
 
   const handleSearch = async () => {
     const match = (s: any) => {
@@ -33,10 +48,9 @@ export default function StudentStats() {
     const matches = students.filter(match);
     if (matches.length > 0) {
       setSelectedStudent(matches[0]);
-      try {
-        const res = await resultApi.studentStats(matches[0].id);
-        setStats(res.data);
-      } catch (_) {}
+      await loadStats(matches[0].id);
+    } else {
+      setMsg('No student found matching your search');
     }
   };
 
@@ -71,18 +85,20 @@ export default function StudentStats() {
       <h1>👤 Student Statistics</h1>
       <p style={{ color: 'var(--text-dim)', marginBottom: '1rem' }}>Chakari (GVT) Primary School — View full student profile</p>
 
+      {msg && <div className="alert alert-error">{msg}</div>}
+
       <div className="card">
         <h2>Find Student</h2>
         <div className="form-row">
           <div><label>Registration Number</label><input value={searchReg} onChange={e => setSearchReg(e.target.value)} placeholder="e.g. c2600001c" /></div>
           <div><label>Or Name</label><input value={searchName} onChange={e => setSearchName(e.target.value)} placeholder="Search by name..." /></div>
-          <div style={{ display: 'flex', alignItems: 'flex-end', paddingBottom: '0.25rem' }}><button className="btn btn-primary" onClick={handleSearch}>Search</button></div>
+          <div style={{ display: 'flex', alignItems: 'flex-end', paddingBottom: '0.25rem' }}><button className="btn btn-primary" onClick={handleSearch} disabled={loading}>{loading ? 'Loading...' : 'Search'}</button></div>
         </div>
         {filteredStudents.length > 0 && (
           <div style={{ maxHeight: 200, overflowY: 'auto', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '0.5rem', marginTop: '0.5rem' }}>
             {filteredStudents.slice(0, 20).map((s: any) => (
               <div key={s.id} 
-                onClick={() => { setSelectedStudent(s); resultApi.studentStats(s.id).then(r => setStats(r.data)).catch(() => {}); }}
+                onClick={() => { setSelectedStudent(s); loadStats(s.id); }}
                 style={{ padding: '0.4rem 0.5rem', cursor: 'pointer', borderRadius: 4, background: selectedStudent?.id === s.id ? 'rgba(0,240,255,0.1)' : 'transparent', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
                 <span style={{ fontWeight: 600 }}>{s.name}</span> <span style={{ color: 'var(--text-dim)', fontSize: '0.8rem' }}>{s.student_number}</span>
               </div>
