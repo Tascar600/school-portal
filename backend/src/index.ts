@@ -44,10 +44,10 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Rate limit on auth endpoints — max 10 attempts per 15 min
+// Rate limit on auth endpoints
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 10,
+  max: 100,
   message: { message: 'Too many attempts. Try again in 15 minutes.' },
   standardHeaders: true,
   legacyHeaders: false,
