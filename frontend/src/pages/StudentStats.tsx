@@ -25,11 +25,16 @@ export default function StudentStats() {
   }, [user]);
 
   const handleSearch = async () => {
-    const student = students.find((s: any) => s.student_number === searchReg || s.name?.toLowerCase().includes(searchReg.toLowerCase()) || searchName?.toLowerCase() && s.name?.toLowerCase().includes(searchName.toLowerCase()));
-    if (student) {
-      setSelectedStudent(student);
+    const match = (s: any) => {
+      if (searchReg && (s.student_number?.toLowerCase().includes(searchReg.toLowerCase()))) return true;
+      if (searchName && s.name?.toLowerCase().includes(searchName.toLowerCase())) return true;
+      return false;
+    };
+    const matches = students.filter(match);
+    if (matches.length > 0) {
+      setSelectedStudent(matches[0]);
       try {
-        const res = await resultApi.studentStats(student.id);
+        const res = await resultApi.studentStats(matches[0].id);
         setStats(res.data);
       } catch (_) {}
     }
@@ -55,10 +60,10 @@ export default function StudentStats() {
   ].filter(d => d.value > 0) : [];
 
   const filteredStudents = students.filter((s: any) => {
-    if (!searchReg && !searchName) return true;
-    const matchReg = searchReg ? s.student_number?.toLowerCase().includes(searchReg.toLowerCase()) : true;
-    const matchName = searchName ? s.name?.toLowerCase().includes(searchName.toLowerCase()) : true;
-    return matchReg && matchName;
+    if (!searchReg && !searchName) return false;
+    const matchReg = searchReg ? s.student_number?.toLowerCase().includes(searchReg.toLowerCase()) : false;
+    const matchName = searchName ? s.name?.toLowerCase().includes(searchName.toLowerCase()) : false;
+    return matchReg || matchName;
   });
 
   return (
