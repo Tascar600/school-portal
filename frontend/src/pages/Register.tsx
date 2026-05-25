@@ -39,10 +39,7 @@ export default function Register() {
       (existing.records || []).forEach((r: any) => { recMap[r.student_id] = r.status; });
       setRecords(recMap);
     } else {
-      // Initialize all as present
-      const init: Record<number, string> = {};
-      students.forEach(s => { init[s.id] = 'present'; });
-      setRecords(init);
+      setRecords({});
     }
   };
 
@@ -54,7 +51,7 @@ export default function Register() {
 
   const saveAttendance = async () => {
     if (!classId) { setMsg('Select a class first'); return; }
-    const data = Object.entries(records).map(([student_id, status]) => ({ student_id: parseInt(student_id), status }));
+    const data = Object.entries(records).filter(([_, status]) => status).map(([student_id, status]) => ({ student_id: parseInt(student_id), status }));
     try {
       await attendanceApi.mark({ class_id: parseInt(classId), date, records: data });
       setMsg('Attendance saved');
@@ -65,7 +62,7 @@ export default function Register() {
   const statusColors: Record<string, string> = { present: '#2e7d32', absent: '#c62828', late: '#f57f17', excused: '#1565c0' };
 
   if (user?.role === 'teacher') {
-    const csvData = students.map(s => ({ 'Student': s.name, 'Status': records[s.id] || 'present' }));
+    const csvData = students.map(s => ({ 'Student': s.name, 'Status': records[s.id] || 'unmarked' }));
     return (
       <div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
@@ -102,7 +99,8 @@ export default function Register() {
                       <td>{i + 1}</td>
                       <td>{s.name}</td>
                       <td>
-                        <select value={records[s.id] || 'present'} onChange={e => setRecords({ ...records, [s.id]: e.target.value })} style={{ width: 'auto', margin: 0 }}>
+                        <select value={records[s.id] || ''} onChange={e => setRecords({ ...records, [s.id]: e.target.value })} style={{ width: 'auto', margin: 0 }}>
+                          <option value="">— Select —</option>
                           <option value="present">Present</option>
                           <option value="absent">Absent</option>
                           <option value="late">Late</option>
@@ -154,7 +152,7 @@ export default function Register() {
                                   return (
                                     <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.15rem 0.5rem', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
                                       <span>{s?.name || `Student #${r.student_id}`}</span>
-                                      <span style={{ color: r.status === 'present' ? '#4ade80' : r.status === 'absent' ? '#f87171' : r.status === 'late' ? '#fbbf24' : '#aaa', fontWeight: 600 }}>
+                                      <span style={{ color: r.status === 'present' ? '#4ade80' : r.status === 'absent' ? '#f87171' : r.status === 'late' ? '#fbbf24' : r.status === 'excused' ? '#a78bfa' : '#aaa', fontWeight: 600 }}>
                                         {r.status?.toUpperCase()}
                                       </span>
                                     </div>
@@ -194,7 +192,7 @@ export default function Register() {
               {myAttendance.map((a: any, i: number) => (
                 <tr key={i}>
                   <td>{a.date}</td>
-                  <td><span style={{ color: statusColors[a.status] || '#333', fontWeight: 'bold' }}>{a.status?.toUpperCase()}</span></td>
+                  <td><span style={{ color: statusColors[a.status] || (a.status === 'excused' ? '#a78bfa' : '#333'), fontWeight: 'bold' }}>{a.status?.toUpperCase()}</span></td>
                 </tr>
               ))}
             </tbody>
