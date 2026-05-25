@@ -14,6 +14,8 @@ export default function Register() {
   const [msg, setMsg] = useState('');
   const [historySearch, setHistorySearch] = useState('');
   const [expandedDate, setExpandedDate] = useState<string | null>(null);
+  const [showPrintPicker, setShowPrintPicker] = useState(false);
+  const [printData, setPrintData] = useState<{ date: string; records: any[]; present: number; absent: number; late: number; excused: number } | null>(null);
 
   useEffect(() => {
     if (user?.role === 'teacher') {
@@ -70,6 +72,7 @@ export default function Register() {
           <div style={{ display: 'flex', gap: '0.3rem' }}>
             <PrintButton />
             <DownloadCSV data={csvData} headers={['Student', 'Status']} filename="attendance_register.csv" label=" CSV" />
+            <button className="btn" style={{ background: 'rgba(167,139,250,0.2)', color: '#a78bfa', border: '1px solid rgba(167,139,250,0.3)' }} onClick={() => setShowPrintPicker(true)}>🖨 Print Register</button>
           </div>
         </div>
         {msg && <div className="alert alert-info">{msg}</div>}
@@ -169,6 +172,85 @@ export default function Register() {
             </div>
           )}
         </div>
+
+        {/* Print Register Picker */}
+        {showPrintPicker && <div className="modal-overlay" onClick={() => setShowPrintPicker(false)}>
+          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 500 }}>
+            <h2>Select Register to Print</h2>
+            {attendanceHistory.length === 0 ? <p>No attendance records yet.</p> : (
+              <div style={{ maxHeight: 300, overflowY: 'auto' }}>
+                {attendanceHistory.map((a: any) => {
+                  const parsed = typeof a.records === 'string' ? JSON.parse(a.records) : (a.records || []);
+                  return (
+                    <div key={a.id} onClick={() => {
+                      const present = parsed.filter((r: any) => r.status === 'present').length;
+                      const absent = parsed.filter((r: any) => r.status === 'absent').length;
+                      const late = parsed.filter((r: any) => r.status === 'late').length;
+                      const excused = parsed.filter((r: any) => r.status === 'excused').length;
+                      setPrintData({ date: a.date, records: parsed, present, absent, late, excused });
+                      setShowPrintPicker(false);
+                      setTimeout(() => window.print(), 300);
+                    }} style={{ padding: '0.6rem 0.8rem', cursor: 'pointer', borderRadius: 6, marginBottom: '0.3rem', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontWeight: 600 }}>{a.date}</span>
+                      <span style={{ color: 'var(--text-dim)', fontSize: '0.85rem' }}>{parsed.length} students</span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+            <button className="btn" onClick={() => setShowPrintPicker(false)} style={{ marginTop: '0.5rem' }}>Cancel</button>
+          </div>
+        </div>}
+
+        {/* Printable Register (hidden on screen) */}
+        {printData && (
+          <div style={{ display: 'none' }} className="print-register">
+            <div style={{ textAlign: 'center', marginBottom: '1rem' }}>
+              <h1 style={{ fontSize: '1.4rem', margin: 0 }}>Chakari (GVT) Primary School</h1>
+              <p style={{ margin: 0 }}>Mashonaland West · Sanyati District</p>
+              <h2 style={{ marginTop: '0.5rem' }}>Attendance Register — {printData.date}</h2>
+            </div>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr style={{ borderBottom: '2px solid #000' }}>
+                  <th style={{ padding: '6px 8px', textAlign: 'left', border: '1px solid #000' }}>#</th>
+                  <th style={{ padding: '6px 8px', textAlign: 'left', border: '1px solid #000' }}>Student Name</th>
+                  <th style={{ padding: '6px 8px', textAlign: 'center', border: '1px solid #000' }}>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {printData.records.map((r: any, i: number) => {
+                  const s = students.find((st: any) => st.id === r.student_id);
+                  return (
+                    <tr key={i} style={{ borderBottom: '1px solid #ccc' }}>
+                      <td style={{ padding: '4px 8px', border: '1px solid #ccc', textAlign: 'center' }}>{i + 1}</td>
+                      <td style={{ padding: '4px 8px', border: '1px solid #ccc' }}>{s?.name || `Student #${r.student_id}`}</td>
+                      <td style={{ padding: '4px 8px', border: '1px solid #ccc', textAlign: 'center', fontWeight: 600 }}>{r.status?.toUpperCase()}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+            <div style={{ marginTop: '0.5rem', display: 'flex', justifyContent: 'space-around', fontSize: '0.9rem' }}>
+              <span>Present: <strong>{printData.present}</strong></span>
+              <span>Absent: <strong>{printData.absent}</strong></span>
+              <span>Late: <strong>{printData.late}</strong></span>
+              <span>Excused: <strong>{printData.excused}</strong></span>
+              <span>Total: <strong>{printData.records.length}</strong></span>
+            </div>
+          </div>
+        )}
+
+        <style>{`
+          @media print {
+            body * { visibility: hidden; }
+            .print-register, .print-register * { visibility: visible; }
+            .print-register { display: block !important; position: absolute; left: 0; top: 0; width: 100%; padding: 20px; }
+            .print-register h1 { color: #000; }
+            .print-register h2 { color: #333; }
+            .print-register table { color: #000; }
+          }
+        `}</style>
       </div>
     );
   }
