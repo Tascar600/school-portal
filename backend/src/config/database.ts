@@ -284,6 +284,14 @@ function createTables(): void {
       key TEXT PRIMARY KEY,
       value TEXT NOT NULL
     );
+    -- Fee archives (term-end snapshots)
+    CREATE TABLE IF NOT EXISTS fee_archives (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      term TEXT NOT NULL,
+      academic_year TEXT NOT NULL,
+      data TEXT NOT NULL,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
   `);
 }
 
@@ -547,6 +555,7 @@ export async function initDatabase(): Promise<void> {
   try { db.run("ALTER TABLE results ADD COLUMN exam REAL DEFAULT 0"); } catch {}
   try { db.run("ALTER TABLE results ADD COLUMN status TEXT DEFAULT 'active' CHECK(status IN ('active','archived'))"); } catch {}
   try { db.run("ALTER TABLE results ADD COLUMN subject_name TEXT DEFAULT ''"); } catch {}
+  try { db.run("ALTER TABLE fee_accounts ADD COLUMN credit_bf REAL DEFAULT 0"); } catch {}
   seedZimbabweClasses();
   seedAdmin();
   seedTestData();

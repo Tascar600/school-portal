@@ -55,7 +55,9 @@ export const feesApi = {
   getSettings: () => api.get('/fees/settings'),
   setSettings: (data: { sdc_fee: number; ssf_fee: number }) => api.post('/fees/settings', data),
   teacherAccounts: () => api.get('/fees/accounts/my-students'),
-  termEnd: (data: { sdc_fee: number; ssf_fee: number }) => api.post('/fees/term-end', data),
+  termEnd: (data: { sdc_fee: number; ssf_fee: number; term: string; academic_year: string }) => api.post('/fees/term-end', data),
+  archives: () => api.get('/fees/archives'),
+  archive: (id: number) => api.get(`/fees/archives/${id}`),
   yearEnd: () => api.post('/fees/year-end'),
 };
 

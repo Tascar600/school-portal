@@ -19,8 +19,11 @@ export default function Fees() {
   const [feeForm, setFeeForm] = useState({ sdc_fee: '', ssf_fee: '' });
   const [currentSettings, setCurrentSettings] = useState<any>(null);
   const [showTermEnd, setShowTermEnd] = useState(false);
-  const [termForm, setTermForm] = useState({ sdc_fee: '', ssf_fee: '' });
+  const [termForm, setTermForm] = useState({ sdc_fee: '', ssf_fee: '', term: '', academic_year: '' });
   const [showYearEnd, setShowYearEnd] = useState(false);
+  const [showPastFees, setShowPastFees] = useState(false);
+  const [feeArchives, setFeeArchives] = useState<any[]>([]);
+  const [selectedArchive, setSelectedArchive] = useState<any>(null);
   const [loading, setLoading] = useState(false);
 
   const showMsg = (m: string, t: 'info' | 'error' = 'info') => {
@@ -35,6 +38,7 @@ export default function Fees() {
       feesApi.pending().then(r => setPendingPayments(r.data));
       feesApi.stats().then(r => setStats(r.data));
       feesApi.getSettings().then(r => setCurrentSettings(r.data));
+      feesApi.archives().then(r => setFeeArchives(r.data));
     }
     if (user?.role === 'teacher') {
       feesApi.teacherView().then(r => setTeacherView(r.data));
@@ -90,7 +94,7 @@ export default function Fees() {
   const handleTermEnd = async (e: React.FormEvent) => {
     e.preventDefault(); setLoading(true);
     try {
-      const res = await feesApi.termEnd({ sdc_fee: parseFloat(termForm.sdc_fee), ssf_fee: parseFloat(termForm.ssf_fee) });
+      const res = await feesApi.termEnd({ sdc_fee: parseFloat(termForm.sdc_fee), ssf_fee: parseFloat(termForm.ssf_fee), term: termForm.term, academic_year: termForm.academic_year });
       showMsg(res.data.message); setShowTermEnd(false); load();
     } catch (err: any) { showMsg(err.response?.data?.message || 'Term end failed', 'error'); }
     finally { setLoading(false); }
@@ -109,7 +113,14 @@ export default function Fees() {
   const renderBalance = (a: any) =>
     a.balance <= 0
       ? <span style={{ color: '#4ade80', fontWeight: 700 }}>FULLY PAID</span>
-      : <span style={{ color: '#f87171', fontWeight: 600 }}>${a.balance?.toFixed(2)}</span>;
+      : <span style={{ color: '#f87171', fontWeight: 700, background: 'rgba(248,113,113,0.15)', padding: '2px 8px', borderRadius: 4 }}>​${a.balance?.toFixed(2)} OWING</span>;
+
+  const handleViewArchive = async (id: number) => {
+    try {
+      const res = await feesApi.archive(id);
+      setSelectedArchive(res.data);
+    } catch { setSelectedArchive(null); }
+  };
 
   const statusBadge = (s: string) => {
     const colors: Record<string, string> = { verified: '#4ade80', rejected: '#f87171', pending: '#fbbf24' };
@@ -204,30 +215,32 @@ export default function Fees() {
         <div className="card">
           <h2>Per-Student Breakdown</h2>
           {teacherView.length === 0 ? <p>No students in your class.</p> : (
-            <table>
-              <thead><tr><th>Student</th><th>Account</th><th>Total Fee</th><th>Paid</th><th>Balance</th><th>Status</th></tr></thead>
-              <tbody>
-                {teacherView.map((s: any) => (
-                  <>
-                    <tr key={`${s.id}-sdc`} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
-                      <td style={{ fontWeight: 600, verticalAlign: 'middle' }} rowSpan={2}>{s.name}</td>
-                      <td>SDC</td>
-                      <td>${s.sdc?.totalFee?.toFixed(2) || '0.00'}</td>
-                      <td style={{ color: '#4ade80' }}>${s.sdc?.paid?.toFixed(2) || '0.00'}</td>
-                      <td>{s.sdc?.balance <= 0 ? <span style={{ color: '#4ade80' }}>FULLY PAID</span> : <span style={{ color: '#f87171' }}>${s.sdc?.balance?.toFixed(2)}</span>}</td>
-                      <td>{s.sdc?.balance <= 0 ? <span style={{ color: '#4ade80' }}>✓ PAID</span> : <span style={{ color: '#f87171' }}>✗ OWING</span>}</td>
-                    </tr>
-                    <tr key={`${s.id}-ssf`}>
-                      <td>SSF</td>
-                      <td>${s.ssf?.totalFee?.toFixed(2) || '0.00'}</td>
-                      <td style={{ color: '#4ade80' }}>${s.ssf?.paid?.toFixed(2) || '0.00'}</td>
-                      <td>{s.ssf?.balance <= 0 ? <span style={{ color: '#4ade80' }}>FULLY PAID</span> : <span style={{ color: '#f87171' }}>${s.ssf?.balance?.toFixed(2)}</span>}</td>
-                      <td>{s.ssf?.balance <= 0 ? <span style={{ color: '#4ade80' }}>✓ PAID</span> : <span style={{ color: '#f87171' }}>✗ OWING</span>}</td>
-                    </tr>
-                  </>
-                ))}
-              </tbody>
-            </table>
+              <table>
+                <thead><tr><th>Student</th><th>Account</th><th>Total Fee</th><th>Paid</th><th>Credit B/F</th><th>Balance</th><th>Status</th></tr></thead>
+                <tbody>
+                  {teacherView.map((s: any) => (
+                    <>
+                      <tr key={`${s.id}-sdc`} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
+                        <td style={{ fontWeight: 600, verticalAlign: 'middle' }} rowSpan={2}>{s.name}</td>
+                        <td>SDC</td>
+                        <td>${s.sdc?.totalFee?.toFixed(2) || '0.00'}</td>
+                        <td style={{ color: '#4ade80' }}>${s.sdc?.paid?.toFixed(2) || '0.00'}</td>
+                        <td>{s.sdc?.creditBf > 0 ? <span style={{ color: '#f87171', fontWeight: 700, background: 'rgba(248,113,113,0.15)', padding: '2px 6px', borderRadius: 4 }}>​${parseFloat(s.sdc?.creditBf || 0).toFixed(2)}</span> : <span style={{ color: 'var(--text-dim)' }}>-</span>}</td>
+                        <td>{s.sdc?.balance <= 0 ? <span style={{ color: '#4ade80', fontWeight: 700 }}>FULLY PAID</span> : <span style={{ color: '#f87171', fontWeight: 700, background: 'rgba(248,113,113,0.15)', padding: '2px 8px', borderRadius: 4 }}>​${s.sdc?.balance?.toFixed(2)} OWING</span>}</td>
+                        <td>{s.sdc?.balance <= 0 ? <span style={{ color: '#4ade80' }}>✓ PAID</span> : <span style={{ color: '#f87171' }}>✗ OWING</span>}</td>
+                      </tr>
+                      <tr key={`${s.id}-ssf`}>
+                        <td>SSF</td>
+                        <td>${s.ssf?.totalFee?.toFixed(2) || '0.00'}</td>
+                        <td style={{ color: '#4ade80' }}>${s.ssf?.paid?.toFixed(2) || '0.00'}</td>
+                        <td>{s.ssf?.creditBf > 0 ? <span style={{ color: '#f87171', fontWeight: 700, background: 'rgba(248,113,113,0.15)', padding: '2px 6px', borderRadius: 4 }}>​${parseFloat(s.ssf?.creditBf || 0).toFixed(2)}</span> : <span style={{ color: 'var(--text-dim)' }}>-</span>}</td>
+                        <td>{s.ssf?.balance <= 0 ? <span style={{ color: '#4ade80', fontWeight: 700 }}>FULLY PAID</span> : <span style={{ color: '#f87171', fontWeight: 700, background: 'rgba(248,113,113,0.15)', padding: '2px 8px', borderRadius: 4 }}>​${s.ssf?.balance?.toFixed(2)} OWING</span>}</td>
+                        <td>{s.ssf?.balance <= 0 ? <span style={{ color: '#4ade80' }}>✓ PAID</span> : <span style={{ color: '#f87171' }}>✗ OWING</span>}</td>
+                      </tr>
+                    </>
+                  ))}
+                </tbody>
+              </table>
           )}
         </div>
         <div className="card">
@@ -283,8 +296,9 @@ export default function Fees() {
           <button className="btn btn-success" onClick={() => { setFeeForm({ sdc_fee: currentSettings?.sdc_fee?.toString() || '', ssf_fee: currentSettings?.ssf_fee?.toString() || '' }); setShowFeeSetup(true); }}>
             {isConfigured ? 'Update Fee Amounts' : 'Set Fee Amounts'}
           </button>
-          <button className="btn btn-warning" disabled={!isConfigured} onClick={() => { setTermForm({ sdc_fee: currentSettings?.sdc_fee?.toString() || '', ssf_fee: currentSettings?.ssf_fee?.toString() || '' }); setShowTermEnd(true); }}> Term End</button>
+          <button className="btn btn-warning" disabled={!isConfigured} onClick={() => { setTermForm({ sdc_fee: currentSettings?.sdc_fee?.toString() || '', ssf_fee: currentSettings?.ssf_fee?.toString() || '', term: '', academic_year: new Date().getFullYear().toString() }); setShowTermEnd(true); }}> Term End</button>
           <button className="btn btn-danger" onClick={() => setShowYearEnd(true)}> Year End</button>
+          <button className="btn" style={{ background: 'rgba(167,139,250,0.2)', color: '#a78bfa', border: '1px solid rgba(167,139,250,0.3)' }} onClick={() => { feesApi.archives().then(r => setFeeArchives(r.data)); setShowPastFees(true); }}> View Past Fees</button>
         </div>
 
         {!isConfigured && <div className="card" style={{ textAlign: 'center', padding: '2rem', border: '1px solid rgba(245,158,11,0.3)' }}>
@@ -343,14 +357,15 @@ export default function Fees() {
         <div className="card">
           <h2>All Fee Accounts ({accounts.length})</h2>
           {accounts.length === 0 ? <p>No accounts yet.</p> : (
-            <table>
-              <thead><tr><th>Student</th><th>Account</th><th>Total</th><th>Balance</th><th>Payment History</th></tr></thead>
-              <tbody>{accounts.map((a: any) => (
-                <tr key={a.id}>
-                  <td style={{ fontWeight: 600 }}>{a.student_name}</td>
-                  <td>{a.account_type}</td>
-                  <td>${a.total_fee?.toFixed(2)}</td>
-                  <td>{renderBalance(a)}</td>
+              <table>
+                <thead><tr><th>Student</th><th>Account</th><th>Total</th><th>Credit B/F</th><th>Balance</th><th>Payment History</th></tr></thead>
+                <tbody>{accounts.map((a: any) => (
+                  <tr key={a.id}>
+                    <td style={{ fontWeight: 600 }}>{a.student_name}</td>
+                    <td>{a.account_type}</td>
+                    <td>${a.total_fee?.toFixed(2)}</td>
+                    <td>{a.credit_bf > 0 ? <span style={{ color: '#f87171', fontWeight: 700, background: 'rgba(248,113,113,0.15)', padding: '2px 6px', borderRadius: 4 }}>​${parseFloat(a.credit_bf).toFixed(2)}</span> : <span style={{ color: 'var(--text-dim)' }}>-</span>}</td>
+                    <td>{renderBalance(a)}</td>
                   <td style={{ minWidth: 220 }}>
                     {a.payments?.length ? a.payments.map((p: any) => (
                       <div key={p.id} style={{ fontSize: '0.8rem', marginBottom: '0.25rem', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -391,12 +406,16 @@ export default function Fees() {
         </div>}
         {showTermEnd && <div className="modal-overlay" onClick={() => setShowTermEnd(false)}>
           <div className="modal" onClick={e => e.stopPropagation()}>
-            <h2>Term End — New Fees</h2>
-            <p style={{ color: 'var(--text-dim)', fontSize: '0.85rem' }}>Resets accounts. Credits carry forward.</p>
+            <h2>Term End — Archive & Reset</h2>
+            <p style={{ color: 'var(--text-dim)', fontSize: '0.85rem' }}>Current fees snapshot saved. Credit carried forward.</p>
             <form onSubmit={handleTermEnd}>
-              <label>SDC Fee ($)</label>
+              <label>Ending Term</label>
+              <input type="text" value={termForm.term} onChange={e => setTermForm({ ...termForm, term: e.target.value })} required placeholder="e.g. Term 2" />
+              <label>Academic Year</label>
+              <input type="text" value={termForm.academic_year} onChange={e => setTermForm({ ...termForm, academic_year: e.target.value })} required placeholder="e.g. 2026" />
+              <label>New SDC Fee ($)</label>
               <input type="number" step="0.01" value={termForm.sdc_fee} onChange={e => setTermForm({ ...termForm, sdc_fee: e.target.value })} required />
-              <label>SSF Fee ($)</label>
+              <label>New SSF Fee ($)</label>
               <input type="number" step="0.01" value={termForm.ssf_fee} onChange={e => setTermForm({ ...termForm, ssf_fee: e.target.value })} required />
               <div style={{ marginTop: '1rem' }}>
                 <button type="submit" className="btn btn-warning" disabled={loading}>{loading ? 'Processing...' : ' End Term'}</button>
@@ -419,6 +438,53 @@ export default function Fees() {
             </div>
             <button className="btn btn-danger" onClick={handleYearEnd} disabled={loading}>{loading ? 'Processing...' : ' Confirm Year End'}</button>
             <button className="btn" onClick={() => setShowYearEnd(false)}>Cancel</button>
+          </div>
+        </div>}
+
+        {/* Past Fees Archives */}
+        {showPastFees && <div className="modal-overlay" onClick={() => { setShowPastFees(false); setSelectedArchive(null); }}>
+          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 800, width: '90%', maxHeight: '80vh', overflowY: 'auto' }}>
+            <h2>Past Fee Records</h2>
+            {!selectedArchive ? (
+              <>
+                {feeArchives.length === 0 ? <p style={{ color: 'var(--text-dim)' }}>No archived fee records yet.</p> : (
+                  <table>
+                    <thead><tr><th>Term</th><th>Year</th><th>Archived On</th><th>View</th></tr></thead>
+                    <tbody>
+                      {feeArchives.map((a: any) => (
+                        <tr key={a.id}>
+                          <td style={{ fontWeight: 600 }}>{a.term}</td>
+                          <td>{a.academic_year}</td>
+                          <td style={{ color: 'var(--text-dim)', fontSize: '0.85rem' }}>{new Date(a.created_at).toLocaleDateString()}</td>
+                          <td><button className="btn btn-sm btn-primary" onClick={() => handleViewArchive(a.id)}>View</button></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+                <button className="btn" onClick={() => { setShowPastFees(false); setSelectedArchive(null); }} style={{ marginTop: '1rem' }}>Close</button>
+              </>
+            ) : (
+              <>
+                <p style={{ color: 'var(--text-dim)' }}>{selectedArchive.term} · {selectedArchive.academic_year} · Archived {new Date(selectedArchive.created_at).toLocaleDateString()}</p>
+                <table>
+                  <thead><tr><th>Student</th><th>Account</th><th>Total Fee</th><th>Balance</th><th>Status</th></tr></thead>
+                  <tbody>
+                    {(selectedArchive.data || []).map((a: any, i: number) => (
+                      <tr key={i}>
+                        <td style={{ fontWeight: 600 }}>{a.student_name}</td>
+                        <td>{a.account_type}</td>
+                        <td>${parseFloat(a.total_fee).toFixed(2)}</td>
+                        <td>{parseFloat(a.balance) <= 0 ? <span style={{ color: '#4ade80' }}>$0.00</span> : <span style={{ color: '#f87171', fontWeight: 700 }}>${parseFloat(a.balance).toFixed(2)}</span>}</td>
+                        <td>{parseFloat(a.balance) <= 0 ? <span style={{ color: '#4ade80' }}>PAID</span> : <span style={{ color: '#f87171' }}>OWING</span>}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <button className="btn" onClick={() => setSelectedArchive(null)} style={{ marginTop: '1rem', marginRight: '0.5rem' }}> Back</button>
+                <button className="btn" onClick={() => { setShowPastFees(false); setSelectedArchive(null); }}>Close</button>
+              </>
+            )}
           </div>
         </div>}
       </div>

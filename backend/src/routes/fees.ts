@@ -113,7 +113,7 @@ router.get('/pending', authenticate, authorize('admin'), async (req: AuthRequest
 router.get('/accounts', authenticate, authorize('admin'), async (req: AuthRequest, res: Response) => {
   try {
     const accounts = await query<any[]>(
-      `SELECT fa.*, u.name AS student_name FROM fee_accounts fa
+      `SELECT fa.*, fa.credit_bf AS credit_bf, u.name AS student_name FROM fee_accounts fa
        JOIN users u ON u.id = fa.student_id
        ORDER BY u.name`
     );
@@ -161,7 +161,7 @@ router.get('/teacher-view', authenticate, authorize('teacher'), async (req: Auth
       const studentRow: any = { id: s.id, name: s.name, sdc: null, ssf: null };
       for (const a of accounts) {
         studentRow[a.account_type.toLowerCase()] = {
-          totalFee: a.total_fee, balance: a.balance, paid: a.total_fee - a.balance
+          totalFee: a.total_fee, balance: a.balance, paid: a.total_fee - a.balance, creditBf: a.credit_bf || 0
         };
       }
       result.push(studentRow);
@@ -239,27 +239,76 @@ router.post('/undo/:paymentId', authenticate, authorize('admin'), async (req: Au
   } catch (err: any) { res.status(500).json({ message: err.message }); }
 });
 
-// ── Admin: TERM END ──────────────────────────────────
+// ── Admin: TERM END (archive + carry credit) ──────────
 router.post('/term-end', authenticate, authorize('admin'), async (req: AuthRequest, res: Response) => {
   try {
-    const { sdc_fee, ssf_fee } = req.body;
-    if (!sdc_fee || !ssf_fee) return res.status(400).json({ message: 'Both sdc_fee and ssf_fee amounts are required' });
+    const { sdc_fee, ssf_fee, term, academic_year } = req.body;
+    if (!sdc_fee || !ssf_fee) return res.status(400).json({ message: 'SDC and SSF fee amounts required' });
+    if (!term || !academic_year) return res.status(400).json({ message: 'Term and academic year required' });
     const feeSDC = parseFloat(sdc_fee), feeSSF = parseFloat(ssf_fee);
     if (isNaN(feeSDC) || isNaN(feeSSF) || feeSDC <= 0 || feeSSF <= 0) return res.status(400).json({ message: 'Invalid fee amounts' });
 
+    // 1. Snapshot all fee accounts with student names and payments
+    const accounts = await query<any[]>(
+      `SELECT fa.*, u.name AS student_name FROM fee_accounts fa
+       JOIN users u ON u.id = fa.student_id ORDER BY u.name`
+    );
+    for (const acc of accounts) {
+      acc.payments = await query<any[]>(
+        'SELECT * FROM payments WHERE student_id = ? AND account_type = ? ORDER BY created_at DESC',
+        [acc.student_id, acc.account_type]
+      );
+    }
+    const archiveData = JSON.stringify(accounts);
+
+    // 2. Save archive
+    await execute(
+      'INSERT INTO fee_archives (term, academic_year, data) VALUES (?, ?, ?)',
+      [term, academic_year, archiveData]
+    );
+
+    // 3. Update fee settings
     await setSetting('sdc_fee', feeSDC.toString());
     await setSetting('ssf_fee', feeSSF.toString());
 
-    const accounts = await query<any[]>('SELECT * FROM fee_accounts');
-    let updated = 0;
+    // 4. Reset accounts with credit carry-forward
+    let updated = 0, carried = 0;
     for (const acc of accounts) {
-      const credit = Math.max(0, -acc.balance);
       const newFee = acc.account_type === 'SDC' ? feeSDC : feeSSF;
-      const newBalance = newFee - credit;
-      await execute('UPDATE fee_accounts SET total_fee=?, balance=? WHERE id=?', [newFee, newBalance, acc.id]);
+      const oldBalance = parseFloat(acc.balance) || 0;
+      if (oldBalance > 0) {
+        // Student still owes — carry forward balance as credit_bf
+        const newTotal = newFee + oldBalance;
+        await execute('UPDATE fee_accounts SET credit_bf=?, total_fee=?, balance=? WHERE id=?', [oldBalance, newTotal, newTotal, acc.id]);
+        carried++;
+      } else {
+        // Cleared or overpaid — fresh start (credit reduces the new fee if overpaid)
+        const newBalance = Math.max(0, newFee + oldBalance);
+        await execute('UPDATE fee_accounts SET credit_bf=0, total_fee=?, balance=? WHERE id=?', [newFee, newBalance, acc.id]);
+      }
       updated++;
     }
-    res.json({ message: `Term ended. ${updated} accounts reset. Credits carried forward.` });
+    res.json({ message: `${term} ${academic_year} ended. ${updated} accounts reset, ${carried} with credit carried forward.` });
+  } catch (err: any) { res.status(500).json({ message: err.message }); }
+});
+
+// ── Admin: List fee archives ──────────────────────────
+router.get('/archives', authenticate, authorize('admin'), async (_req: AuthRequest, res: Response) => {
+  try {
+    const archives = await query<any[]>(
+      'SELECT id, term, academic_year, created_at FROM fee_archives ORDER BY created_at DESC'
+    );
+    res.json(archives);
+  } catch (err: any) { res.status(500).json({ message: err.message }); }
+});
+
+// ── Admin: View single archive ────────────────────────
+router.get('/archives/:id', authenticate, authorize('admin'), async (req: AuthRequest, res: Response) => {
+  try {
+    const [archive] = await query<any[]>('SELECT * FROM fee_archives WHERE id = ?', [req.params.id]);
+    if (!archive) return res.status(404).json({ message: 'Archive not found' });
+    archive.data = JSON.parse(archive.data);
+    res.json(archive);
   } catch (err: any) { res.status(500).json({ message: err.message }); }
 });
 
