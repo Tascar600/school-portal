@@ -19,6 +19,8 @@ import Voting from './pages/Voting';
 import Themes from './pages/Themes';
 import AdminAnalytics from './pages/AdminAnalytics';
 import StudentStats from './pages/StudentStats';
+import BursaryDashboard from './pages/BursaryDashboard';
+import ReportCards from './pages/ReportCards';
 import './App.css';
 
 export default function App() {
@@ -37,7 +39,19 @@ export default function App() {
       />
       <Route
         path="/fees"
-        element={<ProtectedRoute roles={['student', 'admin', 'teacher']}><Layout><Fees /></Layout></ProtectedRoute>}
+        element={<ProtectedRoute roles={['student', 'admin', 'teacher', 'bursary']}><Layout><Fees /></Layout></ProtectedRoute>}
+      />
+      <Route
+        path="/bursary"
+        element={<ProtectedRoute roles={['bursary']}><Layout><BursaryDashboard /></Layout></ProtectedRoute>}
+      />
+      <Route
+        path="/report-cards"
+        element={<ProtectedRoute roles={['admin', 'teacher', 'student']}><Layout><ReportCards /></Layout></ProtectedRoute>}
+      />
+      <Route
+        path="/report-cards/:studentId"
+        element={<ProtectedRoute roles={['admin', 'teacher', 'student']}><Layout><ReportCards /></Layout></ProtectedRoute>}
       />
       <Route
         path="/timetable"

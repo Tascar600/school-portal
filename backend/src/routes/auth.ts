@@ -10,7 +10,7 @@ interface UserRow {
   name: string;
   email: string;
   password: string;
-  role: 'admin' | 'teacher' | 'student';
+  role: 'admin' | 'teacher' | 'student' | 'bursary';
   class_id: number | null;
 }
 

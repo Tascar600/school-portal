@@ -26,6 +26,11 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
       data.subjects = subjects.count;
       data.classes = classId ? 1 : 0;
       data.className = classId ? (await query<any[]>('SELECT name FROM classes WHERE id = ?', [classId]))[0]?.name : 'N/A';
+    } else if (role === 'bursary') {
+      const [pendingPayments] = await query<any[]>('SELECT COUNT(*) AS count FROM payments WHERE status = ?', ['pending']);
+      data.pendingPayments = pendingPayments.count;
+      const feeAccounts = await query<any[]>('SELECT COUNT(*) AS count FROM fee_accounts');
+      data.totalAccounts = feeAccounts[0].count;
     } else if (role === 'student') {
       const [classInfo] = await query<any[]>(
         'SELECT c.name FROM users u JOIN classes c ON c.id = u.class_id WHERE u.id = ?', [userId]

@@ -35,7 +35,7 @@ const ensureFeeAccounts = async (studentId: number) => {
 };
 
 // ── Global fee settings ──────────────────────────────
-router.post('/settings', authenticate, authorize('admin'), async (req: AuthRequest, res: Response) => {
+router.post('/settings', authenticate, authorize('admin', 'bursary'), async (req: AuthRequest, res: Response) => {
   try {
     const { sdc_fee, ssf_fee } = req.body;
     if (!sdc_fee || !ssf_fee) return res.status(400).json({ message: 'Both SDC and SSF fee amounts are required' });
@@ -47,7 +47,7 @@ router.post('/settings', authenticate, authorize('admin'), async (req: AuthReque
   } catch (err: any) { res.status(500).json({ message: err.message }); }
 });
 
-router.get('/settings', authenticate, authorize('admin'), async (_req: AuthRequest, res: Response) => {
+router.get('/settings', authenticate, authorize('admin', 'bursary'), async (_req: AuthRequest, res: Response) => {
   try {
     const sdc = await getSetting('sdc_fee'), ssf = await getSetting('ssf_fee');
     res.json({ sdc_fee: sdc ? parseFloat(sdc) : null, ssf_fee: ssf ? parseFloat(ssf) : null });
@@ -97,7 +97,7 @@ router.post('/pay', authenticate, authorize('student'), (req: AuthRequest, res: 
 });
 
 // ── Admin: get pending payments ──────────────────────
-router.get('/pending', authenticate, authorize('admin'), async (req: AuthRequest, res: Response) => {
+router.get('/pending', authenticate, authorize('admin', 'bursary'), async (req: AuthRequest, res: Response) => {
   try {
     const payments = await query<any[]>(
       `SELECT p.*, u.name AS student_name FROM payments p
@@ -110,7 +110,7 @@ router.get('/pending', authenticate, authorize('admin'), async (req: AuthRequest
 });
 
 // ── Admin: get all fee accounts ─────────────────────
-router.get('/accounts', authenticate, authorize('admin'), async (req: AuthRequest, res: Response) => {
+router.get('/accounts', authenticate, authorize('admin', 'bursary'), async (req: AuthRequest, res: Response) => {
   try {
     const accounts = await query<any[]>(
       `SELECT fa.*, fa.credit_bf AS credit_bf, u.name AS student_name FROM fee_accounts fa
@@ -128,7 +128,7 @@ router.get('/accounts', authenticate, authorize('admin'), async (req: AuthReques
 });
 
 // ── Admin: fees statistics ───────────────────────────
-router.get('/stats', authenticate, authorize('admin'), async (_req: AuthRequest, res: Response) => {
+router.get('/stats', authenticate, authorize('admin', 'bursary'), async (_req: AuthRequest, res: Response) => {
   try {
     const totalSDC = await query<any[]>('SELECT COUNT(*), COALESCE(SUM(total_fee),0) AS t, COALESCE(SUM(balance),0) AS b FROM fee_accounts WHERE account_type=?', ['SDC']);
     const totalSSF = await query<any[]>('SELECT COUNT(*), COALESCE(SUM(total_fee),0) AS t, COALESCE(SUM(balance),0) AS b FROM fee_accounts WHERE account_type=?', ['SSF']);
@@ -195,7 +195,7 @@ router.get('/accounts/my-students', authenticate, authorize('teacher'), async (r
 });
 
 // ── Admin: verify / reject payment ──────────────────
-router.put('/verify/:paymentId', authenticate, authorize('admin'), async (req: AuthRequest, res: Response) => {
+router.put('/verify/:paymentId', authenticate, authorize('admin', 'bursary'), async (req: AuthRequest, res: Response) => {
   try {
     const { action } = req.body;
     const status = action === 'verified' ? 'verified' : 'rejected';
@@ -213,7 +213,7 @@ router.put('/verify/:paymentId', authenticate, authorize('admin'), async (req: A
 });
 
 // ── Admin: undo a verification/rejection (revert to pending) ──
-router.post('/undo/:paymentId', authenticate, authorize('admin'), async (req: AuthRequest, res: Response) => {
+router.post('/undo/:paymentId', authenticate, authorize('admin', 'bursary'), async (req: AuthRequest, res: Response) => {
   try {
     const [payment] = await query<any[]>('SELECT * FROM payments WHERE id=?', [req.params.paymentId]);
     if (!payment) return res.status(404).json({ message: 'Payment not found' });
@@ -240,7 +240,7 @@ router.post('/undo/:paymentId', authenticate, authorize('admin'), async (req: Au
 });
 
 // ── Admin: TERM END (archive + carry credit) ──────────
-router.post('/term-end', authenticate, authorize('admin'), async (req: AuthRequest, res: Response) => {
+router.post('/term-end', authenticate, authorize('admin', 'bursary'), async (req: AuthRequest, res: Response) => {
   try {
     const { sdc_fee, ssf_fee, term, academic_year } = req.body;
     if (!sdc_fee || !ssf_fee) return res.status(400).json({ message: 'SDC and SSF fee amounts required' });
@@ -293,7 +293,7 @@ router.post('/term-end', authenticate, authorize('admin'), async (req: AuthReque
 });
 
 // ── Admin: List fee archives ──────────────────────────
-router.get('/archives', authenticate, authorize('admin'), async (_req: AuthRequest, res: Response) => {
+router.get('/archives', authenticate, authorize('admin', 'bursary'), async (_req: AuthRequest, res: Response) => {
   try {
     const archives = await query<any[]>(
       'SELECT id, term, academic_year, created_at FROM fee_archives ORDER BY created_at DESC'
@@ -303,7 +303,7 @@ router.get('/archives', authenticate, authorize('admin'), async (_req: AuthReque
 });
 
 // ── Admin: View single archive ────────────────────────
-router.get('/archives/:id', authenticate, authorize('admin'), async (req: AuthRequest, res: Response) => {
+router.get('/archives/:id', authenticate, authorize('admin', 'bursary'), async (req: AuthRequest, res: Response) => {
   try {
     const [archive] = await query<any[]>('SELECT * FROM fee_archives WHERE id = ?', [req.params.id]);
     if (!archive) return res.status(404).json({ message: 'Archive not found' });
@@ -313,7 +313,7 @@ router.get('/archives/:id', authenticate, authorize('admin'), async (req: AuthRe
 });
 
 // ── Admin: YEAR END ──────────────────────────────────
-router.post('/year-end', authenticate, authorize('admin'), async (req: AuthRequest, res: Response) => {
+router.post('/year-end', authenticate, authorize('admin', 'bursary'), async (req: AuthRequest, res: Response) => {
   try {
     const classes = await query<any[]>('SELECT id FROM classes ORDER BY id');
     const classIds = classes.map((c: any) => c.id);

@@ -17,7 +17,7 @@ function createTables(): void {
       name TEXT NOT NULL DEFAULT '',
       email TEXT UNIQUE NOT NULL,
       password TEXT NOT NULL DEFAULT '',
-      role TEXT NOT NULL CHECK(role IN ('admin','teacher','student')),
+      role TEXT NOT NULL,
       class_id INTEGER,
       student_number TEXT UNIQUE DEFAULT NULL,
       is_active INTEGER DEFAULT 0,
@@ -332,6 +332,17 @@ function seedAdmin(): void {
   console.log('Seeded admin account: punhamasiwa@gmail.com / 1234');
 }
 
+function seedBursary(): void {
+  const existing = db.exec("SELECT COUNT(*) AS cnt FROM users WHERE email = 'tascarmasiwa@gmail.com'");
+  if (existing[0]?.values[0][0] > 0) return;
+  const hashed = hashPassword('12345678');
+  db.run(
+    "INSERT INTO users (name, email, password, role, is_active) VALUES ('Bursary', 'tascarmasiwa@gmail.com', ?, 'bursary', 1)",
+    [hashed]
+  );
+  console.log('Seeded bursary account: tascarmasiwa@gmail.com / 12345678');
+}
+
 function seedTestData(): void {
   const existing = db.exec("SELECT COUNT(*) AS cnt FROM users WHERE role='student'");
   if (existing[0]?.values[0][0] > 0) return;
@@ -558,6 +569,7 @@ export async function initDatabase(): Promise<void> {
   try { db.run("ALTER TABLE fee_accounts ADD COLUMN credit_bf REAL DEFAULT 0"); } catch {}
   seedZimbabweClasses();
   seedAdmin();
+  seedBursary();
   seedTestData();
   save();
   console.log('Database initialized at', dbPath);

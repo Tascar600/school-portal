@@ -61,7 +61,7 @@ export default function Dashboard() {
             <span className="pulse-dot" />
             System Online · Role: <span className="badge" style={{
               background: user?.role === 'admin' ? 'rgba(239,68,68,0.2)' : user?.role === 'teacher' ? 'rgba(0,240,255,0.2)' : 'rgba(34,197,94,0.2)',
-              color: user?.role === 'admin' ? '#f87171' : user?.role === 'teacher' ? '#22d3ee' : '#4ade80',
+              color: user?.role === 'admin' ? '#f87171' : user?.role === 'teacher' ? '#22d3ee' : user?.role === 'bursary' ? '#a78bfa' : '#4ade80',
             }}>{user?.role}</span>
           </p>
         </div>
@@ -86,6 +86,13 @@ export default function Dashboard() {
         <div className="grid">
           <AnimatedStat value={data.subjects} label="My Subjects" color="#22d3ee" />
           <AnimatedStat value={data.className || 'N/A'} label="My Class" color="#a855f7" />
+        </div>
+      )}
+
+      {user?.role === 'bursary' && (
+        <div className="grid">
+          <AnimatedStat value={data.pendingPayments || 0} label="Pending Payments" color="#fbbf24" />
+          <AnimatedStat value={data.totalAccounts || 0} label="Fee Accounts" color="#a78bfa" />
         </div>
       )}
 

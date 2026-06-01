@@ -163,6 +163,35 @@ router.get('/student-stats/:studentId', authenticate, authorize('admin', 'teache
   } catch (err: any) { res.status(500).json({ message: err.message }); }
 });
 
+// Report card for a student in a given term
+router.get('/report-card/:studentId', authenticate, authorize('admin', 'teacher', 'student'), async (req: AuthRequest, res: Response) => {
+  try {
+    const { term, academic_year } = req.query;
+    const [student] = await query<any[]>('SELECT u.*, c.name AS class_name FROM users u LEFT JOIN classes c ON c.id=u.class_id WHERE u.id=?', [req.params.studentId]);
+    if (!student) { res.status(404).json({ message: 'Student not found' }); return; }
+
+    const results = await query<any[]>(
+      `SELECT r.*, s.name AS subject_name FROM results r
+       JOIN subjects s ON s.id=r.subject_id
+       WHERE r.student_id=? AND r.term=? AND r.academic_year=?
+       ORDER BY s.name`,
+      [req.params.studentId, term, academic_year]
+    );
+
+    const totalScore = results.reduce((sum: number, r: any) => sum + (parseFloat(r.coursework||0) + parseFloat(r.test_score||0) + parseFloat(r.exam||0)), 0);
+    const avgScore = results.length ? Math.round(totalScore / results.length) : 0;
+
+    const gradeCounts: Record<string, number> = { A: 0, B: 0, C: 0, D: 0, E: 0 };
+    for (const r of results) {
+      const tot = parseFloat(r.coursework||0) + parseFloat(r.test_score||0) + parseFloat(r.exam||0);
+      const g = tot >= 75 ? 'A' : tot >= 65 ? 'B' : tot >= 50 ? 'C' : tot >= 40 ? 'D' : 'E';
+      gradeCounts[g]++;
+    }
+
+    res.json({ student, results, avgScore, gradeCounts, term, academic_year });
+  } catch (err: any) { res.status(500).json({ message: err.message }); }
+});
+
 // Term-end archive: archive all active results for a given term
 router.post('/archive-term', authenticate, authorize('admin'), async (req: AuthRequest, res: Response) => {
   try {
