@@ -4,6 +4,16 @@ import { authenticate, authorize, AuthRequest } from '../middleware/auth';
 
 const router = Router();
 
+// Student list (admin, teacher, bursary)
+router.get('/students', authenticate, authorize('admin', 'teacher', 'bursary'), async (_req: AuthRequest, res: Response) => {
+  try {
+    const students = await query<any[]>(
+      "SELECT id, name, email, class_id, student_number FROM users WHERE role='student' ORDER BY name"
+    );
+    res.json(students);
+  } catch (err: any) { res.status(500).json({ message: err.message }); }
+});
+
 // Teacher: create/update result for a student+subject+term
 router.post('/', authenticate, authorize('teacher'), async (req: AuthRequest, res: Response) => {
   try {

@@ -98,7 +98,7 @@ export default function App() {
         element={<ProtectedRoute><Layout><Themes /></Layout></ProtectedRoute>}
       />
       <Route path="/admin/analytics" element={<ProtectedRoute roles={['admin']}><Layout><AdminAnalytics /></Layout></ProtectedRoute>} />
-      <Route path="/admin/student-stats" element={<ProtectedRoute roles={['admin', 'teacher']}><Layout><StudentStats /></Layout></ProtectedRoute>} />
+      <Route path="/admin/student-stats" element={<ProtectedRoute roles={['admin', 'teacher', 'bursary']}><Layout><StudentStats /></Layout></ProtectedRoute>} />
     </Routes>
   );
 }

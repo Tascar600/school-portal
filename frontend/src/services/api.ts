@@ -87,6 +87,7 @@ export const resultApi = {
   studentStats: (studentId: number) => api.get(`/results/student-stats/${studentId}`),
   archiveTerm: (data: { term: string; academic_year: string }) => api.post('/results/archive-term', data),
   reportCard: (studentId: number, params?: any) => api.get(`/results/report-card/${studentId}`, { params }),
+  students: () => api.get('/results/students'),
 };
 
 // Notices

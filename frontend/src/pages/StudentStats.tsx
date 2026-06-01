@@ -20,9 +20,10 @@ export default function StudentStats() {
         const filtered = arr.filter((u: any) => u.role === 'student' && u.class_id === user.class_id);
         setStudents(filtered);
       }).catch(() => {});
-    } else if (user?.role === 'admin') {
-      adminApi.users().then((r: any) => {
-        const arr = Array.isArray(r.data) ? r.data : (r.data?.users || []);
+    } else if (user?.role === 'admin' || user?.role === 'bursary') {
+      const api = user?.role === 'bursary' ? resultApi.students() : adminApi.users();
+      api.then((r: any) => {
+        const arr = Array.isArray(r.data) ? r.data : (r.data?.users || r.data || []);
         setStudents(arr.filter((u: any) => u.role === 'student'));
       }).catch(() => {});
     }

@@ -272,8 +272,8 @@ export default function Fees() {
     );
   }
 
-  // ─── ADMIN ─────────────────────────────────────────
-  if (user?.role === 'admin') {
+  // ─── BURSARY / ADMIN ──────────────────────────────
+  if (user?.role === 'admin' || user?.role === 'bursary') {
     const isConfigured = currentSettings?.sdc_fee && currentSettings?.ssf_fee;
     const allCsv = accounts.flatMap((a: any) => {
       const rows: Record<string, any>[] = [{ Student: a.student_name, Account: a.account_type, 'Total Fee': a.total_fee?.toFixed(2), Balance: a.balance?.toFixed(2), Status: a.balance <= 0 ? 'FULLY PAID' : 'Owing' }];
