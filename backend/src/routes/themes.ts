@@ -57,6 +57,12 @@ router.get('/list', authenticate, async (_req: AuthRequest, res: Response) => {
     { id: 'sunset', name: 'Sunset', color: '#f97316', bg: '#1a0a05', neon: '#fb923c' },
     { id: 'emerald', name: 'Emerald City', color: '#10b981', bg: '#001a0a', neon: '#34d399' },
     { id: 'daylight', name: 'Daylight', color: '#2563eb', bg: '#f0f4ff', neon: '#3b82f6', light: true },
+    { id: 'frost', name: 'Frost', color: '#0891b2', bg: '#ecfeff', neon: '#06b6d4', light: true },
+    { id: 'blossom', name: 'Blossom', color: '#db2777', bg: '#fdf2f8', neon: '#ec4899', light: true },
+    { id: 'sage', name: 'Sage', color: '#16a34a', bg: '#f0fdf4', neon: '#22c55e', light: true },
+    { id: 'lavender', name: 'Lavender', color: '#7c3aed', bg: '#f5f3ff', neon: '#8b5cf6', light: true },
+    { id: 'peach', name: 'Peach', color: '#ea580c', bg: '#fff7ed', neon: '#f97316', light: true },
+    { id: 'rose', name: 'Rose', color: '#e11d48', bg: '#fff1f2', neon: '#f43f5e', light: true },
   ];
   res.json(themes);
 });
