@@ -127,7 +127,7 @@ router.get('/subject-breakdown/:classId', authenticate, authorize('admin', 'teac
 });
 
 // Student full stats
-router.get('/student-stats/:studentId', authenticate, authorize('admin', 'teacher'), async (req: AuthRequest, res: Response) => {
+router.get('/student-stats/:studentId', authenticate, authorize('admin', 'teacher', 'bursary'), async (req: AuthRequest, res: Response) => {
   try {
     const student = await query<any[]>('SELECT * FROM users WHERE id=?', [req.params.studentId]);
     if (!student.length) { res.status(404).json({ message: 'Student not found' }); return; }
@@ -174,7 +174,7 @@ router.get('/student-stats/:studentId', authenticate, authorize('admin', 'teache
 });
 
 // Report card for a student in a given term
-router.get('/report-card/:studentId', authenticate, authorize('admin', 'teacher', 'student'), async (req: AuthRequest, res: Response) => {
+router.get('/report-card/:studentId', authenticate, authorize('admin', 'teacher', 'student', 'bursary'), async (req: AuthRequest, res: Response) => {
   try {
     const { term, academic_year } = req.query;
     const [student] = await query<any[]>('SELECT u.*, c.name AS class_name FROM users u LEFT JOIN classes c ON c.id=u.class_id WHERE u.id=?', [req.params.studentId]);

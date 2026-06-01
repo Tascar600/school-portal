@@ -33,7 +33,7 @@ export default function Fees() {
 
   const load = () => {
     if (user?.role === 'student') feesApi.myAccounts().then(r => setAccounts(r.data));
-    if (user?.role === 'admin') {
+    if (user?.role === 'admin' || user?.role === 'bursary') {
       feesApi.accounts().then(r => setAccounts(r.data));
       feesApi.pending().then(r => setPendingPayments(r.data));
       feesApi.stats().then(r => setStats(r.data));
