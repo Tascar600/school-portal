@@ -27,7 +27,7 @@ export default function Layout({ children }: { children: ReactNode }) {
     { label: 'Register', path: '/register', roles: ['teacher', 'student'] },
     { label: 'Sports', path: '/sports', roles: ['admin', 'teacher', 'student'] },
     { label: 'Voting', path: '/voting', roles: ['admin', 'student'] },
-    { label: 'Themes', path: '/themes', roles: ['admin', 'teacher', 'student'] },
+    { label: 'Themes', path: '/themes', roles: ['admin', 'teacher', 'student', 'bursary'] },
     { label: 'Admin Panel', path: '/admin', roles: ['admin'] },
   ];
 
