@@ -11,6 +11,17 @@
   --neon-glow: rgba(0,240,255,0.3);
   --radius: 16px;
   --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  --navbar-bg: rgba(10,10,30,0.85);
+  --input-bg: rgba(255,255,255,0.04);
+  --select-option-bg: #1a1a3e;
+  --modal-bg: rgba(15,15,40,0.95);
+  --th-bg: rgba(0,240,255,0.05);
+  --row-hover-bg: rgba(255,255,255,0.03);
+  --btn-bg: rgba(255,255,255,0.04);
+  --grid-color: rgba(255,255,255,0.02);
+  --body-glow-1: rgba(0,240,255,0.05);
+  --body-glow-2: rgba(100,0,255,0.05);
+  --body-glow-3: rgba(0,200,100,0.03);
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -31,9 +42,9 @@ body::before {
   position: fixed;
   top: 0; left: 0; right: 0; bottom: 0;
   background:
-    radial-gradient(ellipse at 20% 50%, rgba(0,240,255,0.05) 0%, transparent 50%),
-    radial-gradient(ellipse at 80% 20%, rgba(100,0,255,0.05) 0%, transparent 50%),
-    radial-gradient(ellipse at 50% 80%, rgba(0,200,100,0.03) 0%, transparent 50%);
+    radial-gradient(ellipse at 20% 50%, var(--body-glow-1) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 20%, var(--body-glow-2) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 80%, var(--body-glow-3) 0%, transparent 50%);
   z-index: -2;
   animation: bgShift 20s ease-in-out infinite alternate;
 }
@@ -50,8 +61,8 @@ body::after {
   position: fixed;
   top: 0; left: 0; right: 0; bottom: 0;
   background-image:
-    linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+    linear-gradient(var(--grid-color) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-color) 1px, transparent 1px);
   background-size: 60px 60px;
   z-index: -1;
   pointer-events: none;
@@ -100,7 +111,7 @@ body::after {
 
 /* ===== NAVBAR ===== */
 .navbar {
-  background: rgba(10,10,30,0.85);
+  background: var(--navbar-bg);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border-bottom: 1px solid var(--card-border);
@@ -112,7 +123,7 @@ body::after {
   position: sticky;
   top: 0;
   z-index: 100;
-  box-shadow: 0 0 30px rgba(0,240,255,0.05);
+  box-shadow: 0 0 30px var(--neon-glow);
 }
 
 .navbar a {
@@ -168,7 +179,7 @@ body::after {
   padding: 0.25rem 0.75rem;
   border: 1px solid var(--card-border);
   border-radius: 20px;
-  background: rgba(255,255,255,0.03);
+  background: var(--input-bg);
 }
 
 .nav-user button {
@@ -228,7 +239,7 @@ h1 {
 }
 
 .card:hover {
-  border-color: rgba(255,255,255,0.2);
+  border-color: var(--neon);
   box-shadow: 0 8px 40px rgba(0,0,0,0.3), 0 0 30px var(--primary-glow);
   transform: translateY(-2px);
 }
@@ -324,11 +335,11 @@ table {
 th, td {
   padding: 0.85rem 1rem;
   text-align: left;
-  border-bottom: 1px solid rgba(255,255,255,0.05);
+  border-bottom: 1px solid var(--card-border);
 }
 
 th {
-  background: rgba(0,240,255,0.05);
+  background: var(--th-bg);
   color: var(--neon);
   font-weight: 600;
   font-size: 0.85rem;
@@ -337,7 +348,7 @@ th {
 }
 
 tr:hover td {
-  background: rgba(255,255,255,0.03);
+  background: var(--row-hover-bg);
 }
 
 tr:last-child td { border-bottom: none; }
@@ -346,7 +357,7 @@ tr:last-child td { border-bottom: none; }
 input, select, textarea {
   width: 100%;
   padding: 0.7rem 1rem;
-  background: rgba(255,255,255,0.04);
+  background: var(--input-bg);
   border: 1px solid var(--card-border);
   border-radius: 10px;
   font-size: 0.95rem;
@@ -359,7 +370,7 @@ input, select, textarea {
 input:focus, select:focus, textarea:focus {
   border-color: var(--neon);
   box-shadow: 0 0 20px var(--neon-glow);
-  background: rgba(255,255,255,0.06);
+  background: var(--input-bg);
 }
 
 textarea { min-height: 80px; resize: vertical; }
@@ -375,7 +386,7 @@ label {
 }
 
 select option {
-  background: #1a1a3e;
+  background: var(--select-option-bg);
   color: var(--text);
 }
 
@@ -389,7 +400,7 @@ select option {
   font-weight: 500;
   margin-right: 0.5rem;
   transition: var(--transition);
-  background: rgba(255,255,255,0.04);
+  background: var(--btn-bg);
   color: var(--text);
   letter-spacing: 0.3px;
   position: relative;
@@ -491,7 +502,7 @@ select option {
   border: 1px solid var(--card-border);
   border-radius: 8px;
   cursor: pointer;
-  background: rgba(255,255,255,0.04);
+  background: var(--input-bg);
   color: var(--text-dim);
   transition: var(--transition);
 }
@@ -507,7 +518,7 @@ select option {
   border-radius: var(--radius);
   padding: 1.25rem;
   margin-bottom: 1rem;
-  background: rgba(255,255,255,0.03);
+  background: var(--input-bg);
 }
 .question-card label { margin-top: 0.5rem; }
 .option-row { display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.4rem; }
@@ -529,7 +540,7 @@ select option {
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
 .modal {
-  background: rgba(15,15,40,0.95);
+  background: var(--modal-bg);
   backdrop-filter: blur(20px);
   border: 1px solid var(--card-border);
   border-radius: var(--radius);
@@ -626,7 +637,7 @@ input[type="file"] {
 }
 
 input[type="file"]::file-selector-button {
-  background: var(--card-bg);
+  background: var(--input-bg);
   border: 1px solid var(--card-border);
   border-radius: 6px;
   padding: 0.3rem 0.8rem;

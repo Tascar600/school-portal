@@ -1,7 +1,28 @@
 import { useState, useEffect } from 'react';
 import { themeApi } from '../services/api';
 
-const themeCSS = (t: any) => `
+const themeCSS = (t: any) => t.light ? `
+  --primary: ${t.color};
+  --primary-glow: ${t.color}44;
+  --bg: ${t.bg};
+  --card-bg: rgba(255,255,255,0.85);
+  --card-border: rgba(0,0,0,0.1);
+  --text: #1a1a2e;
+  --text-dim: #6b7280;
+  --neon: ${t.neon || t.color};
+  --neon-glow: ${(t.neon || t.color)}44;
+  --navbar-bg: rgba(255,255,255,0.9);
+  --input-bg: rgba(0,0,0,0.04);
+  --select-option-bg: #ffffff;
+  --modal-bg: rgba(255,255,255,0.96);
+  --th-bg: rgba(37,99,235,0.1);
+  --row-hover-bg: rgba(0,0,0,0.03);
+  --btn-bg: rgba(0,0,0,0.04);
+  --grid-color: rgba(0,0,0,0.04);
+  --body-glow-1: rgba(37,99,235,0.1);
+  --body-glow-2: rgba(99,102,241,0.08);
+  --body-glow-3: rgba(59,130,246,0.06);
+` : `
   --primary: ${t.color};
   --primary-glow: ${t.color}66;
   --bg: ${t.bg};
@@ -11,6 +32,17 @@ const themeCSS = (t: any) => `
   --text-dim: #8888aa;
   --neon: ${t.neon || t.color};
   --neon-glow: ${(t.neon || t.color)}55;
+  --navbar-bg: rgba(10,10,30,0.85);
+  --input-bg: rgba(255,255,255,0.04);
+  --select-option-bg: #1a1a3e;
+  --modal-bg: rgba(15,15,40,0.95);
+  --th-bg: rgba(0,240,255,0.05);
+  --row-hover-bg: rgba(255,255,255,0.03);
+  --btn-bg: rgba(255,255,255,0.04);
+  --grid-color: rgba(255,255,255,0.02);
+  --body-glow-1: rgba(0,240,255,0.05);
+  --body-glow-2: rgba(100,0,255,0.05);
+  --body-glow-3: rgba(0,200,100,0.03);
 `;
 
 export default function Themes() {

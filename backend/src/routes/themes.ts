@@ -56,6 +56,7 @@ router.get('/list', authenticate, async (_req: AuthRequest, res: Response) => {
     { id: 'midnight', name: 'Midnight', color: '#6366f1', bg: '#0a0a1a', neon: '#818cf8' },
     { id: 'sunset', name: 'Sunset', color: '#f97316', bg: '#1a0a05', neon: '#fb923c' },
     { id: 'emerald', name: 'Emerald City', color: '#10b981', bg: '#001a0a', neon: '#34d399' },
+    { id: 'daylight', name: 'Daylight', color: '#2563eb', bg: '#f0f4ff', neon: '#3b82f6', light: true },
   ];
   res.json(themes);
 });
