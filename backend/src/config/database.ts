@@ -38,30 +38,6 @@ function createTables(): void {
       FOREIGN KEY (class_id) REFERENCES classes(id) ON DELETE CASCADE,
       FOREIGN KEY (teacher_id) REFERENCES users(id) ON DELETE CASCADE
     );
-    CREATE TABLE IF NOT EXISTS fee_accounts (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      student_id INTEGER NOT NULL,
-      account_type TEXT NOT NULL CHECK(account_type IN ('SDC','SSF')),
-      total_fee REAL DEFAULT 0,
-      balance REAL DEFAULT 0,
-      FOREIGN KEY (student_id) REFERENCES users(id) ON DELETE CASCADE,
-      UNIQUE(student_id, account_type)
-    );
-    CREATE TABLE IF NOT EXISTS payments (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      student_id INTEGER NOT NULL,
-      account_type TEXT NOT NULL CHECK(account_type IN ('SDC','SSF')),
-      amount REAL NOT NULL,
-      proof_file TEXT NOT NULL DEFAULT '',
-      notes TEXT DEFAULT '',
-      receipt_number TEXT DEFAULT '',
-      status TEXT DEFAULT 'pending' CHECK(status IN ('pending','verified','rejected')),
-      verified_by INTEGER,
-      created_at TEXT DEFAULT (datetime('now')),
-      updated_at TEXT DEFAULT (datetime('now')),
-      FOREIGN KEY (student_id) REFERENCES users(id) ON DELETE CASCADE,
-      FOREIGN KEY (verified_by) REFERENCES users(id) ON DELETE SET NULL
-    );
     CREATE TABLE IF NOT EXISTS timetables (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       class_id INTEGER NOT NULL,
@@ -284,14 +260,278 @@ function createTables(): void {
       key TEXT PRIMARY KEY,
       value TEXT NOT NULL
     );
-    -- Fee archives (term-end snapshots)
-    CREATE TABLE IF NOT EXISTS fee_archives (
+    -- ===== Bursary / finance module =====
+
+    CREATE TABLE IF NOT EXISTS terms (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      term TEXT NOT NULL,
-      academic_year TEXT NOT NULL,
-      data TEXT NOT NULL,
+      year TEXT NOT NULL,
+      term_no INTEGER NOT NULL CHECK(term_no IN (1,2,3)),
+      start_date TEXT,
+      end_date TEXT,
+      is_current INTEGER DEFAULT 0,
+      is_locked INTEGER DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now')),
+      UNIQUE(year, term_no)
+    );
+
+    CREATE TABLE IF NOT EXISTS sequences (
+      name TEXT PRIMARY KEY,
+      next_val INTEGER NOT NULL DEFAULT 1
+    );
+
+    CREATE TABLE IF NOT EXISTS currencies (
+      code TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      rate REAL NOT NULL DEFAULT 1,
+      is_base INTEGER DEFAULT 0,
+      active INTEGER DEFAULT 1
+    );
+
+    CREATE TABLE IF NOT EXISTS sponsors (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      type TEXT NOT NULL DEFAULT 'Other' CHECK(type IN ('BEAM','NGO','Church','Company','Individual','Other')),
+      contact_person TEXT DEFAULT '',
+      phone TEXT DEFAULT '',
+      email TEXT DEFAULT '',
+      coverage_percent REAL NOT NULL DEFAULT 100,
+      active INTEGER DEFAULT 1,
       created_at TEXT DEFAULT (datetime('now'))
     );
+
+    CREATE TABLE IF NOT EXISTS discounts (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      type TEXT NOT NULL CHECK(type IN ('percent','fixed')),
+      value REAL NOT NULL DEFAULT 0,
+      fee_item_id INTEGER,
+      active INTEGER DEFAULT 1,
+      FOREIGN KEY (fee_item_id) REFERENCES fee_items(id) ON DELETE SET NULL
+    );
+
+    -- Finance-specific extension of a role=student user row
+    CREATE TABLE IF NOT EXISTS student_profiles (
+      user_id INTEGER PRIMARY KEY,
+      category TEXT NOT NULL DEFAULT 'day' CHECK(category IN ('day','staff_child','beam','sponsored')),
+      discount_id INTEGER,
+      sponsor_id INTEGER,
+      guardian_name TEXT DEFAULT '',
+      guardian_phone TEXT DEFAULT '',
+      guardian_email TEXT DEFAULT '',
+      address TEXT DEFAULT '',
+      family_code TEXT DEFAULT '',
+      gender TEXT CHECK(gender IS NULL OR gender IN ('M','F')),
+      dob TEXT,
+      status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active','left')),
+      enrolled_on TEXT,
+      notes TEXT DEFAULT '',
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+      FOREIGN KEY (discount_id) REFERENCES discounts(id) ON DELETE SET NULL,
+      FOREIGN KEY (sponsor_id) REFERENCES sponsors(id) ON DELETE SET NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS fee_items (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      description TEXT DEFAULT '',
+      is_optional INTEGER DEFAULT 0,
+      sort_order INTEGER DEFAULT 0,
+      active INTEGER DEFAULT 1
+    );
+
+    CREATE TABLE IF NOT EXISTS fee_structure (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      term_id INTEGER NOT NULL,
+      class_id INTEGER NOT NULL,
+      fee_item_id INTEGER NOT NULL,
+      amount REAL NOT NULL DEFAULT 0,
+      FOREIGN KEY (term_id) REFERENCES terms(id) ON DELETE CASCADE,
+      FOREIGN KEY (class_id) REFERENCES classes(id) ON DELETE CASCADE,
+      FOREIGN KEY (fee_item_id) REFERENCES fee_items(id) ON DELETE CASCADE,
+      UNIQUE(term_id, class_id, fee_item_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS student_optional_items (
+      student_id INTEGER NOT NULL,
+      fee_item_id INTEGER NOT NULL,
+      PRIMARY KEY (student_id, fee_item_id),
+      FOREIGN KEY (student_id) REFERENCES users(id) ON DELETE CASCADE,
+      FOREIGN KEY (fee_item_id) REFERENCES fee_items(id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS invoices (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      invoice_no TEXT UNIQUE NOT NULL,
+      type TEXT NOT NULL CHECK(type IN ('term','charge','credit')),
+      student_id INTEGER NOT NULL,
+      term_id INTEGER NOT NULL,
+      inv_date TEXT NOT NULL,
+      gross REAL NOT NULL DEFAULT 0,
+      discount REAL NOT NULL DEFAULT 0,
+      total REAL NOT NULL DEFAULT 0,
+      sponsor_id INTEGER,
+      sponsor_amount REAL DEFAULT 0,
+      notes TEXT DEFAULT '',
+      status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active','cancelled')),
+      cancel_reason TEXT DEFAULT '',
+      created_by INTEGER,
+      created_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (student_id) REFERENCES users(id) ON DELETE CASCADE,
+      FOREIGN KEY (term_id) REFERENCES terms(id) ON DELETE CASCADE,
+      FOREIGN KEY (sponsor_id) REFERENCES sponsors(id) ON DELETE SET NULL,
+      FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS invoice_lines (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      invoice_id INTEGER NOT NULL,
+      fee_item_id INTEGER,
+      description TEXT NOT NULL DEFAULT '',
+      amount REAL NOT NULL DEFAULT 0,
+      FOREIGN KEY (invoice_id) REFERENCES invoices(id) ON DELETE CASCADE,
+      FOREIGN KEY (fee_item_id) REFERENCES fee_items(id) ON DELETE SET NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS accounts (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      type TEXT NOT NULL CHECK(type IN ('cash','bank','mobile','petty')),
+      account_no TEXT DEFAULT '',
+      currency TEXT DEFAULT 'USD',
+      opening_balance REAL NOT NULL DEFAULT 0,
+      active INTEGER DEFAULT 1,
+      FOREIGN KEY (currency) REFERENCES currencies(code) ON DELETE SET NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS fee_payments (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      receipt_no TEXT UNIQUE NOT NULL,
+      student_id INTEGER NOT NULL,
+      term_id INTEGER NOT NULL,
+      pay_date TEXT NOT NULL,
+      amount REAL NOT NULL,
+      currency TEXT DEFAULT 'USD',
+      fx_rate REAL NOT NULL DEFAULT 1,
+      amount_paid REAL NOT NULL,
+      method TEXT NOT NULL CHECK(method IN ('cash','bank','ecocash','swipe','in_kind','sponsor')),
+      reference TEXT DEFAULT '',
+      account_id INTEGER,
+      sponsor_id INTEGER,
+      notes TEXT DEFAULT '',
+      status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active','reversed')),
+      reverse_reason TEXT DEFAULT '',
+      reversed_by INTEGER,
+      reversed_at TEXT,
+      cleared INTEGER DEFAULT 0,
+      cleared_on TEXT,
+      received_by INTEGER,
+      created_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (student_id) REFERENCES users(id) ON DELETE CASCADE,
+      FOREIGN KEY (term_id) REFERENCES terms(id) ON DELETE CASCADE,
+      FOREIGN KEY (account_id) REFERENCES accounts(id) ON DELETE SET NULL,
+      FOREIGN KEY (sponsor_id) REFERENCES sponsors(id) ON DELETE SET NULL,
+      FOREIGN KEY (reversed_by) REFERENCES users(id) ON DELETE SET NULL,
+      FOREIGN KEY (received_by) REFERENCES users(id) ON DELETE SET NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS expense_categories (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT UNIQUE NOT NULL,
+      active INTEGER DEFAULT 1
+    );
+
+    CREATE TABLE IF NOT EXISTS expenses (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      voucher_no TEXT UNIQUE NOT NULL,
+      exp_date TEXT NOT NULL,
+      term_id INTEGER,
+      category_id INTEGER,
+      account_id INTEGER NOT NULL,
+      payee TEXT DEFAULT '',
+      description TEXT DEFAULT '',
+      amount REAL NOT NULL,
+      reference TEXT DEFAULT '',
+      attachment TEXT DEFAULT '',
+      status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active','cancelled')),
+      cancel_reason TEXT DEFAULT '',
+      cleared INTEGER DEFAULT 0,
+      cleared_on TEXT,
+      created_by INTEGER,
+      created_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (term_id) REFERENCES terms(id) ON DELETE SET NULL,
+      FOREIGN KEY (category_id) REFERENCES expense_categories(id) ON DELETE SET NULL,
+      FOREIGN KEY (account_id) REFERENCES accounts(id) ON DELETE CASCADE,
+      FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS transfers (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      tr_date TEXT NOT NULL,
+      from_account INTEGER NOT NULL,
+      to_account INTEGER NOT NULL,
+      amount REAL NOT NULL,
+      reference TEXT DEFAULT '',
+      notes TEXT DEFAULT '',
+      cleared_from INTEGER DEFAULT 0,
+      cleared_to INTEGER DEFAULT 0,
+      created_by INTEGER,
+      created_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (from_account) REFERENCES accounts(id) ON DELETE CASCADE,
+      FOREIGN KEY (to_account) REFERENCES accounts(id) ON DELETE CASCADE,
+      FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS reconciliations (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      account_id INTEGER NOT NULL,
+      statement_date TEXT NOT NULL,
+      statement_balance REAL NOT NULL,
+      cleared_balance REAL NOT NULL,
+      difference REAL NOT NULL,
+      notes TEXT DEFAULT '',
+      created_by INTEGER,
+      created_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (account_id) REFERENCES accounts(id) ON DELETE CASCADE,
+      FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS budgets (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      term_id INTEGER NOT NULL,
+      category_id INTEGER NOT NULL,
+      amount REAL NOT NULL DEFAULT 0,
+      FOREIGN KEY (term_id) REFERENCES terms(id) ON DELETE CASCADE,
+      FOREIGN KEY (category_id) REFERENCES expense_categories(id) ON DELETE CASCADE,
+      UNIQUE(term_id, category_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS messages (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      student_id INTEGER,
+      phone TEXT DEFAULT '',
+      body TEXT NOT NULL DEFAULT '',
+      kind TEXT NOT NULL DEFAULT 'general' CHECK(kind IN ('reminder','receipt','general')),
+      channel TEXT NOT NULL DEFAULT 'whatsapp' CHECK(channel IN ('sms','whatsapp')),
+      status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','sent','failed')),
+      error TEXT DEFAULT '',
+      created_by INTEGER,
+      created_at TEXT DEFAULT (datetime('now')),
+      sent_at TEXT,
+      FOREIGN KEY (student_id) REFERENCES users(id) ON DELETE SET NULL,
+      FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS audit_log (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER,
+      action TEXT NOT NULL,
+      entity TEXT NOT NULL DEFAULT '',
+      entity_id INTEGER,
+      details TEXT DEFAULT '',
+      created_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_audit_entity ON audit_log(entity, entity_id);
   `);
 }
 
@@ -343,209 +583,15 @@ function seedBursary(): void {
   console.log('Seeded bursary account: tascarmasiwa@gmail.com / 12345678');
 }
 
-function seedTestData(): void {
-  const existing = db.exec("SELECT COUNT(*) AS cnt FROM users WHERE role='student'");
-  if (existing[0]?.values[0][0] > 0) return;
-
-  const hash = (p: string) => hashPassword(p);
-  const clsRows = db.exec("SELECT id, name FROM classes ORDER BY id")[0]?.values || [];
-  const cls: Record<string, number> = {};
-  for (const [id, name] of clsRows) cls[name as string] = Number(id);
-  if (Object.keys(cls).length === 0) return;
-
-  const classNames = Object.keys(cls);
-
-  // Teachers
-  const tdata: [string, string, number | null, string][] = [
-    ['Tendai Moyo','teacher1@school.com', cls['ECD A'], 't260001c'],
-    ['Chido Ndlovu','teacher2@school.com', cls['ECD B'], 't260002c'],
-    ['Tafadzwa Sithole','teacher3@school.com', cls['Grade 1'], 't260003c'],
-    ['Rumbidzai Dube','teacher4@school.com', cls['Grade 2'], 't260004c'],
-    ['Kudzai Khumalo','teacher5@school.com', cls['Grade 3'], 't260005c'],
-    ['Nyasha Nyoni','teacher6@school.com', cls['Grade 4'], 't260006c'],
-    ['Tanaka Tshuma','teacher7@school.com', cls['Grade 5'], 't260007c'],
-    ['Tariro Ncube','teacher8@school.com', cls['Grade 6'], 't260008c'],
-    ['Anesu Mpofu','teacher9@school.com', cls['Grade 7'], 't260009c'],
-    ['Mufaro Sibanda','teacher10@school.com', null, 't260010c'],
-  ];
-  const tIds: number[] = [];
-  for (const [name, email, cid, reg] of tdata) {
-    db.run("INSERT INTO users (name, email, password, role, class_id, student_number, is_active) VALUES (?,?,?,?,?,?,1)",
-      [name, email, hash('1234'), 'teacher', cid, reg]);
-    tIds.push(Number(db.exec("SELECT last_insert_rowid()")[0].values[0][0]));
+function seedFinanceDefaults(): void {
+  const existing = db.exec("SELECT COUNT(*) AS cnt FROM currencies");
+  if (!(existing[0]?.values[0][0] > 0)) {
+    db.run("INSERT INTO currencies (code, name, rate, is_base, active) VALUES ('USD', 'US Dollar', 1, 1, 1)");
   }
-
-  // Subjects
-  const subjPool = ['English','Mathematics','Science','History','Geography','Art','Music','PE','ICT','Shona',
-    'Agriculture','Religion','Home Economics','French'];
-  const subjCnt = [6,6,6,7,7,7,7,7,7];
-  for (let ci = 0; ci < 9; ci++) {
-    const cid = cls[classNames[ci]]; if (!cid) continue;
-    const tid = tIds[ci % 10];
-    for (let i = 0; i < subjCnt[ci]; i++) {
-      db.run('INSERT INTO subjects (name, class_id, teacher_id) VALUES (?,?,?)',
-        [subjPool[(ci * 7 + i * 3) % subjPool.length], cid, tid]);
-    }
+  const acct = db.exec("SELECT COUNT(*) AS cnt FROM accounts");
+  if (!(acct[0]?.values[0][0] > 0)) {
+    db.run("INSERT INTO accounts (name, type, currency, opening_balance, active) VALUES ('Main Cash', 'cash', 'USD', 0, 1)");
   }
-
-  // 200 students
-  const sFNs = ['Takudzwa','Rutendo','Tatenda','Kundai','Makanaka','Panashe','Tadiwa','Kudzanai','Tanyaradzwa',
-    'Shamiso','Munyaradzi','Tafara','Ropafadzo','Muchaneta','Masimba','Chiedza','Tanatswa','Nokutenda','Simba','Chipo',
-    'Tawana','Kudakwashe','Munashe','Tariro','Tinevimbo','Mufaro','Zvikomborero','Tonderai','Rufaro','Chengetai'];
-  const sLNs = ['Muzenda','Makoni','Chigumba','Mkandla','Mlambo','Ndlovu','Sithole','Mpofu','Ncube','Tshuma',
-    'Dube','Khumalo','Nyoni','Moyo','Sibanda','Nkala','Maphosa','Ngwenya','Mthembu','Zulu'];
-  const sIds: number[] = [];
-  for (let i = 0; i < 100; i++) {
-    const name = `${sFNs[i % sFNs.length]} ${sLNs[Math.floor(i / sFNs.length) % sLNs.length]}`;
-    const seq = String(i + 1).padStart(5, '0');
-    const reg = `c26${seq}c`;
-    db.run("INSERT INTO users (name, email, password, role, class_id, student_number, is_active) VALUES (?,?,?,?,?,?,1)",
-      [name, `${reg}@temp.school`, hash('1234'), 'student', cls[classNames[i % 9]], reg]);
-    sIds.push(Number(db.exec("SELECT last_insert_rowid()")[0].values[0][0]));
-  }
-
-  // Fee settings
-  db.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('sdc_fee','100')");
-  db.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('ssf_fee','60')");
-
-  // Fee accounts (SDC + SSF per student)
-  for (const sid of sIds) {
-    db.run('INSERT INTO fee_accounts (student_id, account_type, total_fee, balance) VALUES (?,?,?,?)', [sid, 'SDC', 100, 100]);
-    db.run('INSERT INTO fee_accounts (student_id, account_type, total_fee, balance) VALUES (?,?,?,?)', [sid, 'SSF', 60, 60]);
-  }
-
-  // Payments (~60% random)
-  for (const sid of sIds) {
-    if (Math.random() > 0.6) continue;
-    const at = Math.random() > 0.5 ? 'SDC' : 'SSF';
-    const maxAmt = at === 'SDC' ? 100 : 60;
-    const amt = Math.round((5 + Math.random() * (maxAmt - 5)) * 100) / 100;
-    const st = Math.random() > 0.15 ? 'verified' : 'pending';
-    const days = Math.floor(Math.random() * 30);
-    const date = new Date(Date.now() - days * 86400000).toISOString();
-    const rec = `RCP-${String(sid).padStart(4, '0')}-${String(100 + Math.floor(Math.random() * 900))}`;
-    db.run("INSERT INTO payments (student_id, account_type, amount, proof_file, notes, receipt_number, status, created_at) VALUES (?,?,?,'',?,?,?,?)",
-      [sid, at, amt, `Payment for ${at}`, rec, st, date]);
-    if (st === 'verified') {
-      db.run('UPDATE fee_accounts SET balance = balance - ? WHERE student_id = ? AND account_type = ?', [amt, sid, at]);
-    }
-  }
-
-  // Results (~85% of subject-student combos) — now with coursework, test_score, exam
-  const subjs = (db.exec("SELECT id, class_id, name FROM subjects ORDER BY id")[0]?.values || []);
-  for (const sid of sIds) {
-    const cid = cls[classNames[sIds.indexOf(sid) % 9]];
-    for (const [subjId, scid, sname] of subjs) {
-      if (Number(scid) !== cid) continue;
-      if (Math.random() > 0.85) continue;
-      const cw = Math.round(5 + Math.random() * 20);
-      const ts = Math.round(10 + Math.random() * 25);
-      const ex = Math.round(15 + Math.random() * 40);
-      const score = cw + ts + ex;
-      const grade = score >= 75 ? 'A' : score >= 65 ? 'B' : score >= 50 ? 'C' : score >= 40 ? 'D' : 'E';
-      db.run('INSERT INTO results (student_id, subject_id, teacher_id, term, academic_year, coursework, test_score, exam, score, grade, status, subject_name) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',
-        [sid, subjId, tIds[cid % 10], 'Term 2', '2026', cw, ts, ex, score, grade, 'active', sname]);
-    }
-  }
-
-  // Timetable (5 periods per class)
-  const days = ['Monday','Tuesday','Wednesday','Thursday','Friday'];
-  for (let ci = 0; ci < 9; ci++) {
-    const cid = cls[classNames[ci]]; if (!cid) continue;
-    const classSubjs = subjs.filter((v: any) => Number(v[1]) === cid);
-    for (let di = 0; di < 5; di++) {
-      const subj = classSubjs[di % classSubjs.length]; if (!subj) continue;
-      const hr = 8 + di * 2;
-      db.run("INSERT INTO timetables (class_id, subject_id, teacher_id, day, start_time, end_time, room, status) VALUES (?,?,?,?,?,?,?,?)",
-        [cid, subj[0], tIds[ci % 10], days[di], `${hr}:00`, `${hr+1}:00`, `Room ${101+di}`, 'published']);
-    }
-  }
-
-  // Attendance (10 days, first 5 classes)
-  const attS = ['present','present','present','late','absent'];
-  for (let d = 0; d < 10; d++) {
-    const date = new Date(2026, 4, 12 + d).toISOString().slice(0, 10);
-    for (let ci = 0; ci < 5; ci++) {
-      const cid = cls[classNames[ci]]; if (!cid) continue;
-      const tid = tIds[ci % 10];
-      const classSids = sIds.filter((_, i) => i % 9 === ci % 9);
-      const records = classSids.map(sid => ({ student_id: sid, status: attS[Math.floor(Math.random() * attS.length)] }));
-      db.run('INSERT INTO attendance (class_id, teacher_id, date, records) VALUES (?,?,?,?)',
-        [cid, tid, date, JSON.stringify(records)]);
-    }
-  }
-
-  // Homework
-  for (let ci = 0; ci < 5; ci++) {
-    const cid = cls[classNames[ci]]; if (!cid) continue;
-    const tid = tIds[ci % 10];
-    const classSubjs = subjs.filter((v: any) => Number(v[1]) === cid);
-    for (const [subjId] of classSubjs.slice(0, 2)) {
-      db.run("INSERT INTO homework (subject_id, teacher_id, class_id, title, description, due_date) VALUES (?,?,?,?,?,?)",
-        [subjId, tid, cid, `Assignment ${classNames[ci]}`, 'Complete the exercises', '2026-06-15']);
-    }
-  }
-
-  // Courses
-  for (let i = 0; i < 5; i++) {
-    db.run("INSERT INTO courses (name, description, teacher_id) VALUES (?,?,?)",
-      [`Course ${i+1}`, `Sample course ${i+1}`, tIds[i]]);
-  }
-
-  // Sports + participants
-  const sportNames = ['Soccer','Netball','Athletics','Basketball','Volleyball'];
-  const sportIds: number[] = [];
-  for (const sn of sportNames) {
-    db.run("INSERT INTO sports (name) VALUES (?)", [sn]);
-    sportIds.push(Number(db.exec("SELECT last_insert_rowid()")[0].values[0][0]));
-  }
-  for (const sid of sportIds) {
-    for (const stuId of sIds.filter(() => Math.random() > 0.85)) {
-      db.run("INSERT INTO sport_participants (sport_id, student_id, role) VALUES (?,?,?)",
-        [sid, stuId, 'member']);
-    }
-  }
-
-  // Voting session + nominations + votes
-  const votingSessions = ['Head Boy','Head Girl','Sports Captain','Prefect'];
-  const sessionIds: number[] = [];
-  for (const pos of votingSessions) {
-    const adminId = db.exec("SELECT id FROM users WHERE role='admin' LIMIT 1")[0]?.values[0][0] || 1;
-    db.run("INSERT INTO voting_sessions (title, position, status, created_by) VALUES (?,?,?,?)",
-      [pos + ' Election', pos, 'closed', adminId]);
-    sessionIds.push(Number(db.exec("SELECT last_insert_rowid()")[0].values[0][0]));
-  }
-  for (const sessId of sessionIds) {
-    const candidates = sIds.filter(() => Math.random() > 0.97);
-    const nomIds: number[] = [];
-    for (const candId of candidates) {
-      db.run("INSERT INTO nominations (session_id, student_id) VALUES (?,?)",
-        [sessId, candId]);
-      nomIds.push(Number(db.exec("SELECT last_insert_rowid()")[0].values[0][0]));
-    }
-    const voters = sIds.filter(() => Math.random() > 0.95);
-    for (const voterId of voters) {
-      const candId = nomIds[Math.floor(Math.random() * nomIds.length)];
-      try { db.run("INSERT INTO votes (session_id, candidate_id, voter_id) VALUES (?,?,?)", [sessId, candId, voterId]); } catch {}
-    }
-  }
-
-  const counts = {
-    students: (db.exec("SELECT COUNT(*) FROM users WHERE role='student'")[0]?.values[0][0] || 0) as number,
-    teachers: (db.exec("SELECT COUNT(*) FROM users WHERE role='teacher'")[0]?.values[0][0] || 0) as number,
-    subjects: (db.exec("SELECT COUNT(*) FROM subjects")[0]?.values[0][0] || 0) as number,
-    payments: (db.exec("SELECT COUNT(*) FROM payments")[0]?.values[0][0] || 0) as number,
-    results: (db.exec("SELECT COUNT(*) FROM results")[0]?.values[0][0] || 0) as number,
-    timetable: (db.exec("SELECT COUNT(*) FROM timetables")[0]?.values[0][0] || 0) as number,
-    attendance: (db.exec("SELECT COUNT(*) FROM attendance")[0]?.values[0][0] || 0) as number,
-    homework: (db.exec("SELECT COUNT(*) FROM homework")[0]?.values[0][0] || 0) as number,
-    courses: (db.exec("SELECT COUNT(*) FROM courses")[0]?.values[0][0] || 0) as number,
-    sports: (db.exec("SELECT COUNT(*) FROM sport_participants")[0]?.values[0][0] || 0) as number,
-    nominations: (db.exec("SELECT COUNT(*) FROM nominations")[0]?.values[0][0] || 0) as number,
-    votes: (db.exec("SELECT COUNT(*) FROM votes")[0]?.values[0][0] || 0) as number,
-  };
-  const c = counts;
-  console.log(`Auto-seeded: ${c.students} students, ${c.teachers} teachers, ${c.subjects} subjects, ${c.payments} payments, ${c.results} results, ${c.timetable} tt, ${c.attendance} att, ${c.homework} hw, ${c.courses} courses, ${c.sports} sports, ${c.nominations} noms, ${c.votes} votes`);
 }
 
 export async function initDatabase(): Promise<void> {
@@ -558,19 +604,20 @@ export async function initDatabase(): Promise<void> {
   }
   db.run('PRAGMA foreign_keys = ON');
   createTables();
-  try { db.run("ALTER TABLE payments ADD COLUMN notes TEXT DEFAULT ''"); } catch {}
-  try { db.run("ALTER TABLE payments ADD COLUMN receipt_number TEXT DEFAULT ''"); } catch {}
   try { db.run("CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)"); } catch {}
   try { db.run("ALTER TABLE results ADD COLUMN coursework REAL DEFAULT 0"); } catch {}
   try { db.run("ALTER TABLE results ADD COLUMN test_score REAL DEFAULT 0"); } catch {}
   try { db.run("ALTER TABLE results ADD COLUMN exam REAL DEFAULT 0"); } catch {}
   try { db.run("ALTER TABLE results ADD COLUMN status TEXT DEFAULT 'active' CHECK(status IN ('active','archived'))"); } catch {}
   try { db.run("ALTER TABLE results ADD COLUMN subject_name TEXT DEFAULT ''"); } catch {}
-  try { db.run("ALTER TABLE fee_accounts ADD COLUMN credit_bf REAL DEFAULT 0"); } catch {}
+  // Retired by the bursary-module rewrite — kept under new names for audit history, never dropped.
+  try { db.run("ALTER TABLE fee_accounts RENAME TO legacy_fee_accounts"); } catch {}
+  try { db.run("ALTER TABLE payments RENAME TO legacy_fee_payments"); } catch {}
+  try { db.run("ALTER TABLE fee_archives RENAME TO legacy_fee_archives"); } catch {}
   seedZimbabweClasses();
   seedAdmin();
   seedBursary();
-  seedTestData();
+  seedFinanceDefaults();
   save();
   console.log('Database initialized at', dbPath);
 }

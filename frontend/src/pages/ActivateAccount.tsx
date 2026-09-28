@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { GraduationCap } from 'lucide-react';
 import { authApi } from '../services/api';
 import ParticleBackground from '../components/ParticleBackground';
 
@@ -36,8 +37,7 @@ export default function ActivateAccount() {
             margin: '0 auto 1rem',
             boxShadow: '0 0 40px rgba(0,240,255,0.3)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: '1.5rem',
-          }}>✦</div>
+          }}><GraduationCap size={28} color="#0a0a1a" /></div>
           <h2 style={{ marginBottom: 0, color: '#fff', fontSize: '1.5rem' }}>
             Activate Account
           </h2>
@@ -55,7 +55,7 @@ export default function ActivateAccount() {
           <label>Password</label>
           <input type="password" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} required placeholder="Create a password" />
           <button type="submit" className="btn btn-primary" style={{ width: '100%', marginTop: '0.75rem', padding: '0.8rem', fontSize: '1rem' }}>
-            ✦ ACTIVATE
+            Activate
           </button>
         </form>
         <p style={{ marginTop: '1.25rem', textAlign: 'center', color: 'var(--text-dim)', fontSize: '0.9rem' }}>

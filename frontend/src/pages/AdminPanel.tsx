@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { CheckCircle2, XCircle, AlertTriangle } from 'lucide-react';
 import { adminApi } from '../services/api';
 import { PrintButton, DownloadCSV } from '../components/PrintDownload';
 
@@ -192,7 +193,7 @@ export default function AdminPanel() {
         <button className={`btn ${tab === 'users' ? 'btn-primary' : ''}`} onClick={() => setTab('users')}>Users</button>
         <button className={`btn ${tab === 'classes' ? 'btn-primary' : ''}`} onClick={() => setTab('classes')}>Classes</button>
         <button className={`btn ${tab === 'subjects' ? 'btn-primary' : ''}`} onClick={() => setTab('subjects')}>Subjects</button>
-        <button className={`btn ${tab === 'db' ? 'btn-primary' : ''}`} onClick={() => { setTab('db'); if (!dbInfo) adminApi.dbInfo().then(r => setDbInfo(r.data)).catch(() => setDbInfo(null)); }}> Database</button>
+        <button className={`btn ${tab === 'db' ? 'btn-primary' : ''}`} onClick={() => { setTab('db'); if (!dbInfo) adminApi.dbInfo().then(r => setDbInfo(r.data)).catch(() => setDbInfo(null)); }}>Database</button>
       </div>
 
       {/* Users Tab */}
@@ -207,7 +208,7 @@ export default function AdminPanel() {
               </div>
               <div className="form-row">
                 <div><label>Password {editUserId ? '(leave blank to keep)' : userForm.role !== 'admin' ? '(optional — user activates with reg number)' : ''}</label><input type="password" value={userForm.password} onChange={e => setUserForm({ ...userForm, password: e.target.value })} required={!editUserId && userForm.role === 'admin'} /></div>
-                <div><label>Role</label><select value={userForm.role} onChange={e => setUserForm({ ...userForm, role: e.target.value })}><option value="student">Student</option><option value="teacher">Teacher</option><option value="admin">Admin</option></select></div>
+                <div><label>Role</label><select value={userForm.role} onChange={e => setUserForm({ ...userForm, role: e.target.value })}><option value="student">Student</option><option value="teacher">Teacher</option><option value="bursary">Bursary</option><option value="admin">Admin</option></select></div>
                 <div><label>Class</label>
                   {userForm.role === 'student' ? (
                     <select value={userForm.class_id} onChange={e => setUserForm({ ...userForm, class_id: e.target.value })} required>
@@ -242,7 +243,7 @@ export default function AdminPanel() {
                     <td><span className={`alert-${u.role === 'admin' ? 'error' : u.role === 'teacher' ? 'info' : 'success'}`} style={{ padding: '2px 8px', borderRadius: 4 }}>{u.role}</span></td>
                     <td>{u.class_name || '-'}</td>
                     <td style={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>{u.student_number || '-'}</td>
-                    <td>{u.is_active ? '✓' : '✗'}</td>
+                    <td>{u.is_active ? <CheckCircle2 size={16} color="#4ade80" /> : <XCircle size={16} color="#f87171" />}</td>
                     <td>
                       <button className="btn btn-warning btn-sm" onClick={() => editUser(u)}>Edit</button>
                       <button className="btn btn-danger btn-sm" onClick={() => deleteUser(u.id)}>Delete</button>
@@ -315,8 +316,8 @@ export default function AdminPanel() {
                     </span>
                   ))}
                 </div>
-                <p style={{ color: 'var(--text-dim)', fontSize: '0.8rem', marginTop: '1rem' }}>
-                  ⚠ On Render free tier, the database resets on every deploy. Use the backup tools below.
+                <p style={{ color: 'var(--text-dim)', fontSize: '0.8rem', marginTop: '1rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                  <AlertTriangle size={14} /> On Render free tier, the database resets on every deploy. Use the backup tools below.
                 </p>
               </div>
             ) : <p style={{ color: 'var(--text-dim)' }}>Loading...</p>}
@@ -334,7 +335,7 @@ export default function AdminPanel() {
                 document.body.appendChild(a); a.click();
                 document.body.removeChild(a); URL.revokeObjectURL(url);
               } catch (err: any) { setMsg(err.response?.data?.message || 'Download failed'); }
-            }}> Download Database</button>
+            }}>Download Database</button>
           </div>
 
           <div className="card">
@@ -358,7 +359,7 @@ export default function AdminPanel() {
           </div>
 
           <div className="card">
-            <h2> Database Browser</h2>
+            <h2>Database Browser</h2>
             <p style={{ color: 'var(--text-dim)', fontSize: '0.85rem' }}>Click any table to view its data visually.</p>
             <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
               {dbInfo?.tables?.filter((t: string) => !t.startsWith('sqlite_')).map((t: string) => {
@@ -436,7 +437,7 @@ export default function AdminPanel() {
                                   borderBottom: '1px solid rgba(255,255,255,0.04)'
                                 }}>
                                   {v === null ? <span style={{ fontStyle: 'italic', fontSize: '0.7rem' }}>NULL</span>
-                                    : isBool ? (v ? '✓' : '✗')
+                                    : isBool ? (v ? <CheckCircle2 size={14} color="#4ade80" /> : <XCircle size={14} color="#f87171" />)
                                     : String(v).length > 80 ? String(v).slice(0, 80) + '…' : String(v)}
                                 </td>
                               );

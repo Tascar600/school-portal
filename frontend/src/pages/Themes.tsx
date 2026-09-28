@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Palette, Check } from 'lucide-react';
 import { themeApi } from '../services/api';
 
 const themeCSS = (t: any) => t.light ? `
@@ -77,13 +78,13 @@ export default function Themes() {
 
   return (
     <div>
-      <h1>✦ Theme Matrix</h1>
+      <h1 style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}><Palette size={26} /> Appearance</h1>
       {msg && <div className="alert alert-info">{msg}</div>}
 
       <div className="card">
-        <h2>Choose Your Reality</h2>
+        <h2>Choose a theme</h2>
         <p style={{ color: 'var(--text-dim)', marginBottom: '1.5rem' }}>
-          Select a visual theme to customize your portal experience. 16 futuristic themes available.
+          Select a visual theme to customize how the portal looks. 23 themes available (16 dark, 7 light).
         </p>
         <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))' }}>
           {themes.map((t: any) => (
@@ -112,9 +113,9 @@ export default function Themes() {
               <strong style={{ color: t.color, fontSize: '0.85rem' }}>{t.name}</strong>
               {currentTheme.theme === t.id && (
                 <div style={{
-                  color: t.color, fontSize: '1.2rem', marginTop: 4,
-                  textShadow: `0 0 10px ${t.color}`,
-                }}>✦</div>
+                  color: t.color, marginTop: 4,
+                  display: 'flex', justifyContent: 'center',
+                }}><Check size={18} /></div>
               )}
             </div>
           ))}

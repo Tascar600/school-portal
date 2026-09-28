@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Search, Check, Undo2, ClipboardList, CheckCircle2 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { timetableApi, subjectApi } from '../services/api';
 import { PrintButton } from '../components/PrintDownload';
@@ -234,9 +235,9 @@ export default function Timetable() {
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', marginBottom: '1rem' }}>
                 <h2 style={{ margin: 0 }}>Proposals for Class #{adminClassId}</h2>
                 <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                  <button className="btn btn-primary" onClick={handleGeneratePreview}>🔍 Generate Preview</button>
-                  <button className="btn btn-success" onClick={handlePublish} disabled={!generated || !generated.preview}>✦ Publish Timetable</button>
-                  {generated && <button className="btn btn-warning" onClick={handleUndo}>↩ Undo</button>}
+                  <button className="btn btn-primary" onClick={handleGeneratePreview} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}><Search size={16} /> Generate Preview</button>
+                  <button className="btn btn-success" onClick={handlePublish} disabled={!generated || !generated.preview} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}><Check size={16} /> Publish Timetable</button>
+                  {generated && <button className="btn btn-warning" onClick={handleUndo} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}><Undo2 size={16} /> Undo</button>}
                 </div>
               </div>
               <table>
@@ -292,8 +293,10 @@ export default function Timetable() {
           {generated && (
             <div className={`card ${!generated.preview ? 'glow-border' : ''}`}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap' }}>
-                <h2 style={{ margin: 0 }}>
-                  {generated.preview ? '📋 Preview — Class #' + generated.class_id : '✅ Published Timetable — Class #' + generated.class_id}
+                <h2 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  {generated.preview
+                    ? <><ClipboardList size={20} /> Preview — Class #{generated.class_id}</>
+                    : <><CheckCircle2 size={20} /> Published Timetable — Class #{generated.class_id}</>}
                 </h2>
                 {generated.preview && (
                   <span className="badge" style={{ background: 'rgba(245,158,11,0.2)', color: '#fbbf24', padding: '0.3rem 0.8rem' }}>

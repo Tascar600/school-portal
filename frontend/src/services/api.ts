@@ -42,25 +42,6 @@ export const dashboardApi = {
   get: () => api.get('/dashboard'),
 };
 
-// Fees
-export const feesApi = {
-  myAccounts: () => api.get('/fees/my'),
-  pay: (formData: FormData) => api.post('/fees/pay', formData, { headers: { 'Content-Type': 'multipart/form-data' } }),
-  pending: () => api.get('/fees/pending'),
-  verify: (paymentId: number, action: string) => api.put(`/fees/verify/${paymentId}`, { action }),
-  undo: (paymentId: number) => api.post(`/fees/undo/${paymentId}`),
-  accounts: () => api.get('/fees/accounts'),
-  stats: () => api.get('/fees/stats'),
-  teacherView: () => api.get('/fees/teacher-view'),
-  getSettings: () => api.get('/fees/settings'),
-  setSettings: (data: { sdc_fee: number; ssf_fee: number }) => api.post('/fees/settings', data),
-  teacherAccounts: () => api.get('/fees/accounts/my-students'),
-  termEnd: (data: { sdc_fee: number; ssf_fee: number; term: string; academic_year: string }) => api.post('/fees/term-end', data),
-  archives: () => api.get('/fees/archives'),
-  archive: (id: number) => api.get(`/fees/archives/${id}`),
-  yearEnd: () => api.post('/fees/year-end'),
-};
-
 // Timetables
 export const timetableApi = {
   create: (data: any) => api.post('/timetables', data),
@@ -177,6 +158,152 @@ export const themeApi = {
   get: () => api.get('/themes'),
   update: (data: any) => api.put('/themes', data),
   list: () => api.get('/themes/list'),
+};
+
+// Finance: Terms
+export const termsApi = {
+  list: () => api.get('/terms'),
+  current: () => api.get('/terms/current'),
+  create: (data: { year: string; term_no: number; start_date?: string; end_date?: string }) => api.post('/terms', data),
+  update: (id: number, data: any) => api.put(`/terms/${id}`, data),
+  setCurrent: (id: number) => api.put(`/terms/${id}/set-current`),
+  setLock: (id: number, locked: boolean) => api.put(`/terms/${id}/lock`, { locked }),
+};
+
+// Finance: Fee items & fee structure
+export const feeItemsApi = {
+  list: () => api.get('/fee-items'),
+  create: (data: any) => api.post('/fee-items', data),
+  update: (id: number, data: any) => api.put(`/fee-items/${id}`, data),
+  deactivate: (id: number) => api.delete(`/fee-items/${id}`),
+  structure: (termId: number) => api.get(`/fee-items/structure/${termId}`),
+  setStructureAmount: (termId: number, classId: number, feeItemId: number, amount: number) =>
+    api.put(`/fee-items/structure/${termId}/${classId}/${feeItemId}`, { amount }),
+  copyStructure: (fromTermId: number, toTermId: number, percentChange?: number) =>
+    api.post(`/fee-items/structure/${fromTermId}/copy-to/${toTermId}`, { percentChange }),
+};
+
+// Finance: Billing (run term billing, ad-hoc charges/credit notes)
+export const billingApi = {
+  run: (data: { term_id: number; class_id: number; date?: string }) => api.post('/billing/run', data),
+  charge: (data: any) => api.post('/billing/charge', data),
+  creditNote: (data: any) => api.post('/billing/credit-note', data),
+};
+
+// Finance: Invoices
+export const invoicesApi = {
+  list: (params?: any) => api.get('/invoices', { params }),
+  my: () => api.get('/invoices/my'),
+  get: (id: number) => api.get(`/invoices/${id}`),
+  cancel: (id: number, reason: string) => api.put(`/invoices/${id}/cancel`, { reason }),
+};
+
+// Finance: Payments (Receive Payment + receipts)
+export const paymentsApi = {
+  list: (params?: any) => api.get('/payments', { params }),
+  my: () => api.get('/payments/my'),
+  get: (id: number) => api.get(`/payments/${id}`),
+  record: (data: any) => api.post('/payments', data),
+  reverse: (id: number, reason: string) => api.put(`/payments/${id}/reverse`, { reason }),
+};
+
+// Finance: Accounts (cash & bank), transfers, ledger
+export const accountsApi = {
+  list: () => api.get('/accounts'),
+  create: (data: any) => api.post('/accounts', data),
+  update: (id: number, data: any) => api.put(`/accounts/${id}`, data),
+  deactivate: (id: number) => api.delete(`/accounts/${id}`),
+  balance: (id: number, asOf?: string) => api.get(`/accounts/${id}/balance`, { params: asOf ? { as_of: asOf } : {} }),
+  ledger: (id: number) => api.get(`/accounts/${id}/ledger`),
+  transfer: (data: { tr_date: string; from_account: number; to_account: number; amount: number; reference?: string; notes?: string }) =>
+    api.post('/accounts/transfer', data),
+  deleteTransfer: (id: number) => api.delete(`/accounts/transfer/${id}`),
+};
+
+// Finance: Expense categories
+export const expenseCategoriesApi = {
+  list: () => api.get('/expense-categories'),
+  create: (data: { name: string }) => api.post('/expense-categories', data),
+  update: (id: number, data: any) => api.put(`/expense-categories/${id}`, data),
+  deactivate: (id: number) => api.delete(`/expense-categories/${id}`),
+};
+
+// Finance: Expenses (payment vouchers)
+export const expensesApi = {
+  list: (params?: any) => api.get('/expenses', { params }),
+  get: (id: number) => api.get(`/expenses/${id}`),
+  create: (data: any) => api.post('/expenses', data),
+  cancel: (id: number, reason: string) => api.put(`/expenses/${id}/cancel`, { reason }),
+};
+
+// Finance: Bank reconciliation
+export const reconciliationApi = {
+  unreconciled: (accountId: number, upTo?: string) => api.get(`/reconciliation/${accountId}/unreconciled`, { params: upTo ? { upTo } : {} }),
+  save: (accountId: number, data: any) => api.post(`/reconciliation/${accountId}`, data),
+  history: (accountId: number) => api.get(`/reconciliation/${accountId}/history`),
+};
+
+// Finance: Budgets
+export const budgetsApi = {
+  list: (termId: number) => api.get(`/budgets/${termId}`),
+  set: (termId: number, categoryId: number, amount: number) => api.put(`/budgets/${termId}/${categoryId}`, { amount }),
+  copy: (fromTermId: number, toTermId: number) => api.post(`/budgets/${fromTermId}/copy-to/${toTermId}`),
+};
+
+// Finance: Sponsors
+export const sponsorsApi = {
+  list: () => api.get('/sponsors'),
+  create: (data: any) => api.post('/sponsors', data),
+  update: (id: number, data: any) => api.put(`/sponsors/${id}`, data),
+  deactivate: (id: number) => api.delete(`/sponsors/${id}`),
+};
+
+// Finance: Discounts
+export const discountsApi = {
+  list: () => api.get('/discounts'),
+  create: (data: any) => api.post('/discounts', data),
+  update: (id: number, data: any) => api.put(`/discounts/${id}`, data),
+  deactivate: (id: number) => api.delete(`/discounts/${id}`),
+};
+
+// Finance: Student finance profiles (category, discount, sponsor, guardian info)
+export const studentProfilesApi = {
+  get: (studentId: number) => api.get(`/student-profiles/${studentId}`),
+  update: (studentId: number, data: any) => api.put(`/student-profiles/${studentId}`, data),
+};
+
+// Finance: Reports
+export const reportsApi = {
+  daily: (date: string) => api.get('/reports/daily', { params: { date } }),
+  collections: (termId: number) => api.get('/reports/collections', { params: { term_id: termId } }),
+  feeItems: (termId: number) => api.get('/reports/fee-items', { params: { term_id: termId } }),
+  debtors: () => api.get('/reports/debtors'),
+  aged: (asOf: string) => api.get('/reports/aged', { params: { asOf } }),
+  incomeExpenditure: (termId: number) => api.get('/reports/income-expenditure', { params: { term_id: termId } }),
+  budget: (termId: number) => api.get('/reports/budget', { params: { term_id: termId } }),
+  sponsors: (termId: number) => api.get('/reports/sponsors', { params: { term_id: termId } }),
+  methods: (termId: number) => api.get('/reports/methods', { params: { term_id: termId } }),
+  classList: (classId: number) => api.get('/reports/class-list', { params: { class_id: classId } }),
+  exportXlsx: (reportKey: string, params: Record<string, any>) =>
+    api.get(`/reports/${reportKey}/export.xlsx`, { params, responseType: 'blob' }),
+};
+
+// Finance: Messages / WhatsApp reminders
+export const messagesApi = {
+  list: (params?: any) => api.get('/messages', { params }),
+  send: (data: { student_id?: number; phone: string; body: string; kind?: string }) => api.post('/messages', data),
+  markSent: (id: number) => api.put(`/messages/${id}/sent`),
+  bulkReminder: (data: { class_id?: number; min_balance?: number; template: string }) => api.post('/messages/bulk-reminder', data),
+};
+
+// Finance: Student roster — import/export/promotion
+export const financeStudentsApi = {
+  list: (params?: any) => api.get('/finance-students', { params }),
+  exportXlsx: (params?: any) => api.get('/finance-students/export.xlsx', { params, responseType: 'blob' }),
+  importPreview: (formData: FormData) =>
+    api.post('/finance-students/import/preview', formData, { headers: { 'Content-Type': 'multipart/form-data' } }),
+  importConfirm: (data: { toCreate: any[]; toUpdate: any[] }) => api.post('/finance-students/import/confirm', data),
+  promote: () => api.post('/finance-students/promote'),
 };
 
 // Admin

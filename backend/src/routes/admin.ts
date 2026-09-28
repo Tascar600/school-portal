@@ -52,9 +52,10 @@ router.post('/users', async (req: AuthRequest, res: Response) => {
       return res.status(201).json({ message: role === 'student' ? 'Student created' : 'Teacher created', reg_number });
     }
 
+    if (!password) return res.status(400).json({ message: 'A password is required for this role' });
     const hashed = hashPassword(password);
     await execute(
-      'INSERT INTO users (name, email, password, role, class_id) VALUES (?, ?, ?, ?, ?)',
+      'INSERT INTO users (name, email, password, role, class_id, is_active) VALUES (?, ?, ?, ?, ?, 1)',
       [name, email, hashed, role, class_id || null]
     );
     res.status(201).json({ message: 'User created' });

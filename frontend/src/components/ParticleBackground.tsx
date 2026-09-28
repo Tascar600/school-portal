@@ -21,14 +21,14 @@ export default function ParticleBackground() {
     resize();
     window.addEventListener('resize', resize);
 
-    const count = Math.min(80, Math.floor((canvas.width * canvas.height) / 15000));
+    const count = Math.min(36, Math.floor((canvas.width * canvas.height) / 32000));
     particles = Array.from({ length: count }, () => ({
       x: Math.random() * canvas.width,
       y: Math.random() * canvas.height,
-      vx: (Math.random() - 0.5) * 0.5,
-      vy: (Math.random() - 0.5) * 0.5,
-      size: Math.random() * 2 + 1,
-      alpha: Math.random() * 0.5 + 0.2,
+      vx: (Math.random() - 0.5) * 0.18,
+      vy: (Math.random() - 0.5) * 0.18,
+      size: Math.random() * 1.5 + 0.75,
+      alpha: Math.random() * 0.25 + 0.1,
     }));
 
     const draw = () => {
@@ -50,11 +50,11 @@ export default function ParticleBackground() {
           const dx = particles[j].x - p.x;
           const dy = particles[j].y - p.y;
           const dist = Math.sqrt(dx * dx + dy * dy);
-          if (dist < 120) {
+          if (dist < 100) {
             ctx.beginPath();
             ctx.moveTo(p.x, p.y);
             ctx.lineTo(particles[j].x, particles[j].y);
-            ctx.strokeStyle = `rgba(0, 240, 255, ${0.08 * (1 - dist / 120)})`;
+            ctx.strokeStyle = `rgba(0, 240, 255, ${0.035 * (1 - dist / 100)})`;
             ctx.lineWidth = 0.5;
             ctx.stroke();
           }

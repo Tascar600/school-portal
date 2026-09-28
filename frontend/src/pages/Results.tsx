@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Archive } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { resultApi, subjectApi } from '../services/api';
 import { PrintButton, DownloadCSV } from '../components/PrintDownload';
@@ -161,7 +162,7 @@ export default function Results() {
         <div style={{ display: 'flex', gap: '0.3rem', alignItems: 'center' }}>
           <PrintButton />
           <DownloadCSV data={csvData} headers={['Student', 'Subject', 'Term', 'Year', 'Coursework', 'Test', 'Exam', 'Total', 'Grade', 'Remarks', 'Status']} filename="results.csv" label=" CSV" />
-          {user?.role === 'admin' && <button className="btn btn-warning" onClick={handleArchive}>📦 Archive Term</button>}
+          {user?.role === 'admin' && <button className="btn btn-warning" onClick={handleArchive} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}><Archive size={16} /> Archive Term</button>}
         </div>
       </div>
 

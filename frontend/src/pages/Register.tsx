@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Printer } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { attendanceApi } from '../services/api';
 import { PrintButton, DownloadCSV } from '../components/PrintDownload';
@@ -72,7 +73,7 @@ export default function Register() {
           <div style={{ display: 'flex', gap: '0.3rem' }}>
             <PrintButton />
             <DownloadCSV data={csvData} headers={['Student', 'Status']} filename="attendance_register.csv" label=" CSV" />
-            <button className="btn" style={{ background: 'rgba(167,139,250,0.2)', color: '#a78bfa', border: '1px solid rgba(167,139,250,0.3)' }} onClick={() => setShowPrintPicker(true)}>🖨 Print Register</button>
+            <button className="btn" style={{ background: 'rgba(167,139,250,0.2)', color: '#a78bfa', border: '1px solid rgba(167,139,250,0.3)', display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }} onClick={() => setShowPrintPicker(true)}><Printer size={16} /> Print Register</button>
           </div>
         </div>
         {msg && <div className="alert alert-info">{msg}</div>}

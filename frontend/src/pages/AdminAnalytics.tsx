@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { BarChart3 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { resultApi, adminApi, analyticsApi } from '../services/api';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, Legend, CartesianGrid } from 'recharts';
@@ -54,7 +55,7 @@ export default function AdminAnalytics() {
 
   return (
     <div>
-      <h1>📊 Class Analytics</h1>
+      <h1 style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}><BarChart3 size={26} /> Class Analytics</h1>
       <p style={{ color: 'var(--text-dim)', marginBottom: '1rem' }}>Chakari (GVT) Primary School — Performance Dashboard</p>
 
       <div className="card">

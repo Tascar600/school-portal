@@ -2,7 +2,7 @@
 
 **Chakari (GVT) Primary School — Mashonaland West, Sanyati District**
 
-A full-stack school management portal with role-based access for Admin, Teacher, Student, Bursar, and Prefect. Built with React + TypeScript (frontend), Node.js + Express + TypeScript (backend), and SQLite (database).
+A full-stack school management portal with role-based access for Admin, Teacher, Student, and Bursar. Built with React + TypeScript (frontend), Node.js + Express + TypeScript (backend), and SQLite (database). Prefect is an elected student position (via the Voting feature), not a separate login role — see below.
 
 **Live URL:** https://school-portal-r4h0.onrender.com
 
@@ -22,40 +22,7 @@ A full-stack school management portal with role-based access for Admin, Teacher,
 |-------|----------|
 | tascarmasiwa@gmail.com | 12345678 |
 
-### Teachers (10 teachers)
-
-| Name | Email | Password | Assigned Class |
-|------|-------|----------|----------------|
-| Tendai Moyo | teacher1@school.com | 1234 | ECD A |
-| Chido Ndlovu | teacher2@school.com | 1234 | ECD B |
-| Tafadzwa Sithole | teacher3@school.com | 1234 | Grade 1 |
-| Rumbidzai Dube | teacher4@school.com | 1234 | Grade 2 |
-| Kudzai Khumalo | teacher5@school.com | 1234 | Grade 3 |
-| Nyasha Nyoni | teacher6@school.com | 1234 | Grade 4 |
-| Tanaka Tshuma | teacher7@school.com | 1234 | Grade 5 |
-| Tariro Ncube | teacher8@school.com | 1234 | Grade 6 |
-| Anesu Mpofu | teacher9@school.com | 1234 | Grade 7 |
-| Mufaro Sibanda | teacher10@school.com | 1234 | Unassigned |
-
-### Students (100 students across ECD A to Grade 7)
-
-All students use password: **1234**
-
-Each student has a unique student number and logs in using their email (format: `studentnumber@temp.school`).
-
-| Class | Student Numbers | Email Pattern | Count |
-|-------|----------------|---------------|-------|
-| ECD A | c2600001c – c2600011c | c2600001c@temp.school | 11 |
-| ECD B | c2600012c – c2600022c | c2600012c@temp.school | 11 |
-| Grade 1 | c2600023c – c2600033c | c2600023c@temp.school | 11 |
-| Grade 2 | c2600034c – c2600044c | c2600034c@temp.school | 11 |
-| Grade 3 | c2600045c – c2600055c | c2600045c@temp.school | 11 |
-| Grade 4 | c2600056c – c2600066c | c2600056c@temp.school | 11 |
-| Grade 5 | c2600067c – c2600077c | c2600067c@temp.school | 11 |
-| Grade 6 | c2600078c – c2600088c | c2600078c@temp.school | 11 |
-| Grade 7 | c2600089c – c2600100c | c2600089c@temp.school | 12 |
-
-**Quick test login:** `c2600001c@temp.school` / `1234` (ECD A student)
+The database no longer auto-seeds fake teachers or students. On first run only the real Admin and Bursar accounts above exist, alongside the real Zimbabwe class list (ECD A/B, Grade 1–7). Add real teachers and students through **Admin Panel → Users** (or **Finance → Student Profiles → Import from Excel** for bulk student import). New teacher/student accounts are created inactive; they activate themselves at `/activate` using their assigned student/registration number, exactly as before.
 
 ---
 
@@ -101,13 +68,14 @@ async function sql(q) {
 SELECT id, name, email, role, student_number FROM users ORDER BY role, name;
 ```
 
-**Query 2 — Show fee accounts with student names (owing students):**
+**Query 2 — Students who currently owe fees (live balance = billed − paid):**
 ```sql
-SELECT u.name, u.student_number, f.account_type, f.total_fee, f.balance, f.credit_bf
-FROM fee_accounts f
-JOIN users u ON u.id = f.student_id
-WHERE f.balance > 0
-ORDER BY f.balance DESC;
+SELECT u.name, u.student_number,
+  COALESCE((SELECT SUM(total) FROM invoices WHERE student_id = u.id AND status = 'active'), 0)
+    - COALESCE((SELECT SUM(amount) FROM fee_payments WHERE student_id = u.id AND status = 'active'), 0) AS balance
+FROM users u WHERE u.role = 'student'
+HAVING balance > 0
+ORDER BY balance DESC;
 ```
 
 **Query 3 — Attendance summary per class:**
@@ -141,8 +109,8 @@ SQLite is an **embedded database** — the database engine runs inside the appli
 
 ### Admin (Full Access)
 
-- **Dashboard:** Analytics overview with charts (pass rates, fee collections, attendance stats) using Recharts
-- **Fees:** View all fee accounts (SDC & SSF), manage payments, run term-end archive with credit carry-forward
+- **Dashboard:** Analytics overview with charts (pass rates, attendance stats) using Recharts, plus live outstanding-fees total
+- **Finance:** Full bursary module — terms, fee items & fee structure, billing, invoices, charges/credit notes, receiving payments (with printable PDF receipts), expenses, cash/bank accounts with transfers, bank reconciliation, budgets vs actual, sponsors & discounts, student finance profiles (with Excel/CSV import and year-end promotion), WhatsApp fee reminders, and reports with Excel export (daily collections, debtors, aged arrears, income & expenditure, sponsor claims, and more)
 - **Results:** View all student results across all classes and terms
 - **Register:** View attendance records for any class and date
 - **Timetable:** View and manage all class timetables
@@ -182,7 +150,7 @@ SQLite is an **embedded database** — the database engine runs inside the appli
 - **Dashboard:** Personal overview with attendance stats, fee balance, upcoming homework
 - **Results:** View own results per term with subject scores and grades
 - **Timetable:** View own class timetable
-- **Fees:** View own fee accounts and payment history
+- **Fees:** View own invoices, payment history, and current balance (fees are recorded by the bursary office — students don't self-submit payments)
 - **Homework:** View and submit homework
 - **Quiz:** Attempt quizzes assigned to class
 - **Sports:** View and join sports teams
@@ -191,21 +159,17 @@ SQLite is an **embedded database** — the database engine runs inside the appli
 - **Student Stats:** View personal analytics
 - **Themes:** Customize visual theme
 
-### Bursar (Fees Only)
+### Bursar (Finance)
 
-- **Dashboard:** Fee collection stats and overview charts
-- **Fees:** View all student fee accounts, verify/reject pending payments, print e-receipts, view past fee archives
+- **Dashboard:** Outstanding fees, active invoice count, recent payments
+- **Finance:** Same full bursary module as Admin (billing, invoices, payments, expenses, accounts, reconciliation, budgets, sponsors, discounts, student finance profiles, reports) — everything except user/class/subject management and the SQL console, which stay Admin-only
 - **Report Cards:** View student report cards (read-only)
 - **Student Stats:** View student analytics
 - **Themes:** Customize visual theme
 
-### Prefect (Monitoring)
+### About "Prefect"
 
-- **Dashboard:** Overview of school statistics
-- **Register:** View attendance records
-- **Sports:** View sports teams and participants
-- **Voting:** View election results
-- **Themes:** Customize visual theme
+Prefect is not a login role — there's no separate Prefect account type in the system. It's an elected student position (alongside Head Boy, Head Girl, and Sports Captain) awarded through the **Voting** feature. A student who becomes Prefect still logs in with their regular **Student** role; the position is just recorded and displayed, not a different set of permissions.
 
 ---
 
@@ -217,19 +181,24 @@ SQLite is an **embedded database** — the database engine runs inside the appli
 | **Build Tool** | Vite 5 |
 | **Routing** | React Router DOM v6 |
 | **Charts** | Recharts |
+| **Icons** | lucide-react |
 | **HTTP Client** | Axios |
 | **Backend Framework** | Node.js with Express + TypeScript |
 | **Database** | SQLite via sql.js (embedded) |
 | **Authentication** | JWT (jsonwebtoken) + bcryptjs |
 | **Security** | Helmet, CORS, express-rate-limit |
 | **File Upload** | Multer |
+| **PDF Generation** | pdfkit (receipts, invoices — pure JS, no browser/Chromium dependency) |
+| **Excel Import/Export** | exceljs (pure JS) |
 | **Hosting** | Render (free tier) |
 
 ---
 
 ## Important Notes
 
-- **Render free tier** uses an ephemeral filesystem. The SQLite database resets to its initial state on every server restart/deploy. All 100 students + demo data are auto-seeded fresh each time.
-- Use the **Admin Panel → Backup** feature to download the database file if you need to preserve changes. Use **Restore** to upload it back after a restart.
-- Password for all pre-seeded accounts (except bursar) is **1234**.
-- The bursar account uses password **12345678**.
+- **⚠ Render free tier uses an ephemeral filesystem.** The SQLite database file is wiped on every server restart/redeploy, and — now that fake demo data is no longer auto-seeded to paper over this — a restart will silently erase **real** students, teachers, invoices, and payments, leaving only the Admin/Bursar bootstrap accounts and the class list. Before going live on the free tier, either:
+  - Use **Admin Panel → Backup** to download the `.db` file regularly (daily, at minimum before any deploy) and **Restore** it after each restart, or
+  - Move to a Render plan with a persistent disk (or any host with persistent storage) so the database survives restarts on its own.
+
+  This is the single most important operational risk in the current setup — treat backups as mandatory, not optional, until persistent storage is in place.
+- Password for the Admin bootstrap account is **1234**; the Bursar bootstrap account uses **12345678**. Change both via the app's profile/change-password screen before real use — these are meant as first-login credentials, not permanent ones.

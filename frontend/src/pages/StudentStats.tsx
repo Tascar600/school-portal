@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { User } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { resultApi, adminApi } from '../services/api';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, CartesianGrid } from 'recharts';
@@ -83,7 +84,7 @@ export default function StudentStats() {
 
   return (
     <div>
-      <h1>👤 Student Statistics</h1>
+      <h1 style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}><User size={26} /> Student Statistics</h1>
       <p style={{ color: 'var(--text-dim)', marginBottom: '1rem' }}>Chakari (GVT) Primary School — View full student profile</p>
 
       {msg && <div className="alert alert-error">{msg}</div>}

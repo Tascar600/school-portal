@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { GraduationCap } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import ParticleBackground from '../components/ParticleBackground';
 
@@ -38,16 +39,15 @@ export default function Login() {
             margin: '0 auto 1rem',
             boxShadow: '0 0 40px rgba(0,240,255,0.3)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: '1.5rem',
-          }}>✦</div>
+          }}><GraduationCap size={28} color="#0a0a1a" /></div>
           <h2 style={{ marginBottom: 0, color: '#fff', fontSize: '1.3rem' }}>
-            TASCAR
+            Tascar School Portal
           </h2>
           <p style={{ color: 'var(--text-dim)', fontSize: '0.8rem', marginTop: '0.3rem' }}>
             Chakari (GVT) Primary School · Mashonaland West
           </p>
           <p style={{ color: 'var(--text-dim)', fontSize: '0.85rem', marginTop: '0.5rem' }}>
-            Authenticate to continue
+            Sign in to your account
           </p>
         </div>
         {error && <div className="alert alert-error">{error}</div>}
@@ -57,7 +57,7 @@ export default function Login() {
           <label>Password</label>
           <input type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required placeholder="••••••••" />
           <button type="submit" className="btn btn-primary" style={{ width: '100%', marginTop: '0.75rem', padding: '0.8rem', fontSize: '1rem' }}>
-            ✦ LOGIN
+            Login
           </button>
         </form>
         <p style={{ marginTop: '1.25rem', textAlign: 'center', color: 'var(--text-dim)', fontSize: '0.9rem' }}>

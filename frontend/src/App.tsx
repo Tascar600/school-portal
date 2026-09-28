@@ -19,8 +19,19 @@ import Voting from './pages/Voting';
 import Themes from './pages/Themes';
 import AdminAnalytics from './pages/AdminAnalytics';
 import StudentStats from './pages/StudentStats';
-import BursaryDashboard from './pages/BursaryDashboard';
 import ReportCards from './pages/ReportCards';
+import FinanceDashboard from './pages/finance/FinanceDashboard';
+import FinanceSetup from './pages/finance/FinanceSetup';
+import Invoices from './pages/finance/Invoices';
+import Payments from './pages/finance/Payments';
+import Expenses from './pages/finance/Expenses';
+import Accounts from './pages/finance/Accounts';
+import Reconciliation from './pages/finance/Reconciliation';
+import Budgets from './pages/finance/Budgets';
+import Sponsors from './pages/finance/Sponsors';
+import StudentProfiles from './pages/finance/StudentProfiles';
+import Reports from './pages/finance/Reports';
+import Reminders from './pages/finance/Reminders';
 import './App.css';
 
 export default function App() {
@@ -39,11 +50,55 @@ export default function App() {
       />
       <Route
         path="/fees"
-        element={<ProtectedRoute roles={['student', 'admin', 'teacher', 'bursary']}><Layout><Fees /></Layout></ProtectedRoute>}
+        element={<ProtectedRoute roles={['student']}><Layout><Fees /></Layout></ProtectedRoute>}
       />
       <Route
-        path="/bursary"
-        element={<ProtectedRoute roles={['bursary']}><Layout><BursaryDashboard /></Layout></ProtectedRoute>}
+        path="/finance"
+        element={<ProtectedRoute roles={['admin', 'bursary']}><Layout><FinanceDashboard /></Layout></ProtectedRoute>}
+      />
+      <Route
+        path="/finance/setup"
+        element={<ProtectedRoute roles={['admin', 'bursary']}><Layout><FinanceSetup /></Layout></ProtectedRoute>}
+      />
+      <Route
+        path="/finance/invoices"
+        element={<ProtectedRoute roles={['admin', 'bursary']}><Layout><Invoices /></Layout></ProtectedRoute>}
+      />
+      <Route
+        path="/finance/payments"
+        element={<ProtectedRoute roles={['admin', 'bursary']}><Layout><Payments /></Layout></ProtectedRoute>}
+      />
+      <Route
+        path="/finance/expenses"
+        element={<ProtectedRoute roles={['admin', 'bursary']}><Layout><Expenses /></Layout></ProtectedRoute>}
+      />
+      <Route
+        path="/finance/accounts"
+        element={<ProtectedRoute roles={['admin', 'bursary']}><Layout><Accounts /></Layout></ProtectedRoute>}
+      />
+      <Route
+        path="/finance/reconciliation"
+        element={<ProtectedRoute roles={['admin', 'bursary']}><Layout><Reconciliation /></Layout></ProtectedRoute>}
+      />
+      <Route
+        path="/finance/budgets"
+        element={<ProtectedRoute roles={['admin', 'bursary']}><Layout><Budgets /></Layout></ProtectedRoute>}
+      />
+      <Route
+        path="/finance/sponsors"
+        element={<ProtectedRoute roles={['admin', 'bursary']}><Layout><Sponsors /></Layout></ProtectedRoute>}
+      />
+      <Route
+        path="/finance/students"
+        element={<ProtectedRoute roles={['admin', 'bursary']}><Layout><StudentProfiles /></Layout></ProtectedRoute>}
+      />
+      <Route
+        path="/finance/reports"
+        element={<ProtectedRoute roles={['admin', 'bursary']}><Layout><Reports /></Layout></ProtectedRoute>}
+      />
+      <Route
+        path="/finance/reminders"
+        element={<ProtectedRoute roles={['admin', 'bursary']}><Layout><Reminders /></Layout></ProtectedRoute>}
       />
       <Route
         path="/report-cards"

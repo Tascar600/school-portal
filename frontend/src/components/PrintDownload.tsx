@@ -1,3 +1,5 @@
+import { Printer, Download } from 'lucide-react';
+
 interface DownloadCSVProps {
   data: Record<string, any>[];
   headers: string[];
@@ -7,8 +9,8 @@ interface DownloadCSVProps {
 
 export function PrintButton() {
   return (
-    <button className="btn btn-primary" onClick={() => window.print()} style={{ whiteSpace: 'nowrap' }}>
-      🖨 Print
+    <button className="btn btn-primary" onClick={() => window.print()} style={{ whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
+      <Printer size={16} /> Print
     </button>
   );
 }
@@ -41,8 +43,8 @@ export function DownloadCSV({ data, headers, filename, label = ' CSV' }: Downloa
   };
 
   return (
-    <button className="btn btn-success" onClick={handleDownload} style={{ whiteSpace: 'nowrap' }}>
-      📥{label}
+    <button className="btn btn-success" onClick={handleDownload} style={{ whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
+      <Download size={16} />{label}
     </button>
   );
 }

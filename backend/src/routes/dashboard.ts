@@ -14,11 +14,14 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
       const [students] = await query<any[]>('SELECT COUNT(*) AS count FROM users WHERE role = ?', ['student']);
       const [teachers] = await query<any[]>('SELECT COUNT(*) AS count FROM users WHERE role = ?', ['teacher']);
       const [classes] = await query<any[]>('SELECT COUNT(*) AS count FROM classes');
-      const [pendingPayments] = await query<any[]>('SELECT COUNT(*) AS count FROM payments WHERE status = ?', ['pending']);
+      const [outstanding] = await query<any[]>(
+        `SELECT COALESCE((SELECT SUM(total) FROM invoices WHERE status='active'),0) -
+                COALESCE((SELECT SUM(amount) FROM fee_payments WHERE status='active'),0) AS total`
+      );
       data.students = students.count;
       data.teachers = teachers.count;
       data.classes = classes.count;
-      data.pendingPayments = pendingPayments.count;
+      data.outstandingFees = outstanding.total;
     } else if (role === 'teacher') {
       const [teacherInfo] = await query<any[]>('SELECT class_id FROM users WHERE id = ?', [userId]);
       const classId = teacherInfo?.class_id;
@@ -27,18 +30,22 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
       data.classes = classId ? 1 : 0;
       data.className = classId ? (await query<any[]>('SELECT name FROM classes WHERE id = ?', [classId]))[0]?.name : 'N/A';
     } else if (role === 'bursary') {
-      const [pendingPayments] = await query<any[]>('SELECT COUNT(*) AS count FROM payments WHERE status = ?', ['pending']);
-      data.pendingPayments = pendingPayments.count;
-      const feeAccounts = await query<any[]>('SELECT COUNT(*) AS count FROM fee_accounts');
-      data.totalAccounts = feeAccounts[0].count;
+      const [invoiceCount] = await query<any[]>("SELECT COUNT(*) AS count FROM invoices WHERE status='active'");
+      const [outstanding] = await query<any[]>(
+        `SELECT COALESCE((SELECT SUM(total) FROM invoices WHERE status='active'),0) -
+                COALESCE((SELECT SUM(amount) FROM fee_payments WHERE status='active'),0) AS total`
+      );
+      data.invoiceCount = invoiceCount.count;
+      data.outstandingFees = outstanding.total;
     } else if (role === 'student') {
       const [classInfo] = await query<any[]>(
         'SELECT c.name FROM users u JOIN classes c ON c.id = u.class_id WHERE u.id = ?', [userId]
       );
       data.className = classInfo?.name || 'N/A';
 
-      const feeAccounts = await query<any[]>('SELECT * FROM fee_accounts WHERE student_id = ?', [userId]);
-      data.feeAccounts = feeAccounts;
+      const [inv] = await query<any[]>("SELECT COALESCE(SUM(total),0) AS t FROM invoices WHERE student_id=? AND status='active'", [userId]);
+      const [pay] = await query<any[]>("SELECT COALESCE(SUM(amount),0) AS t FROM fee_payments WHERE student_id=? AND status='active'", [userId]);
+      data.feeBalance = inv.t - pay.t;
 
       const [notices] = await query<any[]>('SELECT COUNT(*) AS count FROM notices WHERE target_role IN (?,?)',
         ['all', 'students']);
