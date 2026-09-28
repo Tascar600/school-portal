@@ -38,7 +38,7 @@ export default function Layout({ children }: { children: ReactNode }) {
     { label: 'Courses', path: '/courses', roles: ['teacher', 'student'] },
     { label: 'Register', path: '/register', roles: ['teacher', 'student'] },
     { label: 'Sports', path: '/sports', roles: ['admin', 'teacher', 'student'] },
-    { label: 'Themes', path: '/themes', roles: ['admin', 'teacher', 'student', 'bursary'] },
+    { label: 'Themes', path: '/themes', roles: ['admin', 'teacher', 'student'] },
     { label: 'Admin Panel', path: '/admin', roles: ['admin'] },
   ];
 
@@ -63,13 +63,11 @@ export default function Layout({ children }: { children: ReactNode }) {
               {item.label}
             </Link>
           ))}
-          {(user?.role === 'admin' || user?.role === 'bursary') && (
+          {user?.role === 'admin' && (
             <>
-              {user?.role === 'admin' && (
-                <Link to="/admin/analytics" className={location.pathname === '/admin/analytics' ? 'nav-link active' : 'nav-link'}>
-                  <span className="nav-icon"><BarChart3 size={15} /></span> Analytics
-                </Link>
-              )}
+              <Link to="/admin/analytics" className={location.pathname === '/admin/analytics' ? 'nav-link active' : 'nav-link'}>
+                <span className="nav-icon"><BarChart3 size={15} /></span> Analytics
+              </Link>
               <Link to="/admin/student-stats" className={location.pathname === '/admin/student-stats' ? 'nav-link active' : 'nav-link'}>
                 <span className="nav-icon"><User size={15} /></span> Student Stats
               </Link>

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import api, { termsApi, paymentsApi, accountsApi, adminApi } from '../../services/api';
+import api, { termsApi, paymentsApi, accountsApi, adminApi, currenciesApi } from '../../services/api';
 import { money } from '../../utils/money';
 import { downloadBlob } from '../../utils/downloadBlob';
 import StatusBadge from '../../components/StatusBadge';
@@ -12,6 +12,7 @@ export default function Payments() {
   const [accounts, setAccounts] = useState<any[]>([]);
   const [students, setStudents] = useState<any[]>([]);
   const [payments, setPayments] = useState<any[]>([]);
+  const [currencies, setCurrencies] = useState<any[]>([]);
   const [termId, setTermId] = useState<number | null>(null);
   const [msg, setMsg] = useState('');
   const [msgType, setMsgType] = useState<'info' | 'error'>('info');
@@ -19,7 +20,8 @@ export default function Payments() {
   const [receipt, setReceipt] = useState<any>(null);
 
   const [form, setForm] = useState({
-    student_id: '', amount_paid: '', method: 'cash', reference: '', account_id: '', notes: '', pay_date: new Date().toISOString().slice(0, 10),
+    student_id: '', amount_paid: '', method: 'cash', reference: '', account_id: '', notes: '',
+    pay_date: new Date().toISOString().slice(0, 10), currency: 'USD', fx_rate: '1',
   });
 
   const showMsg = (m: string, t: 'info' | 'error' = 'info') => { setMsg(m); setMsgType(t); setTimeout(() => setMsg(''), 7000); };
@@ -35,7 +37,13 @@ export default function Payments() {
     });
     accountsApi.list().then((r) => { setAccounts(r.data); if (r.data.length) setForm((f) => ({ ...f, account_id: String(r.data[0].id) })); });
     adminApi.users().then((r) => setStudents(r.data.filter((u: any) => u.role === 'student')));
+    currenciesApi.list().then((r) => setCurrencies(r.data.filter((c: any) => c.active)));
   }, []);
+
+  const selectCurrency = (code: string) => {
+    const c = currencies.find((cur) => cur.code === code);
+    setForm((f) => ({ ...f, currency: code, fx_rate: c ? String(c.rate) : '1' }));
+  };
 
   useEffect(() => { if (termId) loadPayments(termId); }, [termId]);
 
@@ -46,12 +54,15 @@ export default function Payments() {
     try {
       const res = await paymentsApi.record({
         student_id: Number(form.student_id), term_id: termId, pay_date: form.pay_date,
-        amount_paid: parseFloat(form.amount_paid), currency: 'USD', fx_rate: 1,
+        amount_paid: parseFloat(form.amount_paid), currency: form.currency, fx_rate: parseFloat(form.fx_rate) || 1,
         method: form.method, reference: form.reference, account_id: form.account_id ? Number(form.account_id) : null,
         notes: form.notes,
       });
       showMsg(res.data.message);
-      setReceipt({ ...res.data, student: students.find((s) => s.id === Number(form.student_id)) });
+      setReceipt({
+        ...res.data, student: students.find((s) => s.id === Number(form.student_id)),
+        amountPaid: parseFloat(form.amount_paid), currency: form.currency,
+      });
       setForm({ ...form, student_id: '', amount_paid: '', reference: '', notes: '' });
       loadPayments(termId);
     } catch (err: any) { showMsg(err.response?.data?.message || 'Payment failed', 'error'); }
@@ -96,7 +107,24 @@ export default function Payments() {
               {students.map((s) => <option key={s.id} value={s.id}>{s.name} ({s.class_name || 'no class'})</option>)}
             </select>
           </div>
-          <div><label>Amount ($)</label><input type="number" step="0.01" value={form.amount_paid} onChange={(e) => setForm({ ...form, amount_paid: e.target.value })} required style={{ width: 110 }} /></div>
+          <div><label>Amount</label><input type="number" step="0.01" value={form.amount_paid} onChange={(e) => setForm({ ...form, amount_paid: e.target.value })} required style={{ width: 110 }} /></div>
+          <div><label>Currency</label>
+            <select value={form.currency} onChange={(e) => selectCurrency(e.target.value)}>
+              {currencies.map((c) => <option key={c.code} value={c.code}>{c.code}</option>)}
+            </select>
+          </div>
+          {form.currency !== 'USD' && (
+            <>
+              <div><label>Rate (per 1 USD)</label>
+                <input type="number" step="0.0001" value={form.fx_rate} onChange={(e) => setForm({ ...form, fx_rate: e.target.value })} required style={{ width: 100 }} />
+              </div>
+              {!!parseFloat(form.amount_paid) && !!parseFloat(form.fx_rate) && (
+                <div style={{ color: 'var(--text-dim)', fontSize: '0.8rem', paddingBottom: '0.6rem' }}>
+                  ≈ {money(parseFloat(form.amount_paid) / parseFloat(form.fx_rate))} USD
+                </div>
+              )}
+            </>
+          )}
           <div><label>Method</label>
             <select value={form.method} onChange={(e) => setForm({ ...form, method: e.target.value })}>
               {METHODS.map((m) => <option key={m} value={m}>{m}</option>)}
@@ -147,7 +175,7 @@ export default function Payments() {
             <h2>Receipt {receipt.receiptNo}</h2>
             <p>Tascar School Portal</p>
             <p>Received from: <strong>{receipt.student?.name}</strong></p>
-            <p>Amount: <strong>{money(receipt.amount)}</strong></p>
+            <p>Received: <strong>{money(receipt.amountPaid, receipt.currency)}</strong>{receipt.currency !== 'USD' && <> (≈ {money(receipt.amount)} USD)</>}</p>
             <p>Balance after payment: <strong>{money(receipt.balance)}</strong></p>
             <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem' }}>
               <PrintButton />

@@ -35,6 +35,7 @@ import studentProfileRoutes from './routes/studentProfiles';
 import reportRoutes from './routes/reports';
 import messageRoutes from './routes/messages';
 import financeStudentRoutes from './routes/financeStudents';
+import currencyRoutes from './routes/currencies';
 
 dotenv.config();
 
@@ -106,6 +107,7 @@ app.use('/api/student-profiles', studentProfileRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/messages', messageRoutes);
 app.use('/api/finance-students', financeStudentRoutes);
+app.use('/api/currencies', currencyRoutes);
 
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });

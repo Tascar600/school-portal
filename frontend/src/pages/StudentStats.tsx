@@ -21,9 +21,8 @@ export default function StudentStats() {
         const filtered = arr.filter((u: any) => u.role === 'student' && u.class_id === user.class_id);
         setStudents(filtered);
       }).catch(() => {});
-    } else if (user?.role === 'admin' || user?.role === 'bursary') {
-      const api = user?.role === 'bursary' ? resultApi.students() : adminApi.users();
-      api.then((r: any) => {
+    } else if (user?.role === 'admin') {
+      adminApi.users().then((r: any) => {
         const arr = Array.isArray(r.data) ? r.data : (r.data?.users || r.data || []);
         setStudents(arr.filter((u: any) => u.role === 'student'));
       }).catch(() => {});
@@ -171,7 +170,7 @@ export default function StudentStats() {
             <div className="card">
               <h2>Detailed Results</h2>
               <table>
-                <thead><tr><th>Subject</th><th>Term</th><th>Year</th><th>CW</th><th>Test</th><th>Exam</th><th>Total</th><th>Grade</th><th>Remarks</th></tr></thead>
+                <thead><tr><th>Subject</th><th>Term</th><th>Year</th><th>SBP</th><th>Test</th><th>Exam</th><th>Total</th><th>Grade</th><th>Remarks</th></tr></thead>
                 <tbody>
                   {stats.results.map((r: any, i: number) => {
                     const tot = (parseFloat(r.coursework||0) + parseFloat(r.test_score||0) + parseFloat(r.exam||0));

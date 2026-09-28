@@ -189,16 +189,21 @@ export default function Results() {
                 <label>Subject <span style={{color:'var(--text-dim)',fontSize:'0.75rem'}}>(type subject name)</span></label>
                 <input value={form.subject_name} onChange={e => setForm({ ...form, subject_name: e.target.value })} required placeholder="e.g. ChiShona, English, Maths" list="subjects" />
                 <datalist id="subjects">
-                  <option value="ChiShona" /><option value="English" /><option value="Mathematics" /><option value="General Science" /><option value="Social Studies" />
-                  <option value="Agriculture" /><option value="ICT" /><option value="Art & Design" /><option value="Physical Education" /><option value="Music" />
-                  <option value="Heritage Studies" /><option value="Family & Religion" /><option value="Home Economics" /><option value="Indigenous Languages" />
+                  {/* Grouped under the 6 Heritage-Based Curriculum (2024-2030) primary learning areas */}
+                  <option value="Indigenous Languages" /><option value="ChiShona" /><option value="IsiNdebele" />
+                  <option value="English Language" />
+                  <option value="Mathematics" />
+                  <option value="Science and Technology" /><option value="Agriculture" /><option value="ICT" />
+                  <option value="Social Science" /><option value="Heritage Studies" /><option value="Family & Religion" />
+                  <option value="Physical Education" /><option value="Sport" />
+                  <option value="Art & Design" /><option value="Music" /><option value="Home Economics" />
                 </datalist>
               </div>
             </div>
             <div className="form-row">
               <div><label>Term</label><select value={form.term} onChange={e => setForm({ ...form, term: e.target.value })} disabled={!!editId}><option>Term 1</option><option>Term 2</option><option>Term 3</option></select></div>
               <div><label>Year</label><input value={form.academic_year} onChange={e => setForm({ ...form, academic_year: e.target.value })} disabled={!!editId} /></div>
-              <div><label>Coursework</label><input type="number" min="0" max="100" value={form.coursework} onChange={e => setForm({ ...form, coursework: e.target.value })} /></div>
+              <div><label>School-Based Project</label><input type="number" min="0" max="100" value={form.coursework} onChange={e => setForm({ ...form, coursework: e.target.value })} /></div>
               <div><label>Test</label><input type="number" min="0" max="100" value={form.test_score} onChange={e => setForm({ ...form, test_score: e.target.value })} /></div>
               <div><label>Exam</label><input type="number" min="0" max="100" value={form.exam} onChange={e => setForm({ ...form, exam: e.target.value })} /></div>
               <div><label>Grade</label><input value={form.grade} readOnly style={{ fontWeight: 'bold', color: form.grade === 'A' ? '#4ade80' : form.grade === 'B' ? '#22d3ee' : form.grade === 'C' ? '#fbbf24' : form.grade === 'D' ? '#f87171' : form.grade === 'E' ? '#ef4444' : 'inherit' }} /></div>
@@ -277,7 +282,7 @@ export default function Results() {
                   {user?.role !== 'student' && <th>Student</th>}
                   <th>Subject</th>
                   <th>Term</th>
-                  <th>Coursework</th>
+                  <th>School-Based Project</th>
                   <th>Test</th>
                   <th>Exam</th>
                   <th>Total</th>
@@ -325,7 +330,7 @@ export default function Results() {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '1rem' }}>
             {results.map(r => {
               const barData = [
-                { name: 'CW', score: parseFloat(r.coursework||0) },
+                { name: 'SBP', score: parseFloat(r.coursework||0) },
                 { name: 'Test', score: parseFloat(r.test_score||0) },
                 { name: 'Exam', score: parseFloat(r.exam||0) },
               ];

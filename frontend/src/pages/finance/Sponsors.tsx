@@ -21,6 +21,15 @@ export default function Sponsors() {
     setForm({ name: '', type: 'Other', contact_person: '', phone: '', email: '', coverage_percent: '100' });
     setShowForm(true);
   };
+
+  const addBeam = async () => {
+    if (sponsors.some((s) => s.type === 'BEAM')) { showMsg('A BEAM sponsor already exists'); return; }
+    try {
+      await sponsorsApi.create({ name: 'BEAM (Basic Education Assistance Module)', type: 'BEAM', contact_person: 'Ministry of Public Service, Labour and Social Welfare', phone: '', email: '', coverage_percent: 100 });
+      showMsg('BEAM sponsor added — link students to it from their Finance Profile');
+      load();
+    } catch (err: any) { showMsg(err.response?.data?.message || 'Failed to add BEAM', 'error'); }
+  };
   const openEdit = (s: any) => {
     setEditing(s);
     setForm({ name: s.name, type: s.type, contact_person: s.contact_person || '', phone: s.phone || '', email: s.email || '', coverage_percent: String(s.coverage_percent) });
@@ -52,13 +61,20 @@ export default function Sponsors() {
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
         <h1 style={{ margin: 0 }}>Sponsors</h1>
-        <button className="btn btn-primary" onClick={openNew}>New Sponsor</button>
+        <div style={{ display: 'flex', gap: '0.3rem' }}>
+          <button className="btn" onClick={addBeam}>Add BEAM</button>
+          <button className="btn btn-primary" onClick={openNew}>New Sponsor</button>
+        </div>
       </div>
       {msg && <div className={`alert alert-${msgType === 'error' ? 'error' : 'info'}`}>{msg}</div>}
 
       <div className="card">
         <h2>Sponsors ({sponsors.length})</h2>
-        {sponsors.length === 0 ? <p style={{ color: 'var(--text-dim)' }}>No sponsors yet.</p> : (
+        {sponsors.length === 0 ? (
+          <p style={{ color: 'var(--text-dim)' }}>
+            No sponsors yet. If any students here receive government BEAM assistance, click "Add BEAM" above — note that BEAM has significant national payment arrears at the moment, so track Expected vs Received closely via Finance → Reports → Sponsor Claims.
+          </p>
+        ) : (
           <table>
             <thead><tr><th>Name</th><th>Type</th><th>Contact</th><th>Phone</th><th>Email</th><th>Coverage</th><th>Status</th><th>Actions</th></tr></thead>
             <tbody>

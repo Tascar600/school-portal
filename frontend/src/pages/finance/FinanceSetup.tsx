@@ -1,6 +1,17 @@
 import { useEffect, useState } from 'react';
-import { termsApi, feeItemsApi, adminApi, discountsApi } from '../../services/api';
+import { termsApi, feeItemsApi, adminApi, discountsApi, currenciesApi } from '../../services/api';
 import StatusBadge from '../../components/StatusBadge';
+
+// A starting point for a Zimbabwean primary school's fee catalogue — bursars can edit/delete
+// any of these afterwards. Not auto-added; only inserted when explicitly requested below.
+const ZIMBABWE_FEE_ITEMS = [
+  { name: 'Tuition', description: 'Core government-gazetted tuition fee', is_optional: false },
+  { name: 'Levy', description: 'School Development Association / Committee (SDA/SDC) top-up levy', is_optional: false },
+  { name: 'Building Fund', description: 'Infrastructure development fund', is_optional: false },
+  { name: 'Examination Fees', description: 'ZIMSEC Grade 7 examination fee', is_optional: false },
+  { name: 'Sports Levy', description: 'Sports equipment and activities', is_optional: true },
+  { name: 'Transport', description: 'School transport, for students who use it', is_optional: true },
+];
 
 export default function FinanceSetup() {
   const [terms, setTerms] = useState<any[]>([]);
@@ -8,13 +19,16 @@ export default function FinanceSetup() {
   const [classes, setClasses] = useState<any[]>([]);
   const [structure, setStructure] = useState<any[]>([]);
   const [discounts, setDiscounts] = useState<any[]>([]);
+  const [currencies, setCurrencies] = useState<any[]>([]);
   const [selectedTerm, setSelectedTerm] = useState<number | null>(null);
   const [msg, setMsg] = useState('');
   const [msgType, setMsgType] = useState<'info' | 'error'>('info');
+  const [loadingDefaults, setLoadingDefaults] = useState(false);
 
   const [termForm, setTermForm] = useState({ year: new Date().getFullYear().toString(), term_no: '1', start_date: '', end_date: '' });
   const [itemForm, setItemForm] = useState({ name: '', description: '', is_optional: false });
   const [discountForm, setDiscountForm] = useState({ name: '', type: 'percent', value: '', fee_item_id: '' });
+  const [currencyForm, setCurrencyForm] = useState({ code: '', name: '', rate: '' });
 
   const showMsg = (m: string, t: 'info' | 'error' = 'info') => { setMsg(m); setMsgType(t); setTimeout(() => setMsg(''), 6000); };
 
@@ -26,6 +40,39 @@ export default function FinanceSetup() {
     feeItemsApi.list().then((r) => setFeeItems(r.data));
     adminApi.classes().then((r) => setClasses(r.data));
     discountsApi.list().then((r) => setDiscounts(r.data));
+    currenciesApi.list().then((r) => setCurrencies(r.data));
+  };
+
+  const loadZimbabweFeeItems = async () => {
+    setLoadingDefaults(true);
+    try {
+      const existingNames = new Set(feeItems.map((i) => i.name.toLowerCase()));
+      const toAdd = ZIMBABWE_FEE_ITEMS.filter((i) => !existingNames.has(i.name.toLowerCase()));
+      for (const item of toAdd) await feeItemsApi.create(item);
+      showMsg(toAdd.length ? `Added ${toAdd.length} common fee item(s)` : 'All of these are already in your fee item list');
+      load();
+    } catch (err: any) { showMsg(err.response?.data?.message || 'Failed to add fee items', 'error'); }
+    finally { setLoadingDefaults(false); }
+  };
+
+  const addCurrency = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currencyForm.code || !currencyForm.name || !currencyForm.rate) return;
+    try {
+      await currenciesApi.create({ code: currencyForm.code, name: currencyForm.name, rate: parseFloat(currencyForm.rate) });
+      showMsg(`${currencyForm.code.toUpperCase()} added`);
+      setCurrencyForm({ code: '', name: '', rate: '' });
+      currenciesApi.list().then((r) => setCurrencies(r.data));
+    } catch (err: any) { showMsg(err.response?.data?.message || 'Failed to add currency', 'error'); }
+  };
+
+  const updateCurrencyRate = async (code: string, rate: string) => {
+    const r = parseFloat(rate);
+    if (isNaN(r) || r <= 0) return;
+    try {
+      await currenciesApi.update(code, { rate: r });
+      currenciesApi.list().then((r2) => setCurrencies(r2.data));
+    } catch (err: any) { showMsg(err.response?.data?.message || 'Failed to update rate', 'error'); }
   };
 
   useEffect(() => { load(); }, []);
@@ -137,6 +184,11 @@ export default function FinanceSetup() {
 
       <div className="card">
         <h2>Fee Items</h2>
+        <p style={{ color: 'var(--text-dim)', fontSize: '0.85rem' }}>
+          New here? <button className="btn btn-sm" onClick={loadZimbabweFeeItems} disabled={loadingDefaults} style={{ marginLeft: '0.3rem' }}>
+            {loadingDefaults ? 'Adding…' : 'Load common Zimbabwean fee items'}
+          </button> — adds Tuition, Levy, Building Fund, Examination Fees, Sports Levy and Transport as a starting point. Nothing is added automatically; edit or remove any of them afterwards.
+        </p>
         <table>
           <thead><tr><th>Name</th><th>Description</th><th>Optional</th></tr></thead>
           <tbody>
@@ -227,6 +279,38 @@ export default function FinanceSetup() {
             </select>
           </div>
           <button type="submit" className="btn btn-primary">Add Discount</button>
+        </form>
+      </div>
+
+      <div className="card">
+        <h2>Currencies</h2>
+        <p style={{ color: 'var(--text-dim)', fontSize: '0.85rem' }}>
+          Zimbabwe's dual-currency economy means fees can be paid in USD (the base currency here) or ZiG (ZWG), among others.
+          Exchange rates move — the official interbank rate is a good reference point, but update this whenever it shifts.
+        </p>
+        <table>
+          <thead><tr><th>Code</th><th>Name</th><th>Rate (per 1 USD)</th><th>Status</th></tr></thead>
+          <tbody>
+            {currencies.map((c) => (
+              <tr key={c.code}>
+                <td style={{ fontWeight: 600 }}>{c.code}</td>
+                <td>{c.name}</td>
+                <td>
+                  {c.is_base ? '1 (base)' : (
+                    <input type="number" step="0.0001" defaultValue={c.rate} style={{ width: 100 }}
+                      onBlur={(e) => e.target.value && updateCurrencyRate(c.code, e.target.value)} />
+                  )}
+                </td>
+                <td>{c.active ? <StatusBadge status="active" /> : <StatusBadge status="cancelled" />}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <form onSubmit={addCurrency} style={{ marginTop: '1rem', display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'flex-end' }}>
+          <div><label>Code</label><input value={currencyForm.code} onChange={(e) => setCurrencyForm({ ...currencyForm, code: e.target.value })} placeholder="e.g. ZAR" style={{ width: 80 }} required /></div>
+          <div><label>Name</label><input value={currencyForm.name} onChange={(e) => setCurrencyForm({ ...currencyForm, name: e.target.value })} placeholder="e.g. South African Rand" required /></div>
+          <div><label>Rate (per 1 USD)</label><input type="number" step="0.0001" value={currencyForm.rate} onChange={(e) => setCurrencyForm({ ...currencyForm, rate: e.target.value })} style={{ width: 100 }} required /></div>
+          <button type="submit" className="btn btn-primary">Add Currency</button>
         </form>
       </div>
     </div>

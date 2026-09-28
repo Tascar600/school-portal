@@ -120,7 +120,7 @@ SQLite is an **embedded database** — the database engine runs inside the appli
 - **Sports:** Manage sports categories and participants
 - **Report Cards:** Generate printable report cards for any student
 - **Student Stats:** Search and view detailed student analytics
-- **Themes:** Choose from 23 visual themes (16 dark + 7 light)
+- **Themes:** Choose from 24 visual themes (16 dark + 8 light, including a Zimbabwe Heritage theme)
 - **Admin Panel:**
   - User management (CRUD)
   - Class management (CRUD)
@@ -157,13 +157,12 @@ SQLite is an **embedded database** — the database engine runs inside the appli
 - **Student Stats:** View personal analytics
 - **Themes:** Customize visual theme
 
-### Bursar (Finance)
+### Bursar (Finance only)
+
+The Bursar role is scoped strictly to money — it has no access to academic data, report cards, student analytics, themes, or any other non-finance area of the portal, at both the navigation and API level.
 
 - **Dashboard:** Outstanding fees, active invoice count, recent payments
 - **Finance:** Same full bursary module as Admin (billing, invoices, payments, expenses, accounts, reconciliation, budgets, sponsors, discounts, student finance profiles, reports) — everything except user/class/subject management and the SQL console, which stay Admin-only
-- **Report Cards:** View student report cards (read-only)
-- **Student Stats:** View student analytics
-- **Themes:** Customize visual theme
 
 ---
 

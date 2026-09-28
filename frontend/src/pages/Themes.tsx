@@ -84,7 +84,7 @@ export default function Themes() {
       <div className="card">
         <h2>Choose a theme</h2>
         <p style={{ color: 'var(--text-dim)', marginBottom: '1.5rem' }}>
-          Select a visual theme to customize how the portal looks. 23 themes available (16 dark, 7 light).
+          Select a visual theme to customize how the portal looks. 24 themes available (16 dark, 8 light).
         </p>
         <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))' }}>
           {themes.map((t: any) => (

@@ -80,7 +80,7 @@ export default function ReportCards() {
           </div>
 
           <table>
-            <thead><tr><th>Subject</th><th>CW</th><th>Test</th><th>Exam</th><th>Total</th><th>Grade</th></tr></thead>
+            <thead><tr><th>Subject</th><th>SBP</th><th>Test</th><th>Exam</th><th>Total</th><th>Grade</th></tr></thead>
             <tbody>
               {report.results.map((r: any, i: number) => {
                 const tot = parseFloat(r.coursework||0) + parseFloat(r.test_score||0) + parseFloat(r.exam||0);

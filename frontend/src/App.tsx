@@ -109,15 +109,15 @@ export default function App() {
       />
       <Route
         path="/timetable"
-        element={<ProtectedRoute><Layout><Timetable /></Layout></ProtectedRoute>}
+        element={<ProtectedRoute roles={['admin', 'teacher', 'student']}><Layout><Timetable /></Layout></ProtectedRoute>}
       />
       <Route
         path="/results"
-        element={<ProtectedRoute><Layout><Results /></Layout></ProtectedRoute>}
+        element={<ProtectedRoute roles={['admin', 'teacher', 'student']}><Layout><Results /></Layout></ProtectedRoute>}
       />
       <Route
         path="/notices"
-        element={<ProtectedRoute><Layout><Notices /></Layout></ProtectedRoute>}
+        element={<ProtectedRoute roles={['admin', 'teacher', 'student']}><Layout><Notices /></Layout></ProtectedRoute>}
       />
       <Route
         path="/homework"
@@ -125,7 +125,7 @@ export default function App() {
       />
       <Route
         path="/quizzes"
-        element={<ProtectedRoute><Layout><Quiz /></Layout></ProtectedRoute>}
+        element={<ProtectedRoute roles={['admin', 'teacher', 'student']}><Layout><Quiz /></Layout></ProtectedRoute>}
       />
       <Route
         path="/admin"
@@ -141,14 +141,14 @@ export default function App() {
       />
       <Route
         path="/sports"
-        element={<ProtectedRoute><Layout><Sports /></Layout></ProtectedRoute>}
+        element={<ProtectedRoute roles={['admin', 'teacher', 'student']}><Layout><Sports /></Layout></ProtectedRoute>}
       />
       <Route
         path="/themes"
-        element={<ProtectedRoute><Layout><Themes /></Layout></ProtectedRoute>}
+        element={<ProtectedRoute roles={['admin', 'teacher', 'student']}><Layout><Themes /></Layout></ProtectedRoute>}
       />
       <Route path="/admin/analytics" element={<ProtectedRoute roles={['admin']}><Layout><AdminAnalytics /></Layout></ProtectedRoute>} />
-      <Route path="/admin/student-stats" element={<ProtectedRoute roles={['admin', 'teacher', 'bursary']}><Layout><StudentStats /></Layout></ProtectedRoute>} />
+      <Route path="/admin/student-stats" element={<ProtectedRoute roles={['admin', 'teacher']}><Layout><StudentStats /></Layout></ProtectedRoute>} />
     </Routes>
   );
 }

@@ -196,6 +196,13 @@ export const paymentsApi = {
   reverse: (id: number, reason: string) => api.put(`/payments/${id}/reverse`, { reason }),
 };
 
+// Finance: Currencies (USD base + ZWG/ZiG and any others)
+export const currenciesApi = {
+  list: () => api.get('/currencies'),
+  create: (data: { code: string; name: string; rate: number }) => api.post('/currencies', data),
+  update: (code: string, data: { rate: number; active?: boolean }) => api.put(`/currencies/${code}`, data),
+};
+
 // Finance: Accounts (cash & bank), transfers, ledger
 export const accountsApi = {
   list: () => api.get('/accounts'),

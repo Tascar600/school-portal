@@ -547,6 +547,9 @@ function seedFinanceDefaults(): void {
   const existing = db.exec("SELECT COUNT(*) AS cnt FROM currencies");
   if (!(existing[0]?.values[0][0] > 0)) {
     db.run("INSERT INTO currencies (code, name, rate, is_base, active) VALUES ('USD', 'US Dollar', 1, 1, 1)");
+    // ZWG (Zimbabwe Gold, "ZiG") — the official interbank rate moves regularly.
+    // Starting rate is a reasonable default only; update it in Finance > Setup as it changes.
+    db.run("INSERT INTO currencies (code, name, rate, is_base, active) VALUES ('ZWG', 'Zimbabwe Gold (ZiG)', 26.6, 0, 1)");
   }
   const acct = db.exec("SELECT COUNT(*) AS cnt FROM accounts");
   if (!(acct[0]?.values[0][0] > 0)) {

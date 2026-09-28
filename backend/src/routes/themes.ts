@@ -40,15 +40,15 @@ router.put('/', authenticate, async (req: AuthRequest, res: Response) => {
 // Get available themes list
 router.get('/list', authenticate, async (_req: AuthRequest, res: Response) => {
   const themes = [
-    { id: 'default', name: 'Nexus Blue', color: '#00f0ff', bg: '#0a0a1a', neon: '#00f0ff' },
-    { id: 'cyberpunk', name: 'Cyberpunk', color: '#ff006e', bg: '#12001a', neon: '#ff006e' },
-    { id: 'matrix', name: 'Matrix', color: '#00ff41', bg: '#000a00', neon: '#00ff41' },
-    { id: 'hologram', name: 'Hologram', color: '#22d3ee', bg: '#0a1a2e', neon: '#22d3ee' },
+    { id: 'default', name: 'Classic Blue', color: '#00f0ff', bg: '#0a0a1a', neon: '#00f0ff' },
+    { id: 'cyberpunk', name: 'Berry', color: '#ff006e', bg: '#12001a', neon: '#ff006e' },
+    { id: 'matrix', name: 'Forest', color: '#00ff41', bg: '#000a00', neon: '#00ff41' },
+    { id: 'hologram', name: 'Sky', color: '#22d3ee', bg: '#0a1a2e', neon: '#22d3ee' },
     { id: 'solar', name: 'Solar Flare', color: '#ff6b35', bg: '#1a0a00', neon: '#ff6b35' },
-    { id: 'nebula', name: 'Nebula', color: '#a855f7', bg: '#0a001a', neon: '#a855f7' },
-    { id: 'quantum', name: 'Quantum', color: '#00bcd4', bg: '#00101a', neon: '#00e5ff' },
-    { id: 'plasma', name: 'Plasma', color: '#39ff14', bg: '#000a0a', neon: '#39ff14' },
-    { id: 'void', name: 'Void', color: '#bb86fc', bg: '#000000', neon: '#bb86fc' },
+    { id: 'nebula', name: 'Violet', color: '#a855f7', bg: '#0a001a', neon: '#a855f7' },
+    { id: 'quantum', name: 'Teal', color: '#00bcd4', bg: '#00101a', neon: '#00e5ff' },
+    { id: 'plasma', name: 'Lime', color: '#39ff14', bg: '#000a0a', neon: '#39ff14' },
+    { id: 'void', name: 'Charcoal', color: '#bb86fc', bg: '#000000', neon: '#bb86fc' },
     { id: 'aurora', name: 'Aurora', color: '#2dd4bf', bg: '#001a14', neon: '#5eead4' },
     { id: 'starlight', name: 'Starlight', color: '#fbbf24', bg: '#0a0a1a', neon: '#fde047' },
     { id: 'crimson', name: 'Crimson Storm', color: '#ef4444', bg: '#1a0000', neon: '#f87171' },
@@ -63,6 +63,7 @@ router.get('/list', authenticate, async (_req: AuthRequest, res: Response) => {
     { id: 'lavender', name: 'Lavender', color: '#7c3aed', bg: '#f5f3ff', neon: '#8b5cf6', light: true },
     { id: 'peach', name: 'Peach', color: '#ea580c', bg: '#fff7ed', neon: '#f97316', light: true },
     { id: 'rose', name: 'Rose', color: '#e11d48', bg: '#fff1f2', neon: '#f43f5e', light: true },
+    { id: 'zimheritage', name: 'Zimbabwe Heritage', color: '#15803d', bg: '#fdf8ec', neon: '#ca8a04', light: true },
   ];
   res.json(themes);
 });
