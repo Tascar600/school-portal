@@ -135,17 +135,6 @@ export const sportApi = {
   delete: (id: number) => api.delete(`/sports/${id}`),
 };
 
-// Voting
-export const votingApi = {
-  createSession: (data: any) => api.post('/voting/sessions', data),
-  getSessions: () => api.get('/voting/sessions'),
-  toggleStatus: (id: number, status: string) => api.put(`/voting/sessions/${id}/status`, { status }),
-  getCandidates: (sessionId: number) => api.get(`/voting/sessions/${sessionId}/candidates`),
-  nominate: (data: any) => api.post('/voting/nominate', data),
-  vote: (data: any) => api.post('/voting/vote', data),
-  deleteSession: (id: number) => api.delete(`/voting/sessions/${id}`),
-};
-
 // Analytics (admin)
 export const analyticsApi = {
   attendance: (classId: number) => api.get(`/admin/analytics/attendance/${classId}`),

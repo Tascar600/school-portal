@@ -15,7 +15,6 @@ import AdminPanel from './pages/AdminPanel';
 import Courses from './pages/Courses';
 import Register from './pages/Register';
 import Sports from './pages/Sports';
-import Voting from './pages/Voting';
 import Themes from './pages/Themes';
 import AdminAnalytics from './pages/AdminAnalytics';
 import StudentStats from './pages/StudentStats';
@@ -143,10 +142,6 @@ export default function App() {
       <Route
         path="/sports"
         element={<ProtectedRoute><Layout><Sports /></Layout></ProtectedRoute>}
-      />
-      <Route
-        path="/voting"
-        element={<ProtectedRoute roles={['admin', 'student']}><Layout><Voting /></Layout></ProtectedRoute>}
       />
       <Route
         path="/themes"

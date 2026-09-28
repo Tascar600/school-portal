@@ -2,7 +2,7 @@
 
 **Chakari (GVT) Primary School — Mashonaland West, Sanyati District**
 
-A full-stack school management portal with role-based access for Admin, Teacher, Student, and Bursar. Built with React + TypeScript (frontend), Node.js + Express + TypeScript (backend), and SQLite (database). Prefect is an elected student position (via the Voting feature), not a separate login role — see below.
+A full-stack school management portal with role-based access for Admin, Teacher, Student, and Bursar. Built with React + TypeScript (frontend), Node.js + Express + TypeScript (backend), and SQLite (database).
 
 **Live URL:** https://school-portal-r4h0.onrender.com
 
@@ -118,7 +118,6 @@ SQLite is an **embedded database** — the database engine runs inside the appli
 - **Notices:** Post notices to all users, teachers, or specific classes
 - **Quiz:** Create and manage quizzes for any class
 - **Sports:** Manage sports categories and participants
-- **Voting:** Create voting sessions (Head Boy, Head Girl, Prefect, Sports Captain)
 - **Report Cards:** Generate printable report cards for any student
 - **Student Stats:** Search and view detailed student analytics
 - **Themes:** Choose from 23 visual themes (16 dark + 7 light)
@@ -154,7 +153,6 @@ SQLite is an **embedded database** — the database engine runs inside the appli
 - **Homework:** View and submit homework
 - **Quiz:** Attempt quizzes assigned to class
 - **Sports:** View and join sports teams
-- **Voting:** Vote in open elections
 - **Report Cards:** View and print own report cards
 - **Student Stats:** View personal analytics
 - **Themes:** Customize visual theme
@@ -166,10 +164,6 @@ SQLite is an **embedded database** — the database engine runs inside the appli
 - **Report Cards:** View student report cards (read-only)
 - **Student Stats:** View student analytics
 - **Themes:** Customize visual theme
-
-### About "Prefect"
-
-Prefect is not a login role — there's no separate Prefect account type in the system. It's an elected student position (alongside Head Boy, Head Girl, and Sports Captain) awarded through the **Voting** feature. A student who becomes Prefect still logs in with their regular **Student** role; the position is just recorded and displayed, not a different set of permissions.
 
 ---
 

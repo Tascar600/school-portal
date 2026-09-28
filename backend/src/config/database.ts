@@ -206,46 +206,6 @@ function createTables(): void {
       UNIQUE(sport_id, student_id)
     );
 
-    -- Voting sessions
-    CREATE TABLE IF NOT EXISTS voting_sessions (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      title TEXT NOT NULL,
-      description TEXT DEFAULT '',
-      position TEXT NOT NULL DEFAULT 'Prefect',
-      status TEXT DEFAULT 'closed' CHECK(status IN ('open','closed')),
-      start_date TEXT,
-      end_date TEXT,
-      created_by INTEGER NOT NULL,
-      created_at TEXT DEFAULT (datetime('now')),
-      FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE
-    );
-
-    -- Prefect nominations
-    CREATE TABLE IF NOT EXISTS nominations (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      session_id INTEGER NOT NULL,
-      student_id INTEGER NOT NULL,
-      manifesto TEXT DEFAULT '',
-      photo_url TEXT DEFAULT '',
-      created_at TEXT DEFAULT (datetime('now')),
-      FOREIGN KEY (session_id) REFERENCES voting_sessions(id) ON DELETE CASCADE,
-      FOREIGN KEY (student_id) REFERENCES users(id) ON DELETE CASCADE,
-      UNIQUE(session_id, student_id)
-    );
-
-    -- Votes
-    CREATE TABLE IF NOT EXISTS votes (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      session_id INTEGER NOT NULL,
-      candidate_id INTEGER NOT NULL,
-      voter_id INTEGER NOT NULL,
-      voted_at TEXT DEFAULT (datetime('now')),
-      FOREIGN KEY (session_id) REFERENCES voting_sessions(id) ON DELETE CASCADE,
-      FOREIGN KEY (candidate_id) REFERENCES nominations(id) ON DELETE CASCADE,
-      FOREIGN KEY (voter_id) REFERENCES users(id) ON DELETE CASCADE,
-      UNIQUE(session_id, voter_id)
-    );
-
     -- User settings (themes)
     CREATE TABLE IF NOT EXISTS user_settings (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
