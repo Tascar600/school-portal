@@ -431,7 +431,7 @@ See the **Bursary** section above.
 
 1. **Back up first.** On Render's free tier every deploy and restart starts from an *empty* database: only the Administrator, the Bursar and the class list come back. In the portal go to **Admin Panel → Database → Download a backup now**, and after the deploy use **Restore Database**. (A paid plan with a persistent disk avoids this.)
 2. Put this project in the Git repository your Render service watches and push, or create a service from `render.yaml` (New → Blueprint).
-3. In Render → Environment make sure `JWT_SECRET` exists and is long and random. If it is missing the portal still starts, but it shouts in its log and shows the Administrator a red warning on the dashboard, because the built-in fallback secret is public and anyone could forge an Administrator login.
+3. In Render → Environment add `JWT_SECRET` (a long random value; `render.yaml` does this only when the service is created from it as a Blueprint, **not** for a service created by hand). If it is missing the portal is still safe: on a host it makes a random secret each time it starts instead of using the public fallback in the source code, but everyone is logged out whenever it restarts, and the Administrator sees a notice on the dashboard.
 4. Open the live address. On a brand-new database the first log in to the Administrator (`punhamasiwa@gmail.com` / `1234`) and the Bursar (`tascarmasiwa@gmail.com` / `12345678`) makes each choose their own password. Do both straight away.
 5. Optional: add `SMS_WEBHOOK_URL` (and `SMS_WEBHOOK_TOKEN`) for automatic text messages.
 

@@ -6,6 +6,8 @@ import { spawn } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { createRequire } from 'module';
+const jwt = createRequire(import.meta.url)('jsonwebtoken');
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const BACKEND = path.resolve(HERE, '..');
@@ -41,6 +43,10 @@ async function rehearse(label, extraEnv) {
     check(`[${label}] a brand-new portal makes the Administrator choose a password first`, login.user?.must_change_password === 1);
     const changed = await (await fetch(API + '/auth/change-password', { method: 'POST', headers: { 'content-type': 'application/json', Authorization: 'Bearer ' + login.token }, body: JSON.stringify({ current_password: '1234', new_password: 'Chakari2026!' }) })).json();
     const dash = await (await fetch(API + '/dashboard', { headers: { Authorization: 'Bearer ' + changed.token } })).json();
+    // A token signed with the secret that is written in the public source code must be useless on a host
+    const forged = jwt.sign({ id: 1, email: 'punhamasiwa@gmail.com', role: 'admin' }, 'fallback_secret_do_not_use_in_prod', { expiresIn: '5m' });
+    const forgedTry = await fetch(API + '/auth/me', { headers: { Authorization: 'Bearer ' + forged } });
+    check(`[${label}] a login forged with the public fallback secret is refused`, forgedTry.status === 401, String(forgedTry.status));
     return { log, dash };
   } finally {
     try { server.kill(); } catch { /* gone */ }
@@ -50,7 +56,7 @@ async function rehearse(label, extraEnv) {
 }
 
 const insecure = await rehearse('no JWT_SECRET', {});
-check('without JWT_SECRET the server says so loudly in its log', /SECURITY WARNING: JWT_SECRET is not set/.test(insecure.log), insecure.log.slice(-300));
+check('without JWT_SECRET the server says so in its log, and tells the Administrator on the dashboard', /SECURITY WARNING: JWT_SECRET is not set/.test(insecure.log) && /random secret was made/.test(insecure.log), insecure.log.slice(-300));
 check('and the Administrator\'s dashboard is told to fix it', insecure.dash.insecureSecret === true, JSON.stringify(insecure.dash).slice(0, 160));
 const secure = await rehearse('with JWT_SECRET', { JWT_SECRET: 'rehearsal-secret-' + 'x'.repeat(40) });
 check('with JWT_SECRET set there is no warning', !/SECURITY WARNING/.test(secure.log) && secure.dash.insecureSecret === false, secure.log.slice(-200));

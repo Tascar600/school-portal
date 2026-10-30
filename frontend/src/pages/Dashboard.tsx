@@ -51,7 +51,7 @@ export default function Dashboard() {
       {user?.role === 'admin' && (
         <>
           {data.insecureSecret && (
-            <div className="alert alert-error"><strong>Security: this portal is signing log ins with a public secret.</strong> Anyone could pretend to be the Administrator. Set <code>JWT_SECRET</code> to a long random value in the host's settings (on Render: Environment), then restart.</div>
+            <div className="alert alert-error"><strong>JWT_SECRET is not set on this portal.</strong> Log ins are still safe (a random secret is made at each start), but everyone is logged out whenever it restarts. Set <code>JWT_SECRET</code> to a long random value in the host's settings (on Render: Environment) to stop that.</div>
           )}
           <BackupNotice backup={data.backup} onDone={() => dashboardApi.get().then((res) => setData(res.data)).catch(() => {})} />
           {pendingResets > 0 && (
