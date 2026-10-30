@@ -1,6 +1,7 @@
 import { Router, Response } from 'express';
-import { query, execute } from '../config/database';
+import { query, queryOne, execute } from '../config/database';
 import { authenticate, authorize, AuthRequest } from '../middleware/auth';
+import { teacherOwnsClass } from '../utils/ownership';
 
 const router = Router();
 
@@ -8,6 +9,9 @@ const router = Router();
 router.post('/', authenticate, authorize('teacher'), async (req: AuthRequest, res: Response) => {
   try {
     const { name, description, class_id, day_of_week, start_time, end_time } = req.body;
+    if (!(await teacherOwnsClass(req.user!.id, Number(class_id)))) {
+      return res.status(403).json({ message: 'You can only create courses for your own class' });
+    }
     await execute(
       'INSERT INTO courses (name, description, teacher_id, class_id, day_of_week, start_time, end_time) VALUES (?, ?, ?, ?, ?, ?, ?)',
       [name, description || '', req.user!.id, class_id, day_of_week || '', start_time || '', end_time || '']
@@ -77,6 +81,10 @@ router.put('/:id', authenticate, authorize('teacher'), async (req: AuthRequest, 
 // Delete course
 router.delete('/:id', authenticate, authorize('teacher', 'admin'), async (req: AuthRequest, res: Response) => {
   try {
+    if (req.user!.role === 'teacher') {
+      const course = await queryOne<any>('SELECT teacher_id FROM courses WHERE id = ?', [req.params.id]);
+      if (!course || course.teacher_id !== req.user!.id) return res.status(403).json({ message: 'This is not your course' });
+    }
     await execute('DELETE FROM courses WHERE id = ?', [req.params.id]);
     res.json({ message: 'Course deleted' });
   } catch (err: any) { res.status(500).json({ message: err.message }); }

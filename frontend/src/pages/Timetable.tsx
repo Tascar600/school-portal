@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useChild } from '../contexts/ChildContext';
 import { Search, Check, Undo2, ClipboardList, CheckCircle2 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { timetableApi, subjectApi } from '../services/api';
@@ -8,6 +9,7 @@ const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
 
 export default function Timetable() {
   const { user } = useAuth();
+  const { active } = useChild();
   const [entries, setEntries] = useState<any[]>([]);
   const [organized, setOrganized] = useState<any>({});
   const [subjects, setSubjects] = useState<any[]>([]);
@@ -30,10 +32,10 @@ export default function Timetable() {
     if (user?.role === 'teacher') {
       timetableApi.my().then(r => setEntries(r.data)).catch(() => {});
       if (user?.class_id) subjectApi.byClass(user.class_id).then(r => setSubjects(r.data)).catch(() => {});
-    } else if (user?.role === 'student' && user.class_id) {
-      timetableApi.getByClass(user.class_id).then(r => { setOrganized(r.data.organized || {}); setEntries(r.data.entries || []); }).catch(() => {});
+    } else if ((user?.role === 'student' && user.class_id) || (user?.role === 'parent' && active?.class_id)) {
+      timetableApi.getByClass((user?.role === 'parent' ? active!.class_id : user!.class_id) as number).then(r => { setOrganized(r.data.organized || {}); setEntries(r.data.entries || []); }).catch(() => {});
     }
-  }, [user]);
+  }, [user, active?.id]);
 
   // Teacher: propose entry
   const handlePropose = async (e: React.FormEvent) => {
@@ -144,7 +146,7 @@ export default function Timetable() {
                         <div style={{ fontWeight: 600 }}>{entry.subject_name}</div>
                         <div style={{ color: 'var(--text-dim)', fontSize: '0.75rem' }}>{entry.end_time}</div>
                         {entry.room && <div style={{ color: 'var(--text-dim)', fontSize: '0.75rem' }}>Room {entry.room}</div>}
-                        {showTeacher && <div style={{ color: '#22d3ee', fontSize: '0.75rem' }}>{entry.teacher_name}</div>}
+                        {showTeacher && <div style={{ color: 'var(--info)', fontSize: '0.75rem' }}>{entry.teacher_name}</div>}
                       </div>
                     ) : '-'}
                   </td>
@@ -175,8 +177,7 @@ export default function Timetable() {
             <form onSubmit={handlePropose}>
               <div className="form-row">
                 <div><label>Class</label><input value={form.class_id} disabled /></div>
-                <div><label>Subject</label><input value={form.subject_name} onChange={e => setForm({ ...form, subject_name: e.target.value })} required placeholder="e.g. Mathematics" />
-                </div>
+                <div><label>Subject</label><select value={form.subject_name} onChange={e => setForm({ ...form, subject_name: e.target.value })} required><option value="">Choose a learning area</option>{subjects.map((sb: any) => <option key={sb.id} value={sb.name}>{sb.name}</option>)}</select></div>
               </div>
               <div className="form-row">
                 <div><label>Day</label>
@@ -291,7 +292,7 @@ export default function Timetable() {
           )}
 
           {generated && (
-            <div className={`card ${!generated.preview ? 'glow-border' : ''}`}>
+            <div className={`card`}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap' }}>
                 <h2 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                   {generated.preview
@@ -299,7 +300,7 @@ export default function Timetable() {
                     : <><CheckCircle2 size={20} /> Published Timetable — Class #{generated.class_id}</>}
                 </h2>
                 {generated.preview && (
-                  <span className="badge" style={{ background: 'rgba(245,158,11,0.2)', color: '#fbbf24', padding: '0.3rem 0.8rem' }}>
+                  <span className="badge" style={{ background: 'var(--surface-2)', color: 'var(--warning)', padding: '0.3rem 0.8rem' }}>
                     PREVIEW — Edit entries below to resolve clashes, then Publish
                   </span>
                 )}
@@ -316,9 +317,9 @@ export default function Timetable() {
       )}
 
       {/* STUDENT: View Timetable */}
-      {user?.role === 'student' && (
-        <div className="card glow-border">
-          <h2>My Timetable</h2>
+      {(user?.role === 'student' || user?.role === 'parent') && (
+        <div className="card">
+          <h2>{user?.role === 'parent' ? `Timetable of ${active?.name ?? 'your child'}` : 'My Timetable'}</h2>
           {Object.keys(organized).length === 0
             ? <p style={{ color: 'var(--text-dim)' }}>No timetable published for your class yet.</p>
             : renderTimetable(organized)}

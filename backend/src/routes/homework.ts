@@ -1,7 +1,16 @@
 import { Router, Response } from 'express';
+import fs from 'fs';
 import { query, queryOne, execute } from '../config/database';
 import { authenticate, authorize, AuthRequest } from '../middleware/auth';
 import { uploadHomework } from '../middleware/upload';
+import { teacherOwnsClass, studentInClass } from '../utils/ownership';
+
+// Homework belongs to the teacher who set it.
+async function ownsHomework(req: AuthRequest, homeworkId: number | string): Promise<boolean> {
+  if (req.user!.role === 'admin') return true;
+  const hw = await queryOne<any>('SELECT teacher_id FROM homework WHERE id = ?', [homeworkId]);
+  return !!hw && hw.teacher_id === req.user!.id;
+}
 
 const router = Router();
 
@@ -9,6 +18,9 @@ const router = Router();
 router.post('/', authenticate, authorize('teacher'), async (req: AuthRequest, res: Response) => {
   try {
     const { class_id, subject_id, title, description, due_date } = req.body;
+    if (!(await teacherOwnsClass(req.user!.id, Number(class_id)))) {
+      return res.status(403).json({ message: 'You can only set homework for your own class' });
+    }
     await execute(
       'INSERT INTO homework (class_id, subject_id, teacher_id, title, description, due_date) VALUES (?, ?, ?, ?, ?, ?)',
       [class_id, subject_id, req.user!.id, title, description || '', new Date(due_date).toISOString()]
@@ -68,16 +80,25 @@ router.post('/submit/:homeworkId', authenticate, authorize('student'), (req: Aut
       res.status(400).json({ message: err.message });
       return;
     }
+    // A rejected submission must not leave its uploaded file behind.
+    const reject = async (status: number, message: string) => {
+      if (req.file) await fs.promises.unlink(req.file.path).catch(() => {});
+      res.status(status).json({ message });
+    };
     try {
       const { notes } = req.body;
       const homeworkId = parseInt(req.params.homeworkId);
+
+      const hw = await queryOne<any>('SELECT class_id FROM homework WHERE id = ?', [homeworkId]);
+      if (!hw) { await reject(404, 'Homework not found'); return; }
+      if (!(await studentInClass(req.user!.id, hw.class_id))) { await reject(403, 'This homework is not for your class'); return; }
 
       const existing = await query<any[]>(
         'SELECT id FROM homework_submissions WHERE homework_id = ? AND student_id = ?',
         [homeworkId, req.user!.id]
       );
       if (existing.length > 0) {
-        res.status(400).json({ message: 'Already submitted. Contact your teacher to resubmit.' });
+        await reject(400, 'Already submitted. Contact your teacher to resubmit.');
         return;
       }
 
@@ -94,6 +115,7 @@ router.post('/submit/:homeworkId', authenticate, authorize('student'), (req: Aut
 // Teacher: view submissions for a homework (with stats)
 router.get('/submissions/:homeworkId', authenticate, authorize('teacher', 'admin'), async (req: AuthRequest, res: Response) => {
   try {
+    if (!(await ownsHomework(req, req.params.homeworkId))) return res.status(403).json({ message: 'This is not your homework' });
     const homework = await queryOne<any>('SELECT * FROM homework WHERE id = ?', [req.params.homeworkId]);
     const subs = await query<any[]>(
       `SELECT hs.*, u.name AS student_name FROM homework_submissions hs
@@ -110,6 +132,12 @@ router.get('/submissions/:homeworkId', authenticate, authorize('teacher', 'admin
 router.put('/grade/:submissionId', authenticate, authorize('teacher'), async (req: AuthRequest, res: Response) => {
   try {
     const { grade, feedback } = req.body;
+    const sub = await queryOne<any>('SELECT homework_id FROM homework_submissions WHERE id = ?', [req.params.submissionId]);
+    if (!sub) return res.status(404).json({ message: 'Submission not found' });
+    if (!(await ownsHomework(req, sub.homework_id))) return res.status(403).json({ message: 'This is not your homework' });
+    if (grade !== null && grade !== undefined && grade !== '' && !Number.isFinite(Number(grade))) {
+      return res.status(400).json({ message: 'Grade must be a number' });
+    }
     await execute(
       'UPDATE homework_submissions SET grade = ?, feedback = ? WHERE id = ?',
       [grade, feedback || '', req.params.submissionId]
@@ -121,6 +149,7 @@ router.put('/grade/:submissionId', authenticate, authorize('teacher'), async (re
 // Teacher: delete homework
 router.delete('/:id', authenticate, authorize('teacher', 'admin'), async (req: AuthRequest, res: Response) => {
   try {
+    if (!(await ownsHomework(req, req.params.id))) return res.status(403).json({ message: 'This is not your homework' });
     await execute('DELETE FROM homework WHERE id = ?', [req.params.id]);
     res.json({ message: 'Homework deleted' });
   } catch (err: any) { res.status(500).json({ message: err.message }); }

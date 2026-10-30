@@ -1,6 +1,11 @@
 import { useEffect, useState } from 'react';
-import { termsApi, feeItemsApi, adminApi, discountsApi, currenciesApi } from '../../services/api';
+import { termsApi, feeItemsApi, financeStudentsApi, discountsApi, currenciesApi } from '../../services/api';
 import StatusBadge from '../../components/StatusBadge';
+import { useAuth } from '../../contexts/AuthContext';
+import FinanceTabs from '../../components/FinanceTabs';
+import PrintHeader from '../../components/PrintHeader';
+import { PrintButton } from '../../components/PrintDownload';
+import { fmtDate, todayIso } from '../../utils/dates';
 
 // A starting point for a Zimbabwean primary school's fee catalogue — bursars can edit/delete
 // any of these afterwards. Not auto-added; only inserted when explicitly requested below.
@@ -14,6 +19,8 @@ const ZIMBABWE_FEE_ITEMS = [
 ];
 
 export default function FinanceSetup() {
+  const { user } = useAuth();
+  const canEdit = user?.role === 'bursary';
   const [terms, setTerms] = useState<any[]>([]);
   const [feeItems, setFeeItems] = useState<any[]>([]);
   const [classes, setClasses] = useState<any[]>([]);
@@ -38,7 +45,7 @@ export default function FinanceSetup() {
       if (!selectedTerm && r.data.length) setSelectedTerm(r.data.find((t: any) => t.is_current)?.id || r.data[0].id);
     });
     feeItemsApi.list().then((r) => setFeeItems(r.data));
-    adminApi.classes().then((r) => setClasses(r.data));
+    financeStudentsApi.classes().then((r) => setClasses(r.data));
     discountsApi.list().then((r) => setDiscounts(r.data));
     currenciesApi.list().then((r) => setCurrencies(r.data));
   };
@@ -143,13 +150,15 @@ export default function FinanceSetup() {
 
   return (
     <div>
-      <h1>Finance Setup</h1>
+      <FinanceTabs />
+      <PrintHeader title="Bursary setup: terms and fee structure" period={`as at ${fmtDate(todayIso())}`} />
+      <div className="page-head"><div><h1>Setup</h1><p>Terms, fee items, the fee for each class, discounts and exchange rates. Change these first, then bill.</p></div><div className="toolbar no-print"><PrintButton /></div></div>
       {msg && <div className={`alert alert-${msgType === 'error' ? 'error' : 'info'}`}>{msg}</div>}
 
       <div className="card">
         <h2>Terms</h2>
         <table>
-          <thead><tr><th>Year</th><th>Term</th><th>Start</th><th>End</th><th>Status</th><th>Actions</th></tr></thead>
+          <thead><tr><th>Year</th><th>Term</th><th>Start</th><th>End</th><th>Status</th>{canEdit && <th>Actions</th>}</tr></thead>
           <tbody>
             {terms.map((t) => (
               <tr key={t.id}>
@@ -161,15 +170,17 @@ export default function FinanceSetup() {
                   {t.is_current ? <StatusBadge status="current" /> : null}{' '}
                   {t.is_locked ? <StatusBadge status="locked" /> : <StatusBadge status="open" />}
                 </td>
-                <td>
-                  {!t.is_current && <button className="btn btn-sm" onClick={() => setCurrent(t)}>Set Current</button>}
-                  <button className="btn btn-sm" onClick={() => toggleLock(t)}>{t.is_locked ? 'Unlock' : 'Lock'}</button>
-                </td>
+                {canEdit && (
+                  <td>
+                    {!t.is_current && <button className="btn btn-sm" onClick={() => setCurrent(t)}>Set Current</button>}
+                    <button className="btn btn-sm" onClick={() => toggleLock(t)}>{t.is_locked ? 'Unlock' : 'Lock'}</button>
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>
         </table>
-        <form onSubmit={createTerm} style={{ marginTop: '1rem', display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'flex-end' }}>
+        {canEdit && <form onSubmit={createTerm} style={{ marginTop: '1rem', display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'flex-end' }}>
           <div><label>Year</label><input value={termForm.year} onChange={(e) => setTermForm({ ...termForm, year: e.target.value })} style={{ width: 100 }} /></div>
           <div><label>Term</label>
             <select value={termForm.term_no} onChange={(e) => setTermForm({ ...termForm, term_no: e.target.value })}>
@@ -179,16 +190,16 @@ export default function FinanceSetup() {
           <div><label>Start date</label><input type="date" value={termForm.start_date} onChange={(e) => setTermForm({ ...termForm, start_date: e.target.value })} /></div>
           <div><label>End date</label><input type="date" value={termForm.end_date} onChange={(e) => setTermForm({ ...termForm, end_date: e.target.value })} /></div>
           <button type="submit" className="btn btn-primary">Add Term</button>
-        </form>
+        </form>}
       </div>
 
       <div className="card">
         <h2>Fee Items</h2>
-        <p style={{ color: 'var(--text-dim)', fontSize: '0.85rem' }}>
+        {canEdit && <p style={{ color: 'var(--text-dim)', fontSize: '0.85rem' }}>
           New here? <button className="btn btn-sm" onClick={loadZimbabweFeeItems} disabled={loadingDefaults} style={{ marginLeft: '0.3rem' }}>
             {loadingDefaults ? 'Adding…' : 'Load common Zimbabwean fee items'}
           </button> — adds Tuition, Levy, Building Fund, Examination Fees, Sports Levy and Transport as a starting point. Nothing is added automatically; edit or remove any of them afterwards.
-        </p>
+        </p>}
         <table>
           <thead><tr><th>Name</th><th>Description</th><th>Optional</th></tr></thead>
           <tbody>
@@ -201,14 +212,14 @@ export default function FinanceSetup() {
             ))}
           </tbody>
         </table>
-        <form onSubmit={createItem} style={{ marginTop: '1rem', display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'flex-end' }}>
+        {canEdit && <form onSubmit={createItem} style={{ marginTop: '1rem', display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'flex-end' }}>
           <div><label>Name</label><input value={itemForm.name} onChange={(e) => setItemForm({ ...itemForm, name: e.target.value })} placeholder="e.g. Tuition" required /></div>
           <div><label>Description</label><input value={itemForm.description} onChange={(e) => setItemForm({ ...itemForm, description: e.target.value })} /></div>
           <label style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
             <input type="checkbox" checked={itemForm.is_optional} onChange={(e) => setItemForm({ ...itemForm, is_optional: e.target.checked })} /> Optional (opt-in)
           </label>
           <button type="submit" className="btn btn-primary">Add Fee Item</button>
-        </form>
+        </form>}
       </div>
 
       <div className="card">
@@ -232,6 +243,7 @@ export default function FinanceSetup() {
                     <td key={i.id}>
                       <input
                         type="number" step="0.01" style={{ width: 90 }}
+                        readOnly={!canEdit}
                         defaultValue={getAmount(c.id, i.id)}
                         onBlur={(e) => e.target.value && setAmount(c.id, i.id, e.target.value)}
                         placeholder="0.00"
@@ -248,7 +260,7 @@ export default function FinanceSetup() {
       <div className="card">
         <h2>Discounts</h2>
         <table>
-          <thead><tr><th>Name</th><th>Type</th><th>Value</th><th>Applies To</th><th>Status</th><th>Actions</th></tr></thead>
+          <thead><tr><th>Name</th><th>Type</th><th>Value</th><th>Applies To</th><th>Status</th>{canEdit && <th>Actions</th>}</tr></thead>
           <tbody>
             {discounts.map((d) => (
               <tr key={d.id}>
@@ -257,13 +269,13 @@ export default function FinanceSetup() {
                 <td>{d.type === 'percent' ? `${d.value}%` : d.value}</td>
                 <td style={{ color: 'var(--text-dim)' }}>{d.fee_item_name || 'Whole bill'}</td>
                 <td>{d.active ? 'Active' : 'Inactive'}</td>
-                <td><button className="btn btn-sm" onClick={() => toggleDiscountActive(d)}>{d.active ? 'Deactivate' : 'Activate'}</button></td>
+                {canEdit && <td><button className="btn btn-sm" onClick={() => toggleDiscountActive(d)}>{d.active ? 'Deactivate' : 'Activate'}</button></td>}
               </tr>
             ))}
             {discounts.length === 0 && <tr><td colSpan={6} style={{ color: 'var(--text-dim)' }}>No discounts yet.</td></tr>}
           </tbody>
         </table>
-        <form onSubmit={createDiscount} style={{ marginTop: '1rem', display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'flex-end' }}>
+        {canEdit && <form onSubmit={createDiscount} style={{ marginTop: '1rem', display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'flex-end' }}>
           <div><label>Name</label><input value={discountForm.name} onChange={(e) => setDiscountForm({ ...discountForm, name: e.target.value })} placeholder="e.g. Staff discount" required /></div>
           <div><label>Type</label>
             <select value={discountForm.type} onChange={(e) => setDiscountForm({ ...discountForm, type: e.target.value })}>
@@ -279,7 +291,7 @@ export default function FinanceSetup() {
             </select>
           </div>
           <button type="submit" className="btn btn-primary">Add Discount</button>
-        </form>
+        </form>}
       </div>
 
       <div className="card">
@@ -296,7 +308,7 @@ export default function FinanceSetup() {
                 <td style={{ fontWeight: 600 }}>{c.code}</td>
                 <td>{c.name}</td>
                 <td>
-                  {c.is_base ? '1 (base)' : (
+                  {c.is_base ? '1 (base)' : !canEdit ? c.rate : (
                     <input type="number" step="0.0001" defaultValue={c.rate} style={{ width: 100 }}
                       onBlur={(e) => e.target.value && updateCurrencyRate(c.code, e.target.value)} />
                   )}
@@ -306,12 +318,12 @@ export default function FinanceSetup() {
             ))}
           </tbody>
         </table>
-        <form onSubmit={addCurrency} style={{ marginTop: '1rem', display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'flex-end' }}>
+        {canEdit && <form onSubmit={addCurrency} style={{ marginTop: '1rem', display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'flex-end' }}>
           <div><label>Code</label><input value={currencyForm.code} onChange={(e) => setCurrencyForm({ ...currencyForm, code: e.target.value })} placeholder="e.g. ZAR" style={{ width: 80 }} required /></div>
           <div><label>Name</label><input value={currencyForm.name} onChange={(e) => setCurrencyForm({ ...currencyForm, name: e.target.value })} placeholder="e.g. South African Rand" required /></div>
           <div><label>Rate (per 1 USD)</label><input type="number" step="0.0001" value={currencyForm.rate} onChange={(e) => setCurrencyForm({ ...currencyForm, rate: e.target.value })} style={{ width: 100 }} required /></div>
           <button type="submit" className="btn btn-primary">Add Currency</button>
-        </form>
+        </form>}
       </div>
     </div>
   );

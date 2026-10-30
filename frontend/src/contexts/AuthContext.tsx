@@ -1,12 +1,14 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { authApi } from '../services/api';
 
-interface User {
+export interface User {
   id: number;
   name: string;
   email: string;
-  role: 'admin' | 'teacher' | 'student' | 'bursary';
+  role: 'admin' | 'teacher' | 'student' | 'bursary' | 'parent';
   class_id: number | null;
+  student_number?: string | null;
+  must_change_password?: number;
 }
 
 interface AuthContextType {
@@ -16,9 +18,12 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<void>;
   register: (data: any) => Promise<void>;
   logout: () => void;
+  applyToken: (token: string) => void; // after a password change the server issues a fresh token
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+export const ROLE_LABEL: Record<string, string> = { admin: 'Administrator', teacher: 'Teacher', student: 'Pupil', bursary: 'Bursar', parent: 'Parent' };
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -52,6 +57,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(res.data.user);
   };
 
+  const applyToken = (t: string) => {
+    localStorage.setItem('token', t);
+    setToken(t); // the effect above reloads the user, which clears the "must change password" flag
+  };
+
   const logout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
@@ -60,7 +70,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, loading, login, register, logout }}>
+    <AuthContext.Provider value={{ user, token, loading, login, register, logout, applyToken }}>
       {children}
     </AuthContext.Provider>
   );

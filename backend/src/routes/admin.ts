@@ -2,7 +2,10 @@ import { Router, Response } from 'express';
 import path from 'path';
 import fs from 'fs';
 import multer from 'multer';
-import { query, execute, dbPath } from '../config/database';
+import { query, execute, dbPath, ensureSubjectsForClass } from '../config/database';
+import { noteDownload, backupStatus, makeCopy, copyPath } from '../utils/backup';
+import { recordsOfUser, recordsOfClass, describeRecords, integrityReport } from '../utils/integrity';
+import { ALL_AREA_NAMES } from '../config/curriculum';
 import { authenticate, authorize, AuthRequest } from '../middleware/auth';
 import { hashPassword } from '../config/auth';
 
@@ -16,7 +19,7 @@ router.use(authenticate, authorize('admin'));
 router.get('/users', async (req: AuthRequest, res: Response) => {
   try {
     const users = await query<any[]>(
-      `SELECT u.id, u.name, u.email, u.role, u.class_id, u.student_number, u.is_active, c.name AS class_name
+      `SELECT u.id, u.name, u.email, u.role, u.class_id, u.student_number, u.is_active, u.archived, c.name AS class_name
        FROM users u LEFT JOIN classes c ON c.id = u.class_id ORDER BY u.role, u.name`
     );
     res.json(users);
@@ -49,6 +52,7 @@ router.post('/users', async (req: AuthRequest, res: Response) => {
         'INSERT INTO users (name, email, password, role, class_id, student_number, is_active) VALUES (?, ?, ?, ?, ?, ?, 0)',
         [userName, userEmail, userPass, role, class_id || null, reg_number]
       );
+      if (role === 'teacher' && class_id) ensureSubjectsForClass(Number(class_id));
       return res.status(201).json({ message: role === 'student' ? 'Student created' : 'Teacher created', reg_number });
     }
 
@@ -72,16 +76,71 @@ router.put('/users/:id', async (req: AuthRequest, res: Response) => {
       'UPDATE users SET name = ?, email = ?, role = ?, class_id = ? WHERE id = ?',
       [name, email, role, class_id || null, req.params.id]
     );
+    if (role === 'teacher' && class_id) ensureSubjectsForClass(Number(class_id));
     res.json({ message: 'User updated' });
   } catch (err: any) {
     res.status(500).json({ message: err.message });
   }
 });
 
+// Passwords: pending "forgot password" requests, and temporary passwords
+router.get('/password-requests', async (_req: AuthRequest, res: Response) => {
+  try {
+    const rows = await query<any[]>(
+      `SELECT r.id, r.created_at, u.id AS user_id, u.name, u.email, u.role, u.student_number, c.name AS class_name
+       FROM password_requests r JOIN users u ON u.id = r.user_id LEFT JOIN classes c ON c.id = u.class_id
+       WHERE r.resolved = 0 ORDER BY r.created_at`
+    );
+    res.json(rows);
+  } catch (err: any) { res.status(500).json({ message: err.message }); }
+});
+
+router.post('/users/:id/reset-password', async (req: AuthRequest, res: Response) => {
+  try {
+    const user = await query<any[]>('SELECT id, name, role FROM users WHERE id = ?', [req.params.id]);
+    if (!user[0]) return res.status(404).json({ message: 'User not found' });
+    // Easy to read out loud: no 0/O or 1/l
+    const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
+    let temp = '';
+    for (let i = 0; i < 4; i++) temp += alphabet[Math.floor(Math.random() * alphabet.length)];
+    temp += '-' + (Math.floor(Math.random() * 9000) + 1000) + '-';
+    for (let i = 0; i < 3; i++) temp += alphabet[Math.floor(Math.random() * alphabet.length)];
+    await execute("UPDATE users SET password = ?, must_change_password = 1, password_changed_at = datetime('now') WHERE id = ?", [hashPassword(temp), req.params.id]);
+    await execute("UPDATE password_requests SET resolved = 1, resolved_at = datetime('now') WHERE user_id = ? AND resolved = 0", [req.params.id]);
+    res.json({ message: 'Temporary password created', temporary_password: temp, name: user[0].name });
+  } catch (err: any) { res.status(500).json({ message: err.message }); }
+});
+
+router.post('/password-requests/:id/dismiss', async (req: AuthRequest, res: Response) => {
+  try {
+    await execute("UPDATE password_requests SET resolved = 1, resolved_at = datetime('now') WHERE id = ?", [req.params.id]);
+    res.json({ message: 'Request dismissed' });
+  } catch (err: any) { res.status(500).json({ message: err.message }); }
+});
+
 // Delete user
+// Someone who still has marks, bills or receipts is never deleted: that would erase the school's history.
+// A person who has left the school is closed instead (see below).
+async function mayRemove(id: number, actingId: number): Promise<{ user: any; problem?: string; status?: number }> {
+  const user = (await query<any[]>('SELECT id, name, role FROM users WHERE id = ?', [id]))[0];
+  if (!user) return { user, problem: 'That account does not exist', status: 404 };
+  if (user.id === actingId) return { user, problem: 'You cannot close or delete your own account', status: 400 };
+  for (const [role, label] of [['admin', 'an Administrator'], ['bursary', 'a Bursar']]) {
+    if (user.role === role && ((await query<any[]>('SELECT COUNT(*) AS n FROM users WHERE role = ? AND archived = 0', [role]))[0]?.n ?? 0) <= 1) return { user, problem: `The school must always have ${label}. Add another one first.`, status: 400 };
+  }
+  return { user };
+}
+
 router.delete('/users/:id', async (req: AuthRequest, res: Response) => {
   try {
-    await execute('DELETE FROM users WHERE id = ?', [req.params.id]);
+    const id = Number(req.params.id);
+    const check = await mayRemove(id, req.user!.id);
+    if (check.problem) return res.status(check.status || 400).json({ message: check.problem });
+    const records = await recordsOfUser(id);
+    if (records.length) {
+      return res.status(409).json({ message: `${check.user.name} has ${describeRecords(records)}. Deleting the account would erase all of that, so it is refused. If they have left the school, use "Close" instead: their history stays, but they can no longer log in.`, records });
+    }
+    await execute('DELETE FROM users WHERE id = ?', [id]);
     res.json({ message: 'User deleted' });
   } catch (err: any) {
     res.status(500).json({ message: err.message });
@@ -101,7 +160,8 @@ router.get('/classes', async (req: AuthRequest, res: Response) => {
 router.post('/classes', async (req: AuthRequest, res: Response) => {
   try {
     const { name, grade, section } = req.body;
-    await execute('INSERT INTO classes (name, grade, section) VALUES (?, ?, ?)', [name, grade, section || '']);
+    const created = await execute('INSERT INTO classes (name, grade, section) VALUES (?, ?, ?)', [name, grade, section || '']);
+    ensureSubjectsForClass(created.insertId);
     res.status(201).json({ message: 'Class created' });
   } catch (err: any) {
     res.status(500).json({ message: err.message });
@@ -119,8 +179,36 @@ router.put('/classes/:id', async (req: AuthRequest, res: Response) => {
   }
 });
 
+// Close the account of someone who has left the school: the history stays, the person can no longer log in
+router.post('/users/:id/close', async (req: AuthRequest, res: Response) => {
+  try {
+    const id = Number(req.params.id);
+    const check = await mayRemove(id, req.user!.id);
+    if (check.problem) return res.status(check.status || 400).json({ message: check.problem });
+    // password_changed_at signs out every device they were logged in on
+    await execute("UPDATE users SET archived = 1, is_active = 0, class_id = NULL, password_changed_at = datetime('now') WHERE id = ?", [id]);
+    res.json({ message: `${check.user.name}'s account is closed. Their marks, bills and receipts are kept.` });
+  } catch (err: any) { res.status(500).json({ message: err.message }); }
+});
+
+router.post('/users/:id/reopen', async (req: AuthRequest, res: Response) => {
+  try {
+    const u = (await query<any[]>('SELECT id, name, password FROM users WHERE id = ?', [req.params.id]))[0];
+    if (!u) return res.status(404).json({ message: 'That account does not exist' });
+    await execute('UPDATE users SET archived = 0, is_active = ? WHERE id = ?', [u.password ? 1 : 0, u.id]);
+    res.json({ message: `${u.name}'s account is open again. Give them a class with Edit.` });
+  } catch (err: any) { res.status(500).json({ message: err.message }); }
+});
+
+// Is the database healthy? (broken links between records, and SQLite's own check)
+router.get('/db/integrity', async (_req: AuthRequest, res: Response) => {
+  try { res.json(await integrityReport()); } catch (err: any) { res.status(500).json({ message: err.message }); }
+});
+
 router.delete('/classes/:id', async (req: AuthRequest, res: Response) => {
   try {
+    const inside = await recordsOfClass(Number(req.params.id));
+    if (inside.length) return res.status(409).json({ message: `This class still has ${describeRecords(inside)}. Move or remove those first; deleting the class would erase them.`, records: inside });
     await execute('DELETE FROM classes WHERE id = ?', [req.params.id]);
     res.json({ message: 'Class deleted' });
   } catch (err: any) {
@@ -146,6 +234,9 @@ router.get('/subjects', async (req: AuthRequest, res: Response) => {
 router.post('/subjects', async (req: AuthRequest, res: Response) => {
   try {
     const { name, class_id } = req.body;
+    if (!ALL_AREA_NAMES.some((n) => n.toLowerCase() === String(name || '').trim().toLowerCase())) {
+      return res.status(400).json({ message: 'Only the Heritage-Based Curriculum learning areas can be added: ' + ALL_AREA_NAMES.join(', ') });
+    }
     // Auto-assign teacher who owns this class
     const teachers = await query<any[]>('SELECT id FROM users WHERE role = ? AND class_id = ? LIMIT 1', ['teacher', class_id]);
     const teacher_id = teachers[0]?.id || null;
@@ -159,6 +250,14 @@ router.post('/subjects', async (req: AuthRequest, res: Response) => {
 
 router.delete('/subjects/:id', async (req: AuthRequest, res: Response) => {
   try {
+    const subject = await query<any[]>('SELECT name FROM subjects WHERE id = ?', [req.params.id]);
+    if (subject[0] && ALL_AREA_NAMES.includes(subject[0].name)) {
+      return res.status(400).json({ message: 'Learning areas are part of the curriculum and cannot be deleted' });
+    }
+    const inUse = (await query<any[]>(
+      'SELECT (SELECT COUNT(*) FROM results WHERE subject_id = ?) + (SELECT COUNT(*) FROM homework WHERE subject_id = ?) + (SELECT COUNT(*) FROM quizzes WHERE subject_id = ?) + (SELECT COUNT(*) FROM timetables WHERE subject_id = ?) AS n',
+      [req.params.id, req.params.id, req.params.id, req.params.id]))[0]?.n ?? 0;
+    if (inUse) return res.status(409).json({ message: `This subject is used by ${inUse} mark(s), homework, quiz or timetable record(s). Deleting it would erase them.` });
     await execute('DELETE FROM subjects WHERE id = ?', [req.params.id]);
     res.json({ message: 'Subject deleted' });
   } catch (err: any) {
@@ -176,6 +275,15 @@ router.post('/sql', async (req: AuthRequest, res: Response) => {
 
     // Support multi-statement SQL (split on semicolons)
     const statements = sql.split(';').filter((s: string) => s.trim());
+
+    // The Bursary audit trail may be read here but never changed (or dropped, or hidden by editing the schema)
+    const writes = (statements.length > 1 ? statements : [sql]).filter((s: string) => {
+      const t = s.trim().toLowerCase();
+      return !(t.startsWith('select') || t.startsWith('pragma')) || /writable_schema/.test(t);
+    });
+    if (writes.some((s: string) => /\baudit_log\b|\bsqlite_(master|schema)\b|writable_schema/i.test(s))) {
+      return res.status(403).json({ message: 'The Bursary audit trail can be read but never changed.' });
+    }
     if (statements.length > 1) {
       const results: any[] = [];
       for (const stmt of statements) {
@@ -231,11 +339,32 @@ router.get('/db/info', async (_req: AuthRequest, res: Response) => {
 });
 
 // GET /admin/db/export — download the SQLite database file (super admin only)
-router.get('/db/export', async (_req: AuthRequest, res: Response) => {
+router.get('/db/export', async (req: AuthRequest, res: Response) => {
   try {
     if (!fs.existsSync(dbPath)) return res.status(404).json({ message: 'Database file not found' });
     const date = new Date().toISOString().slice(0, 10);
+    const me = await query<any[]>('SELECT name FROM users WHERE id = ?', [req.user!.id]);
+    await noteDownload(me[0]?.name || 'Administrator');
     res.download(dbPath, `school_portal_backup_${date}.db`);
+  } catch (err: any) { res.status(500).json({ message: err.message }); }
+});
+
+// GET /admin/backups — when a copy was last downloaded, and the automatic copies kept on the server
+router.get('/backups', async (_req: AuthRequest, res: Response) => {
+  try { res.json(await backupStatus()); } catch (err: any) { res.status(500).json({ message: err.message }); }
+});
+// POST /admin/backups/now — make today's automatic copy right now
+router.post('/backups/now', async (_req: AuthRequest, res: Response) => {
+  try { makeCopy(); res.json(await backupStatus()); } catch (err: any) { res.status(500).json({ message: err.message }); }
+});
+// GET /admin/backups/:name — download one of the automatic copies (this counts as a downloaded backup)
+router.get('/backups/:name', async (req: AuthRequest, res: Response) => {
+  try {
+    const p = copyPath(req.params.name);
+    if (!p) return res.status(404).json({ message: 'That copy does not exist' });
+    const me = await query<any[]>('SELECT name FROM users WHERE id = ?', [req.user!.id]);
+    await noteDownload(me[0]?.name || 'Administrator');
+    res.download(p, req.params.name);
   } catch (err: any) { res.status(500).json({ message: err.message }); }
 });
 

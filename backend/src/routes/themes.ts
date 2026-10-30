@@ -1,71 +1,38 @@
 import { Router, Response } from 'express';
-import { query, queryOne, execute } from '../config/database';
+import { queryOne, execute } from '../config/database';
 import { authenticate, AuthRequest } from '../middleware/auth';
 
 const router = Router();
 
-// Get user theme settings
+// Exactly four looks. "system" is the professional default and follows the computer's light/dark setting.
+const THEMES = [
+  { id: 'system', name: 'Professional (default)' },
+  { id: 'light', name: 'White' },
+  { id: 'dark', name: 'Dark' },
+  { id: 'black', name: 'Extra dark' },
+];
+const valid = (t: any) => THEMES.some((x) => x.id === t);
+
+// Anyone who picked one of the old coloured themes simply gets the professional default.
 router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
   try {
-    let settings = await queryOne<any>('SELECT * FROM user_settings WHERE user_id=?', [req.user!.id]);
-    if (!settings) {
-      settings = { theme: 'default', accent_color: '#1a237e' };
-      await execute('INSERT INTO user_settings (user_id, theme, accent_color) VALUES (?, ?, ?)',
-        [req.user!.id, 'default', '#1a237e']);
-    }
-    res.json(settings);
+    const settings = await queryOne<any>('SELECT theme FROM user_settings WHERE user_id=?', [req.user!.id]);
+    res.json({ theme: settings && valid(settings.theme) ? settings.theme : 'system' });
   } catch (err: any) { res.status(500).json({ message: err.message }); }
 });
 
-// Update theme
 router.put('/', authenticate, async (req: AuthRequest, res: Response) => {
   try {
-    const { theme, accent_color } = req.body;
+    const theme = valid(req.body.theme) ? req.body.theme : 'system';
     const existing = await queryOne<any>('SELECT id FROM user_settings WHERE user_id=?', [req.user!.id]);
-    if (existing) {
-      await execute(
-        'UPDATE user_settings SET theme=?, accent_color=? WHERE user_id=?',
-        [theme || 'default', accent_color || '#1a237e', req.user!.id]
-      );
-    } else {
-      await execute(
-        'INSERT INTO user_settings (user_id, theme, accent_color) VALUES (?, ?, ?)',
-        [req.user!.id, theme || 'default', accent_color || '#1a237e']
-      );
-    }
-    res.json({ message: 'Theme updated' });
+    if (existing) await execute('UPDATE user_settings SET theme=? WHERE user_id=?', [theme, req.user!.id]);
+    else await execute('INSERT INTO user_settings (user_id, theme, accent_color) VALUES (?, ?, ?)', [req.user!.id, theme, '#1f5a2e']);
+    res.json({ message: 'Theme updated', theme });
   } catch (err: any) { res.status(500).json({ message: err.message }); }
 });
 
-// Get available themes list
 router.get('/list', authenticate, async (_req: AuthRequest, res: Response) => {
-  const themes = [
-    { id: 'default', name: 'Classic Blue', color: '#00f0ff', bg: '#0a0a1a', neon: '#00f0ff' },
-    { id: 'cyberpunk', name: 'Berry', color: '#ff006e', bg: '#12001a', neon: '#ff006e' },
-    { id: 'matrix', name: 'Forest', color: '#00ff41', bg: '#000a00', neon: '#00ff41' },
-    { id: 'hologram', name: 'Sky', color: '#22d3ee', bg: '#0a1a2e', neon: '#22d3ee' },
-    { id: 'solar', name: 'Solar Flare', color: '#ff6b35', bg: '#1a0a00', neon: '#ff6b35' },
-    { id: 'nebula', name: 'Violet', color: '#a855f7', bg: '#0a001a', neon: '#a855f7' },
-    { id: 'quantum', name: 'Teal', color: '#00bcd4', bg: '#00101a', neon: '#00e5ff' },
-    { id: 'plasma', name: 'Lime', color: '#39ff14', bg: '#000a0a', neon: '#39ff14' },
-    { id: 'void', name: 'Charcoal', color: '#bb86fc', bg: '#000000', neon: '#bb86fc' },
-    { id: 'aurora', name: 'Aurora', color: '#2dd4bf', bg: '#001a14', neon: '#5eead4' },
-    { id: 'starlight', name: 'Starlight', color: '#fbbf24', bg: '#0a0a1a', neon: '#fde047' },
-    { id: 'crimson', name: 'Crimson Storm', color: '#ef4444', bg: '#1a0000', neon: '#f87171' },
-    { id: 'deepsea', name: 'Deep Sea', color: '#0ea5e9', bg: '#000a1a', neon: '#38bdf8' },
-    { id: 'midnight', name: 'Midnight', color: '#6366f1', bg: '#0a0a1a', neon: '#818cf8' },
-    { id: 'sunset', name: 'Sunset', color: '#f97316', bg: '#1a0a05', neon: '#fb923c' },
-    { id: 'emerald', name: 'Emerald City', color: '#10b981', bg: '#001a0a', neon: '#34d399' },
-    { id: 'daylight', name: 'Daylight', color: '#2563eb', bg: '#f0f4ff', neon: '#3b82f6', light: true },
-    { id: 'frost', name: 'Frost', color: '#0891b2', bg: '#ecfeff', neon: '#06b6d4', light: true },
-    { id: 'blossom', name: 'Blossom', color: '#db2777', bg: '#fdf2f8', neon: '#ec4899', light: true },
-    { id: 'sage', name: 'Sage', color: '#16a34a', bg: '#f0fdf4', neon: '#22c55e', light: true },
-    { id: 'lavender', name: 'Lavender', color: '#7c3aed', bg: '#f5f3ff', neon: '#8b5cf6', light: true },
-    { id: 'peach', name: 'Peach', color: '#ea580c', bg: '#fff7ed', neon: '#f97316', light: true },
-    { id: 'rose', name: 'Rose', color: '#e11d48', bg: '#fff1f2', neon: '#f43f5e', light: true },
-    { id: 'zimheritage', name: 'Zimbabwe Heritage', color: '#15803d', bg: '#fdf8ec', neon: '#ca8a04', light: true },
-  ];
-  res.json(themes);
+  res.json(THEMES);
 });
 
 export default router;

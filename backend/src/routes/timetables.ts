@@ -1,6 +1,8 @@
 import { Router, Response } from 'express';
 import { query, execute } from '../config/database';
 import { authenticate, authorize, AuthRequest } from '../middleware/auth';
+import { teacherOwnsClass } from '../utils/ownership';
+import { ALL_AREA_NAMES } from '../config/curriculum';
 
 const router = Router();
 
@@ -10,10 +12,16 @@ const dayOrder = `CASE t.day WHEN 'Monday' THEN 1 WHEN 'Tuesday' THEN 2 WHEN 'We
 router.post('/', authenticate, authorize('teacher'), async (req: AuthRequest, res: Response) => {
   try {
     const { class_id, subject_name, subject_id, day, start_time, end_time, room } = req.body;
+    if (!(await teacherOwnsClass(req.user!.id, Number(class_id)))) {
+      return res.status(403).json({ message: 'You can only propose lessons for your own class' });
+    }
 
     // If subject_name provided, find or create the subject
     let finalSubjectId = subject_id;
     if (subject_name && !subject_id) {
+      if (!ALL_AREA_NAMES.includes(subject_name)) {
+        return res.status(400).json({ message: 'Choose one of the curriculum learning areas: ' + ALL_AREA_NAMES.join(', ') });
+      }
       const existing = await query<any[]>('SELECT id FROM subjects WHERE name = ? AND class_id = ?', [subject_name, class_id]);
       if (existing.length > 0) {
         finalSubjectId = existing[0].id;

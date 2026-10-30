@@ -1,13 +1,17 @@
 import { useState, useEffect } from 'react';
 import { CheckCircle2, XCircle, AlertTriangle } from 'lucide-react';
-import { adminApi } from '../services/api';
+import { adminApi, passwordApi } from '../services/api';
+import { SchoolSettings, GradingSettings, PasswordRequests, TempPasswordModal } from './AdminSchool';
 import { PrintButton, DownloadCSV } from '../components/PrintDownload';
+import { BackupManager, IntegrityCheck } from '../components/Backups';
+import ParentsAdmin from '../components/ParentsAdmin';
 
 export default function AdminPanel() {
   const [users, setUsers] = useState<any[]>([]);
   const [classes, setClasses] = useState<any[]>([]);
   const [subjects, setSubjects] = useState<any[]>([]);
-  const [tab, setTab] = useState<'users' | 'classes' | 'subjects' | 'db'>('users');
+  const [tab, setTab] = useState<'users' | 'classes' | 'subjects' | 'school' | 'grading' | 'passwords' | 'parents' | 'db'>('users');
+  const [temp, setTemp] = useState<any>(null);
   const [msg, setMsg] = useState('');
   const [quickAddForm, setQuickAddForm] = useState({ first_name: '', last_name: '', role: 'student', class_id: '' });
   const [showQuickAdd, setShowQuickAdd] = useState(false);
@@ -64,6 +68,12 @@ export default function AdminPanel() {
   const editUser = (u: any) => {
     setEditUserId(u.id);
     setUserForm({ name: u.name, email: u.email, password: '', role: u.role, class_id: u.class_id || '' });
+  };
+
+  const closeOrReopen = async (u: any, what: 'close' | 'reopen') => {
+    if (what === 'close' && !window.confirm(`Close ${u.name}'s account? Use this for someone who has left the school. Their marks, bills and receipts are kept, but they can no longer log in and are taken out of their class.`)) return;
+    try { const r = await (what === 'close' ? adminApi.closeUser(u.id) : adminApi.reopenUser(u.id)); setMsg(r.data.message); load(); }
+    catch (err: any) { setMsg(err.response?.data?.message || 'Error'); }
   };
 
   const deleteUser = async (id: number) => {
@@ -155,7 +165,7 @@ export default function AdminPanel() {
       </div>
 
       {showQuickAdd && (
-        <div className="card" style={{ border: '2px solid ' + (quickAddForm.role === 'student' ? '#2e7d32' : '#0891b2') }}>
+        <div className="card" style={{ border: '2px solid ' + (quickAddForm.role === 'student' ? 'var(--success)' : '#0891b2') }}>
           <h2>Quick Add {quickAddForm.role === 'student' ? 'Student' : 'Teacher'}</h2>
           <form onSubmit={async (e) => {
             e.preventDefault();
@@ -189,12 +199,21 @@ export default function AdminPanel() {
         </div>
       )}
 
-      <div style={{ marginBottom: '1rem' }}>
-        <button className={`btn ${tab === 'users' ? 'btn-primary' : ''}`} onClick={() => setTab('users')}>Users</button>
-        <button className={`btn ${tab === 'classes' ? 'btn-primary' : ''}`} onClick={() => setTab('classes')}>Classes</button>
-        <button className={`btn ${tab === 'subjects' ? 'btn-primary' : ''}`} onClick={() => setTab('subjects')}>Subjects</button>
-        <button className={`btn ${tab === 'db' ? 'btn-primary' : ''}`} onClick={() => { setTab('db'); if (!dbInfo) adminApi.dbInfo().then(r => setDbInfo(r.data)).catch(() => setDbInfo(null)); }}>Database</button>
+      <div className="tabs">
+        <button className={`tab${tab === 'users' ? ' active' : ''}`} onClick={() => setTab('users')}>Users</button>
+        <button className={`tab${tab === 'classes' ? ' active' : ''}`} onClick={() => setTab('classes')}>Classes</button>
+        <button className={`tab${tab === 'subjects' ? ' active' : ''}`} onClick={() => setTab('subjects')}>Subjects</button>
+        <button className={`tab${tab === 'school' ? ' active' : ''}`} onClick={() => setTab('school')}>School details and logo</button>
+        <button className={`tab${tab === 'grading' ? ' active' : ''}`} onClick={() => setTab('grading')}>Grading and marks</button>
+        <button className={`tab${tab === 'parents' ? ' active' : ''}`} onClick={() => setTab('parents')}>Parents</button>
+        <button className={`tab${tab === 'passwords' ? ' active' : ''}`} onClick={() => setTab('passwords')}>Passwords</button>
+        <button className={`tab${tab === 'db' ? ' active' : ''}`} onClick={() => { setTab('db'); if (!dbInfo) adminApi.dbInfo().then(r => setDbInfo(r.data)).catch(() => setDbInfo(null)); }}>Database</button>
       </div>
+      {tab === 'school' && <SchoolSettings />}
+      {tab === 'grading' && <GradingSettings />}
+      {tab === 'passwords' && <PasswordRequests />}
+      {tab === 'parents' && <ParentsAdmin />}
+      {temp && <TempPasswordModal info={temp} onClose={() => setTemp(null)} />}
 
       {/* Users Tab */}
       {tab === 'users' && (
@@ -243,9 +262,13 @@ export default function AdminPanel() {
                     <td><span className={`alert-${u.role === 'admin' ? 'error' : u.role === 'teacher' ? 'info' : 'success'}`} style={{ padding: '2px 8px', borderRadius: 4 }}>{u.role}</span></td>
                     <td>{u.class_name || '-'}</td>
                     <td style={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>{u.student_number || '-'}</td>
-                    <td>{u.is_active ? <CheckCircle2 size={16} color="#4ade80" /> : <XCircle size={16} color="#f87171" />}</td>
+                    <td>{u.archived ? <span className="badge" title="Left the school: cannot log in, history kept">Closed</span> : u.is_active ? <CheckCircle2 size={16} color="var(--success)" /> : <XCircle size={16} color="var(--danger)" />}</td>
                     <td>
                       <button className="btn btn-warning btn-sm" onClick={() => editUser(u)}>Edit</button>
+                      <button className="btn btn-sm" onClick={async () => { if (window.confirm(`Give ${u.name} a new temporary password? Whatever password they have now will stop working.`)) setTemp((await passwordApi.reset(u.id)).data); }}>Reset password</button>
+                      {u.archived
+                        ? <button className="btn btn-sm" onClick={() => closeOrReopen(u, 'reopen')}>Reopen</button>
+                        : <button className="btn btn-sm" title="For someone who has left the school: their history is kept, they can no longer log in" onClick={() => closeOrReopen(u, 'close')}>Close</button>}
                       <button className="btn btn-danger btn-sm" onClick={() => deleteUser(u.id)}>Delete</button>
                     </td>
                   </tr>
@@ -311,7 +334,7 @@ export default function AdminPanel() {
                 </div>
                 <div style={{ marginTop: '0.5rem', display: 'flex', flexWrap: 'wrap', gap: '0.3rem' }}>
                   {dbInfo.tables?.map((t: string) => (
-                    <span key={t} style={{ background: 'rgba(96,165,250,0.15)', color: '#93c5fd', padding: '2px 10px', borderRadius: 12, fontSize: '0.8rem' }}>
+                    <span key={t} style={{ background: 'var(--surface-2)', color: '#93c5fd', padding: '2px 10px', borderRadius: 12, fontSize: '0.8rem' }}>
                       {t}: {dbInfo.rowCounts?.[t] || 0}
                     </span>
                   ))}
@@ -323,20 +346,7 @@ export default function AdminPanel() {
             ) : <p style={{ color: 'var(--text-dim)' }}>Loading...</p>}
           </div>
 
-          <div className="card">
-            <h2>Download Backup</h2>
-            <p style={{ color: 'var(--text-dim)', fontSize: '0.85rem' }}>Download the entire SQLite database file. Keep this file safe — you can restore it later.</p>
-            <button className="btn btn-primary" onClick={async () => {
-              try {
-                const r = await adminApi.dbExport();
-                const url = URL.createObjectURL(new Blob([r.data]));
-                const a = document.createElement('a');
-                a.href = url; a.download = 'school_portal.db';
-                document.body.appendChild(a); a.click();
-                document.body.removeChild(a); URL.revokeObjectURL(url);
-              } catch (err: any) { setMsg(err.response?.data?.message || 'Download failed'); }
-            }}>Download Database</button>
-          </div>
+          <BackupManager />
 
           <div className="card">
             <h2>Restore Backup</h2>
@@ -358,6 +368,8 @@ export default function AdminPanel() {
             </form>
           </div>
 
+          <IntegrityCheck />
+
           <div className="card">
             <h2>Database Browser</h2>
             <p style={{ color: 'var(--text-dim)', fontSize: '0.85rem' }}>Click any table to view its data visually.</p>
@@ -365,7 +377,7 @@ export default function AdminPanel() {
               {dbInfo?.tables?.filter((t: string) => !t.startsWith('sqlite_')).map((t: string) => {
                 const cnt = dbInfo.rowCounts?.[t] || 0;
                 const barW = Math.min(100, Math.max(10, cnt * 5));
-                const colors = ['#60a5fa','#4ade80','#fbbf24','#f87171','#a78bfa','#fb923c','#22d3ee','#e879f9'];
+                const colors = ['var(--info)','var(--success)','var(--warning)','var(--danger)','var(--accent)','var(--warning)','var(--info)','var(--accent)'];
                 const ci = dbInfo.tables?.indexOf(t) % colors.length;
                 return (
                   <button key={t} onClick={async () => {
@@ -379,15 +391,15 @@ export default function AdminPanel() {
                     } catch (e: any) { setDbError(e.message); setDbBrowseCols([]); setDbBrowseRows([]); }
                     finally { setDbBrowseLoading(false); }
                   }} style={{
-                    background: dbBrowseTable === t ? `${colors[ci]}33` : 'rgba(255,255,255,0.04)',
-                    border: dbBrowseTable === t ? `1px solid ${colors[ci]}` : '1px solid rgba(255,255,255,0.1)',
+                    background: dbBrowseTable === t ? 'var(--surface-2)' : 'var(--surface-2)',
+                    border: dbBrowseTable === t ? `1px solid ${colors[ci]}` : '1px solid var(--border)',
                     borderRadius: 10, padding: '0.6rem 0.8rem', cursor: 'pointer',
                     textAlign: 'left', minWidth: 130, flex: '1 0 auto', color: '#fff',
                     transition: 'all 0.2s'
                   }}>
-                    <div style={{ fontWeight: 600, fontSize: '0.85rem', color: colors[ci] }}>{t}</div>
+                    <div style={{ fontWeight: 600, fontSize: '0.85rem', color: 'var(--text)' }}>{t}</div>
                     <div style={{ fontSize: '1.3rem', fontWeight: 700 }}>{cnt}</div>
-                    <div style={{ height: 4, background: 'rgba(255,255,255,0.1)', borderRadius: 2, marginTop: 4 }}>
+                    <div style={{ height: 4, background: 'var(--border)', borderRadius: 2, marginTop: 4 }}>
                       <div style={{ width: `${barW}%`, height: '100%', background: colors[ci], borderRadius: 2, transition: 'width 0.3s' }} />
                     </div>
                     <div style={{ fontSize: '0.65rem', color: 'var(--text-dim)', marginTop: 2 }}>rows</div>
@@ -395,7 +407,7 @@ export default function AdminPanel() {
                 );
               })}
             </div>
-            {dbError && <p style={{ color: '#f87171', fontSize: '0.85rem' }}>{dbError}</p>}
+            {dbError && <p style={{ color: 'var(--danger)', fontSize: '0.85rem' }}>{dbError}</p>}
             {dbBrowseLoading && <p style={{ color: 'var(--text-dim)' }}>Loading...</p>}
             {dbBrowseTable && !dbBrowseLoading && (
               <div>
@@ -405,16 +417,16 @@ export default function AdminPanel() {
                   </span>
                   {dbBrowseRows.length > 0 && (
                     <input type="text" placeholder="Filter rows..." value={dbSearch} onChange={e => setDbSearch(e.target.value)}
-                      style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 6, padding: '0.3rem 0.6rem', color: '#fff', fontSize: '0.8rem', width: 200 }} />
+                      style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 6, padding: '0.3rem 0.6rem', color: '#fff', fontSize: '0.8rem', width: 200 }} />
                   )}
                 </div>
                 {dbBrowseRows.length === 0 ? <p style={{ color: 'var(--text-dim)' }}>Empty table.</p> : (
-                  <div style={{ overflowX: 'auto', maxHeight: 500, overflowY: 'auto', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8 }}>
+                  <div style={{ overflowX: 'auto', maxHeight: 500, overflowY: 'auto', border: '1px solid var(--border)', borderRadius: 8 }}>
                     <table style={{ fontSize: '0.78rem', width: '100%', borderCollapse: 'collapse' }}>
                       <thead style={{ position: 'sticky', top: 0, zIndex: 1 }}>
                         <tr>{dbBrowseCols.map(c => <th key={c} style={{
                           background: 'rgba(15,15,30,0.95)', padding: '0.4rem 0.6rem',
-                          borderBottom: '2px solid rgba(96,165,250,0.3)', whiteSpace: 'nowrap'
+                          borderBottom: '2px solid var(--surface-2)', whiteSpace: 'nowrap'
                         }}>{c}</th>)}</tr>
                       </thead>
                       <tbody>
@@ -423,7 +435,7 @@ export default function AdminPanel() {
                           const q = dbSearch.toLowerCase();
                           return dbBrowseCols.some(c => String(r[c]).toLowerCase().includes(q));
                         }).map((row, i) => (
-                          <tr key={i} style={{ background: i % 2 === 0 ? 'rgba(255,255,255,0.02)' : 'transparent' }}>
+                          <tr key={i} style={{ background: i % 2 === 0 ? 'var(--surface-2)' : 'transparent' }}>
                             {dbBrowseCols.map(c => {
                               const v = row[c];
                               const isNum = typeof v === 'number';
@@ -432,12 +444,12 @@ export default function AdminPanel() {
                                 <td key={c} style={{
                                   padding: '0.3rem 0.6rem', maxWidth: 250, overflow: 'hidden',
                                   textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                                  color: v === null ? '#555' : isNum ? '#fbbf24' : '#e2e8f0',
+                                  color: v === null ? '#555' : isNum ? 'var(--warning)' : '#e2e8f0',
                                   fontFamily: isNum ? 'monospace' : 'inherit',
-                                  borderBottom: '1px solid rgba(255,255,255,0.04)'
+                                  borderBottom: '1px solid var(--surface-2)'
                                 }}>
                                   {v === null ? <span style={{ fontStyle: 'italic', fontSize: '0.7rem' }}>NULL</span>
-                                    : isBool ? (v ? <CheckCircle2 size={14} color="#4ade80" /> : <XCircle size={14} color="#f87171" />)
+                                    : isBool ? (v ? <CheckCircle2 size={14} color="var(--success)" /> : <XCircle size={14} color="var(--danger)" />)
                                     : String(v).length > 80 ? String(v).slice(0, 80) + '…' : String(v)}
                                 </td>
                               );
@@ -457,17 +469,7 @@ export default function AdminPanel() {
       {/* Subjects Tab */}
       {tab === 'subjects' && (
         <>
-          <div className="card">
-            <h2>Create Subject</h2>
-            <form onSubmit={handleSubjectSubmit}>
-              <div className="form-row">
-                <div><label>Subject Name</label><input value={subjectForm.name} onChange={e => setSubjectForm({ ...subjectForm, name: e.target.value })} required /></div>
-                <div><label>Class</label><select value={subjectForm.class_id} onChange={e => setSubjectForm({ ...subjectForm, class_id: e.target.value })} required><option value="">— Select Class —</option>{classes.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
-              </div>
-              <p style={{ color: 'var(--text-dim)', fontSize: '0.8rem' }}>Teacher is auto-assigned from the class teacher.</p>
-              <button type="submit" className="btn btn-primary">Create Subject</button>
-            </form>
-          </div>
+          <div className="alert alert-info">Subjects follow the Heritage-Based Curriculum: every class automatically has the six compulsory learning areas plus ICT and Robotics, and a teacher is given them when assigned to the class. They cannot be added to or deleted. See <strong>Grading and marks</strong> for the list.</div>
 
           <div className="card">
             <h2>All Subjects</h2>

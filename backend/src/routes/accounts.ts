@@ -15,7 +15,7 @@ router.get('/', authenticate, authorize('admin', 'bursary'), async (_req: AuthRe
 });
 
 // ── Create account ────────────────────────────────────
-router.post('/', authenticate, authorize('admin', 'bursary'), async (req: AuthRequest, res: Response) => {
+router.post('/', authenticate, authorize('bursary'), async (req: AuthRequest, res: Response) => {
   try {
     const { name, type, account_no, currency, opening_balance } = req.body;
     if (!name || !type) return res.status(400).json({ message: 'Name and type are required' });
@@ -29,7 +29,7 @@ router.post('/', authenticate, authorize('admin', 'bursary'), async (req: AuthRe
 });
 
 // ── Update account ────────────────────────────────────
-router.put('/:id', authenticate, authorize('admin', 'bursary'), async (req: AuthRequest, res: Response) => {
+router.put('/:id', authenticate, authorize('bursary'), async (req: AuthRequest, res: Response) => {
   try {
     const { name, type, account_no, currency, opening_balance, active } = req.body;
     if (!name || !type) return res.status(400).json({ message: 'Name and type are required' });
@@ -43,7 +43,7 @@ router.put('/:id', authenticate, authorize('admin', 'bursary'), async (req: Auth
 });
 
 // ── Soft delete (deactivate) — never hard-delete ─────
-router.delete('/:id', authenticate, authorize('admin', 'bursary'), async (req: AuthRequest, res: Response) => {
+router.delete('/:id', authenticate, authorize('bursary'), async (req: AuthRequest, res: Response) => {
   try {
     await execute('UPDATE accounts SET active = 0 WHERE id = ?', [req.params.id]);
     res.json({ message: 'Account deactivated' });
@@ -63,13 +63,17 @@ router.get('/:id/balance', authenticate, authorize('admin', 'bursary'), async (r
 router.get('/:id/ledger', authenticate, authorize('admin', 'bursary'), async (req: AuthRequest, res: Response) => {
   try {
     const id = Number(req.params.id);
+    const { from, to } = req.query as Record<string, string>;
     const acc = await queryOne<any>('SELECT * FROM accounts WHERE id = ?', [id]);
     if (!acc) return res.status(404).json({ message: 'Account not found' });
 
     const payments = await query<any[]>(
       `SELECT p.id, p.pay_date AS date, p.receipt_no AS reference, ('Fees: ' || u.name) AS description,
-              p.amount_paid AS amount, p.created_at
-       FROM fee_payments p JOIN users u ON u.id = p.student_id
+              (CASE WHEN p.currency = a.currency THEN p.amount_paid ELSE p.amount * COALESCE(c.rate, 1) END) AS amount, p.created_at
+       FROM fee_payments p
+       JOIN users u ON u.id = p.student_id
+       JOIN accounts a ON a.id = p.account_id
+       LEFT JOIN currencies c ON c.code = a.currency
        WHERE p.account_id = ? AND p.status = 'active'`,
       [id]
     );
@@ -114,12 +118,18 @@ router.get('/:id/ledger', authenticate, authorize('admin', 'bursary'), async (re
       };
     });
 
-    res.json({ account: acc, opening_balance: acc.opening_balance, rows });
+    // For a period, the opening balance is whatever the account held just before the first day shown.
+    let shown = rows, opening = acc.opening_balance || 0;
+    if (from) { const before = rows.filter((r) => r.date < from); if (before.length) opening = before[before.length - 1].balance; shown = shown.filter((r) => r.date >= from); }
+    if (to) shown = shown.filter((r) => r.date <= to);
+    const inflow = shown.filter((r) => r.amount > 0).reduce((s, r) => s + r.amount, 0);
+    const outflow = shown.filter((r) => r.amount < 0).reduce((s, r) => s - r.amount, 0);
+    res.json({ account: acc, opening_balance: opening, closing_balance: shown.length ? shown[shown.length - 1].balance : opening, inflow: Math.round(inflow * 100) / 100, outflow: Math.round(outflow * 100) / 100, rows: shown });
   } catch (err: any) { res.status(500).json({ message: err.message }); }
 });
 
 // ── Transfer between accounts ────────────────────────
-router.post('/transfer', authenticate, authorize('admin', 'bursary'), async (req: AuthRequest, res: Response) => {
+router.post('/transfer', authenticate, authorize('bursary'), async (req: AuthRequest, res: Response) => {
   try {
     const { tr_date, from_account, to_account, amount, reference, notes } = req.body;
     if (!tr_date || !from_account || !to_account) {
@@ -138,14 +148,11 @@ router.post('/transfer', authenticate, authorize('admin', 'bursary'), async (req
   } catch (err: any) { res.status(400).json({ message: err.message }); }
 });
 
-// ── Delete transfer (blocked once reconciled) ────────
-router.delete('/transfer/:id', authenticate, authorize('admin', 'bursary'), async (req: AuthRequest, res: Response) => {
+// ── Delete transfer ──────────────────────────────────
+router.delete('/transfer/:id', authenticate, authorize('bursary'), async (req: AuthRequest, res: Response) => {
   try {
     const t = await queryOne<any>('SELECT * FROM transfers WHERE id = ?', [req.params.id]);
     if (!t) return res.status(404).json({ message: 'Transfer not found' });
-    if (t.cleared_from || t.cleared_to) {
-      return res.status(400).json({ message: 'This transfer is already reconciled with a bank statement and cannot be deleted' });
-    }
     await execute('DELETE FROM transfers WHERE id = ?', [req.params.id]);
     res.json({ message: 'Transfer deleted' });
   } catch (err: any) { res.status(400).json({ message: err.message }); }

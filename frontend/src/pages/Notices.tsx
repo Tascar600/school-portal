@@ -27,7 +27,7 @@ export default function Notices() {
   };
 
   const canCreate = user?.role === 'admin' || user?.role === 'teacher';
-  const canDelete = (notice: any) => user?.role === 'admin' || (user?.role === 'teacher' && notice.author_role === 'teacher');
+  const canDelete = (notice: any) => user?.role === 'admin' || (user?.role === 'teacher' && notice.author_id === user.id);
 
   return (
     <div>
@@ -47,8 +47,8 @@ export default function Notices() {
                 <label>Audience</label>
                 <select value={form.target_role} onChange={e => setForm({ ...form, target_role: e.target.value })}>
                   <option value="all">Everyone</option>
-                  <option value="teacher">Teachers Only</option>
-                  <option value="student">Students Only</option>
+                  <option value="teachers">Teachers Only</option>
+                  <option value="students">Students Only</option>
                 </select>
               </div>
             </div>
@@ -60,11 +60,11 @@ export default function Notices() {
       <div className="card">
         <h2>All Notices</h2>
         {notices.length === 0 ? <p>No notices yet.</p> : notices.map((n: any) => (
-          <div key={n.id} style={{ borderBottom: '1px solid #e0e0e0', padding: '1rem 0' }}>
+          <div key={n.id} style={{ borderBottom: '1px solid var(--border)', padding: '1rem 0' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
               <div>
                 <h3>{n.title}</h3>
-                <p style={{ color: '#666', fontSize: '0.85rem' }}>
+                <p style={{ color: 'var(--text-dim)', fontSize: '0.85rem' }}>
                   By {n.author_name} | {new Date(n.created_at).toLocaleString()} | Target: {n.target_role}
                 </p>
               </div>

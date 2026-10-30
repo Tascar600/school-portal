@@ -5,7 +5,7 @@ import { billClass, createAdjustment, ensureTermOpen } from '../utils/finance';
 const router = Router();
 
 // ── Bill every active student in a class for a term (idempotent) ──
-router.post('/run', authenticate, authorize('admin', 'bursary'), async (req: AuthRequest, res: Response) => {
+router.post('/run', authenticate, authorize('bursary'), async (req: AuthRequest, res: Response) => {
   try {
     const { term_id, class_id, date } = req.body;
     if (!term_id || !class_id) return res.status(400).json({ message: 'term_id and class_id are required' });
@@ -16,7 +16,7 @@ router.post('/run', authenticate, authorize('admin', 'bursary'), async (req: Aut
 });
 
 // ── Ad-hoc charge or credit note against one student ──
-router.post('/charge', authenticate, authorize('admin', 'bursary'), async (req: AuthRequest, res: Response) => {
+router.post('/charge', authenticate, authorize('bursary'), async (req: AuthRequest, res: Response) => {
   try {
     const { student_id, term_id, date, lines, notes } = req.body;
     if (!student_id || !term_id || !Array.isArray(lines) || !lines.length) {
@@ -31,7 +31,7 @@ router.post('/charge', authenticate, authorize('admin', 'bursary'), async (req: 
   } catch (err: any) { res.status(400).json({ message: err.message }); }
 });
 
-router.post('/credit-note', authenticate, authorize('admin', 'bursary'), async (req: AuthRequest, res: Response) => {
+router.post('/credit-note', authenticate, authorize('bursary'), async (req: AuthRequest, res: Response) => {
   try {
     const { student_id, term_id, date, lines, notes } = req.body;
     if (!student_id || !term_id || !Array.isArray(lines) || !lines.length) {

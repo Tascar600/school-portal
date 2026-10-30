@@ -10,6 +10,13 @@ import { sendXlsx } from '../utils/exportXlsx';
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 
+// ── Class list for finance dropdowns (the /api/admin one is admin-only) ──
+router.get('/classes', authenticate, authorize('admin', 'bursary'), async (_req: AuthRequest, res: Response) => {
+  try {
+    res.json(await query<any[]>('SELECT * FROM classes ORDER BY grade, name'));
+  } catch (err: any) { res.status(500).json({ message: err.message }); }
+});
+
 // ── Roster ────────────────────────────────────────────
 router.get('/', authenticate, authorize('admin', 'bursary'), async (req: AuthRequest, res: Response) => {
   try {
@@ -127,7 +134,7 @@ async function nextStudentNumber(): Promise<string> {
   return 'c' + year + String(next).padStart(5, '0') + 'c';
 }
 
-router.post('/import/preview', authenticate, authorize('admin', 'bursary'), upload.single('file'), async (req: AuthRequest, res: Response) => {
+router.post('/import/preview', authenticate, authorize('admin'), upload.single('file'), async (req: AuthRequest, res: Response) => {
   try {
     if (!req.file) return res.status(400).json({ message: 'A file is required' });
     const grid = await parseUpload(req.file.buffer, req.file.originalname);
@@ -173,7 +180,7 @@ router.post('/import/preview', authenticate, authorize('admin', 'bursary'), uplo
   } catch (err: any) { res.status(500).json({ message: err.message }); }
 });
 
-router.post('/import/confirm', authenticate, authorize('admin', 'bursary'), async (req: AuthRequest, res: Response) => {
+router.post('/import/confirm', authenticate, authorize('admin'), async (req: AuthRequest, res: Response) => {
   try {
     const { toCreate, toUpdate } = req.body as { toCreate: any[]; toUpdate: any[] };
     let created = 0, updated = 0;
@@ -210,7 +217,7 @@ router.post('/import/confirm', authenticate, authorize('admin', 'bursary'), asyn
 });
 
 // ── Year-end promotion ────────────────────────────────
-router.post('/promote', authenticate, authorize('admin', 'bursary'), async (req: AuthRequest, res: Response) => {
+router.post('/promote', authenticate, authorize('admin'), async (req: AuthRequest, res: Response) => {
   try {
     const classes = await query<any[]>('SELECT id FROM classes ORDER BY id');
     const classIds = classes.map((c) => c.id);

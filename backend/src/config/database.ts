@@ -4,11 +4,13 @@ import fs from 'fs';
 import path from 'path';
 import dotenv from 'dotenv';
 import { hashPassword } from './auth';
+import { ALL_AREA_NAMES, LEGACY_AREA_NAMES } from './curriculum';
 
 dotenv.config();
 
 let db: SqlJsDatabase;
-export const dbPath = path.resolve(__dirname, '../../school_portal.db');
+// DB_PATH lets a test run use a throw-away database; normally it is backend/school_portal.db
+export const dbPath = process.env.DB_PATH ? path.resolve(process.env.DB_PATH) : path.resolve(__dirname, '../../school_portal.db');
 
 function createTables(): void {
   db.run(`
@@ -489,6 +491,11 @@ function createTables(): void {
       entity_id INTEGER,
       details TEXT DEFAULT '',
       created_at TEXT DEFAULT (datetime('now')),
+      user_name TEXT DEFAULT '',
+      user_role TEXT DEFAULT '',
+      student_id INTEGER,
+      amount REAL,
+      summary TEXT DEFAULT '',
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
     );
     CREATE INDEX IF NOT EXISTS idx_audit_entity ON audit_log(entity, entity_id);
@@ -520,14 +527,18 @@ function seedZimbabweClasses(): void {
   console.log('Seeded Zimbabwe primary classes (ECD A – Grade 7)');
 }
 
+// A brand-new portal starts with well-known passwords (1234 and 12345678), so the first person to log in to each
+// of those two accounts must choose their own. Set FIRST_LOGIN_PASSWORD_CHANGE=off only on a local test computer.
+const FIRST_LOGIN_CHANGE = process.env.FIRST_LOGIN_PASSWORD_CHANGE === 'off' ? 0 : 1;
+
 function seedAdmin(): void {
   const existing = db.exec("SELECT COUNT(*) AS cnt FROM users WHERE role = 'admin'");
   if (existing[0]?.values[0][0] > 0) return;
 
   const hashed = hashPassword('1234');
   db.run(
-    "INSERT INTO users (name, email, password, role, is_active) VALUES ('Super Admin', 'punhamasiwa@gmail.com', ?, 'admin', 1)",
-    [hashed]
+    "INSERT INTO users (name, email, password, role, is_active, must_change_password) VALUES ('Super Admin', 'punhamasiwa@gmail.com', ?, 'admin', 1, ?)",
+    [hashed, FIRST_LOGIN_CHANGE]
   );
   console.log('Seeded admin account: punhamasiwa@gmail.com / 1234');
 }
@@ -537,8 +548,8 @@ function seedBursary(): void {
   if (existing[0]?.values[0][0] > 0) return;
   const hashed = hashPassword('12345678');
   db.run(
-    "INSERT INTO users (name, email, password, role, is_active) VALUES ('Bursary', 'tascarmasiwa@gmail.com', ?, 'bursary', 1)",
-    [hashed]
+    "INSERT INTO users (name, email, password, role, is_active, must_change_password) VALUES ('Bursar', 'tascarmasiwa@gmail.com', ?, 'bursary', 1, ?)",
+    [hashed, FIRST_LOGIN_CHANGE]
   );
   console.log('Seeded bursary account: tascarmasiwa@gmail.com / 12345678');
 }
@@ -577,17 +588,106 @@ export async function initDatabase(): Promise<void> {
   try { db.run("ALTER TABLE fee_accounts RENAME TO legacy_fee_accounts"); } catch {}
   try { db.run("ALTER TABLE payments RENAME TO legacy_fee_payments"); } catch {}
   try { db.run("ALTER TABLE fee_archives RENAME TO legacy_fee_archives"); } catch {}
+  // Heritage-Based Curriculum, passwords and report-card additions
+  try { db.run("ALTER TABLE results ADD COLUMN project_title TEXT DEFAULT ''"); } catch {}
+  try { db.run("ALTER TABLE fee_payments ADD COLUMN payer TEXT DEFAULT ''"); } catch {}
+  try { db.run("ALTER TABLE fee_payments ADD COLUMN balance_after REAL"); } catch {}
+  try { db.run("ALTER TABLE users ADD COLUMN must_change_password INTEGER DEFAULT 0"); } catch {}
+  try { db.run("ALTER TABLE users ADD COLUMN archived INTEGER DEFAULT 0"); } catch {} // a closed account: someone who has left the school
+  // The Bursary audit trail (middleware/audit.ts) keeps who, what and how much in the old audit_log table
+  for (const col of ["user_name TEXT DEFAULT ''", "user_role TEXT DEFAULT ''", 'student_id INTEGER', 'amount REAL', "summary TEXT DEFAULT ''"]) {
+    try { db.run('ALTER TABLE audit_log ADD COLUMN ' + col); } catch {}
+  }
+  db.run('CREATE INDEX IF NOT EXISTS idx_audit_created ON audit_log (created_at)');
+  try { db.run("ALTER TABLE users ADD COLUMN password_changed_at TEXT"); } catch {}
+  createExtraTables();
+  migrateCurriculum();
   seedZimbabweClasses();
   seedAdmin();
   seedBursary();
   seedFinanceDefaults();
+  migrateCurriculum(); // again, so the classes seeded above also get their learning areas
   save();
   console.log('Database initialized at', dbPath);
+}
+
+function createExtraTables(): void {
+  db.run(`
+    CREATE TABLE IF NOT EXISTS password_requests (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      note TEXT DEFAULT '',
+      created_at TEXT DEFAULT (datetime('now')),
+      resolved INTEGER DEFAULT 0,
+      resolved_at TEXT
+    );
+    -- Grade 7 examination results: the mark and unit each pupil was given in each learning area (routes/exams.ts)
+    CREATE TABLE IF NOT EXISTS exam_results (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      student_id INTEGER NOT NULL,
+      academic_year TEXT NOT NULL,
+      area TEXT NOT NULL,
+      mark REAL,
+      unit INTEGER,
+      entered_by INTEGER,
+      updated_at TEXT DEFAULT (datetime('now')),
+      UNIQUE (student_id, academic_year, area),
+      FOREIGN KEY (student_id) REFERENCES users(id) ON DELETE CASCADE,
+      FOREIGN KEY (entered_by) REFERENCES users(id) ON DELETE SET NULL
+    );
+    -- Which pupils a parent account may look at (routes/parents.ts, utils/acting.ts)
+    CREATE TABLE IF NOT EXISTS parent_students (
+      parent_id INTEGER NOT NULL,
+      student_id INTEGER NOT NULL,
+      relationship TEXT DEFAULT '',
+      created_at TEXT DEFAULT (datetime('now')),
+      PRIMARY KEY (parent_id, student_id),
+      FOREIGN KEY (parent_id) REFERENCES users(id) ON DELETE CASCADE,
+      FOREIGN KEY (student_id) REFERENCES users(id) ON DELETE CASCADE
+    );
+    CREATE TABLE IF NOT EXISTS report_comments (
+      student_id INTEGER NOT NULL,
+      term TEXT NOT NULL,
+      academic_year TEXT NOT NULL,
+      teacher_comment TEXT DEFAULT '',
+      head_comment TEXT DEFAULT '',
+      updated_at TEXT DEFAULT (datetime('now')),
+      PRIMARY KEY (student_id, term, academic_year)
+    );
+  `);
+}
+
+// Move old subject names onto the six learning areas and make sure every class has all seven.
+function migrateCurriculum(): void {
+  for (const [legacy, current] of Object.entries(LEGACY_AREA_NAMES)) {
+    db.run('UPDATE subjects SET name = ? WHERE name = ?', [current, legacy]);
+    db.run('UPDATE results SET subject_name = ? WHERE subject_name = ?', [current, legacy]);
+  }
+  const classes = db.exec('SELECT id FROM classes');
+  for (const row of classes[0]?.values || []) ensureSubjectsForClass(Number(row[0]));
+}
+
+// Every class gets the six compulsory learning areas plus ICT and Robotics. Idempotent.
+export function ensureSubjectsForClass(classId: number): void {
+  const t = db.exec("SELECT id FROM users WHERE role = 'teacher' AND class_id = ? LIMIT 1", [classId]);
+  const teacherId = Number(t[0]?.values[0][0] ?? 0);
+  // A learning area must belong to a real teacher (subjects.teacher_id is required and points at a user), so a class
+  // gets its seven areas the moment a teacher is given to it (routes/admin.ts calls this then). Before that there is nothing to create.
+  if (!teacherId) return;
+  for (const name of ALL_AREA_NAMES) {
+    const has = db.exec('SELECT 1 FROM subjects WHERE class_id = ? AND name = ?', [classId, name]);
+    if (!has[0]) db.run('INSERT INTO subjects (name, class_id, teacher_id) VALUES (?, ?, ?)', [name, classId, teacherId]);
+  }
+  db.run('UPDATE subjects SET teacher_id = ? WHERE class_id = ? AND (teacher_id = 0 OR teacher_id IS NULL)', [teacherId, classId]);
+  save();
 }
 
 function save(): void {
   const data = db.export();
   fs.writeFileSync(dbPath, Buffer.from(data));
+  // sql.js switches foreign-key checking off every time it exports the database; switch it back on so the rules
+  // (no mark without a pupil, no receipt without a pupil ...) hold for the whole time the portal is running
+  db.run('PRAGMA foreign_keys = ON');
 }
 
 export async function query<T = any>(sql: string, params?: any[]): Promise<T> {

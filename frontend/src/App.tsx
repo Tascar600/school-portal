@@ -1,37 +1,54 @@
+import { lazy, Suspense } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './contexts/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import Layout from './components/Layout';
 import Login from './pages/Login';
-import ActivateAccount from './pages/ActivateAccount';
-import Dashboard from './pages/Dashboard';
-import Fees from './pages/Fees';
-import Timetable from './pages/Timetable';
-import Results from './pages/Results';
-import Notices from './pages/Notices';
-import Homework from './pages/Homework';
-import Quiz from './pages/Quiz';
-import AdminPanel from './pages/AdminPanel';
-import Courses from './pages/Courses';
-import Register from './pages/Register';
-import Sports from './pages/Sports';
-import Themes from './pages/Themes';
-import AdminAnalytics from './pages/AdminAnalytics';
-import StudentStats from './pages/StudentStats';
-import ReportCards from './pages/ReportCards';
-import FinanceDashboard from './pages/finance/FinanceDashboard';
-import FinanceSetup from './pages/finance/FinanceSetup';
-import Invoices from './pages/finance/Invoices';
-import Payments from './pages/finance/Payments';
-import Expenses from './pages/finance/Expenses';
-import Accounts from './pages/finance/Accounts';
-import Reconciliation from './pages/finance/Reconciliation';
-import Budgets from './pages/finance/Budgets';
-import Sponsors from './pages/finance/Sponsors';
-import StudentProfiles from './pages/finance/StudentProfiles';
-import Reports from './pages/finance/Reports';
-import Reminders from './pages/finance/Reminders';
 import './App.css';
+
+// Every page except the log in page is fetched only when someone opens it, so a pupil never downloads the
+// Bursary pages, and the charts library is only fetched by the pages that draw charts.
+const ActivateAccount = lazy(() => import('./pages/ActivateAccount'));
+const ForgotPassword = lazy(() => import('./pages/ForgotPassword'));
+const ChangePassword = lazy(() => import('./pages/ChangePassword'));
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const Fees = lazy(() => import('./pages/Fees'));
+const Timetable = lazy(() => import('./pages/Timetable'));
+const Results = lazy(() => import('./pages/Results'));
+const Notices = lazy(() => import('./pages/Notices'));
+const Homework = lazy(() => import('./pages/Homework'));
+const Quiz = lazy(() => import('./pages/Quiz'));
+const AdminPanel = lazy(() => import('./pages/AdminPanel'));
+const Courses = lazy(() => import('./pages/Courses'));
+const Register = lazy(() => import('./pages/Register'));
+const Sports = lazy(() => import('./pages/Sports'));
+const Themes = lazy(() => import('./pages/Themes'));
+const AdminAnalytics = lazy(() => import('./pages/AdminAnalytics'));
+const StudentStats = lazy(() => import('./pages/StudentStats'));
+const ReportCards = lazy(() => import('./pages/ReportCards'));
+const FinanceOverview = lazy(() => import('./pages/finance/FinanceOverview'));
+const FinanceSetup = lazy(() => import('./pages/finance/FinanceSetup'));
+const Invoices = lazy(() => import('./pages/finance/Invoices'));
+const Payments = lazy(() => import('./pages/finance/Payments'));
+const Expenses = lazy(() => import('./pages/finance/Expenses'));
+const Accounts = lazy(() => import('./pages/finance/Accounts'));
+const Students = lazy(() => import('./pages/finance/Students'));
+const Reports = lazy(() => import('./pages/finance/Reports'));
+const AuditTrail = lazy(() => import('./pages/finance/AuditTrail'));
+const ClassComparison = lazy(() => import('./pages/ClassComparison'));
+const Grade7Exams = lazy(() => import('./pages/Grade7Exams'));
+
+const Waiting = () => <div className="loading">Loading…</div>;
+
+// A page for logged-in people: checks who they are, draws the menu, and loads the page inside it
+const page = (el: JSX.Element, roles?: string[]) => (
+  <ProtectedRoute roles={roles}><Layout><Suspense fallback={<Waiting />}>{el}</Suspense></Layout></ProtectedRoute>
+);
+
+const ALL_STAFF_AND_PUPILS = ['admin', 'teacher', 'student'];
+const FAMILIES = ['student', 'parent'];            // the pupil's own pages, also open to their parents
+const EVERYONE_BUT_BURSAR = [...ALL_STAFF_AND_PUPILS, 'parent'];
+const MONEY = ['admin', 'bursary'];
 
 export default function App() {
   const { loading } = useAuth();
@@ -39,116 +56,43 @@ export default function App() {
   if (loading) return <div className="loading-screen">Loading School Portal...</div>;
 
   return (
-    <Routes>
-      <Route path="/login" element={<Login />} />
-      <Route path="/activate" element={<ActivateAccount />} />
-      <Route path="/" element={<Navigate to="/dashboard" replace />} />
-      <Route
-        path="/dashboard"
-        element={<ProtectedRoute><Layout><Dashboard /></Layout></ProtectedRoute>}
-      />
-      <Route
-        path="/fees"
-        element={<ProtectedRoute roles={['student']}><Layout><Fees /></Layout></ProtectedRoute>}
-      />
-      <Route
-        path="/finance"
-        element={<ProtectedRoute roles={['admin', 'bursary']}><Layout><FinanceDashboard /></Layout></ProtectedRoute>}
-      />
-      <Route
-        path="/finance/setup"
-        element={<ProtectedRoute roles={['admin', 'bursary']}><Layout><FinanceSetup /></Layout></ProtectedRoute>}
-      />
-      <Route
-        path="/finance/invoices"
-        element={<ProtectedRoute roles={['admin', 'bursary']}><Layout><Invoices /></Layout></ProtectedRoute>}
-      />
-      <Route
-        path="/finance/payments"
-        element={<ProtectedRoute roles={['admin', 'bursary']}><Layout><Payments /></Layout></ProtectedRoute>}
-      />
-      <Route
-        path="/finance/expenses"
-        element={<ProtectedRoute roles={['admin', 'bursary']}><Layout><Expenses /></Layout></ProtectedRoute>}
-      />
-      <Route
-        path="/finance/accounts"
-        element={<ProtectedRoute roles={['admin', 'bursary']}><Layout><Accounts /></Layout></ProtectedRoute>}
-      />
-      <Route
-        path="/finance/reconciliation"
-        element={<ProtectedRoute roles={['admin', 'bursary']}><Layout><Reconciliation /></Layout></ProtectedRoute>}
-      />
-      <Route
-        path="/finance/budgets"
-        element={<ProtectedRoute roles={['admin', 'bursary']}><Layout><Budgets /></Layout></ProtectedRoute>}
-      />
-      <Route
-        path="/finance/sponsors"
-        element={<ProtectedRoute roles={['admin', 'bursary']}><Layout><Sponsors /></Layout></ProtectedRoute>}
-      />
-      <Route
-        path="/finance/students"
-        element={<ProtectedRoute roles={['admin', 'bursary']}><Layout><StudentProfiles /></Layout></ProtectedRoute>}
-      />
-      <Route
-        path="/finance/reports"
-        element={<ProtectedRoute roles={['admin', 'bursary']}><Layout><Reports /></Layout></ProtectedRoute>}
-      />
-      <Route
-        path="/finance/reminders"
-        element={<ProtectedRoute roles={['admin', 'bursary']}><Layout><Reminders /></Layout></ProtectedRoute>}
-      />
-      <Route
-        path="/report-cards"
-        element={<ProtectedRoute roles={['admin', 'teacher', 'student']}><Layout><ReportCards /></Layout></ProtectedRoute>}
-      />
-      <Route
-        path="/report-cards/:studentId"
-        element={<ProtectedRoute roles={['admin', 'teacher', 'student']}><Layout><ReportCards /></Layout></ProtectedRoute>}
-      />
-      <Route
-        path="/timetable"
-        element={<ProtectedRoute roles={['admin', 'teacher', 'student']}><Layout><Timetable /></Layout></ProtectedRoute>}
-      />
-      <Route
-        path="/results"
-        element={<ProtectedRoute roles={['admin', 'teacher', 'student']}><Layout><Results /></Layout></ProtectedRoute>}
-      />
-      <Route
-        path="/notices"
-        element={<ProtectedRoute roles={['admin', 'teacher', 'student']}><Layout><Notices /></Layout></ProtectedRoute>}
-      />
-      <Route
-        path="/homework"
-        element={<ProtectedRoute roles={['teacher', 'student']}><Layout><Homework /></Layout></ProtectedRoute>}
-      />
-      <Route
-        path="/quizzes"
-        element={<ProtectedRoute roles={['admin', 'teacher', 'student']}><Layout><Quiz /></Layout></ProtectedRoute>}
-      />
-      <Route
-        path="/admin"
-        element={<ProtectedRoute roles={['admin']}><Layout><AdminPanel /></Layout></ProtectedRoute>}
-      />
-      <Route
-        path="/courses"
-        element={<ProtectedRoute roles={['teacher', 'student']}><Layout><Courses /></Layout></ProtectedRoute>}
-      />
-      <Route
-        path="/register"
-        element={<ProtectedRoute roles={['teacher', 'student']}><Layout><Register /></Layout></ProtectedRoute>}
-      />
-      <Route
-        path="/sports"
-        element={<ProtectedRoute roles={['admin', 'teacher', 'student']}><Layout><Sports /></Layout></ProtectedRoute>}
-      />
-      <Route
-        path="/themes"
-        element={<ProtectedRoute roles={['admin', 'teacher', 'student']}><Layout><Themes /></Layout></ProtectedRoute>}
-      />
-      <Route path="/admin/analytics" element={<ProtectedRoute roles={['admin']}><Layout><AdminAnalytics /></Layout></ProtectedRoute>} />
-      <Route path="/admin/student-stats" element={<ProtectedRoute roles={['admin', 'teacher']}><Layout><StudentStats /></Layout></ProtectedRoute>} />
-    </Routes>
+    <Suspense fallback={<div className="loading-screen">Loading School Portal...</div>}>
+      <Routes>
+        <Route path="/login" element={<Login />} />
+        <Route path="/activate" element={<ActivateAccount />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/change-password" element={page(<ChangePassword />)} />
+        <Route path="/" element={<Navigate to="/dashboard" replace />} />
+        <Route path="/dashboard" element={page(<Dashboard />)} />
+        <Route path="/fees" element={page(<Fees />, FAMILIES)} />
+
+        <Route path="/finance" element={page(<FinanceOverview />, MONEY)} />
+        <Route path="/finance/setup" element={page(<FinanceSetup />, MONEY)} />
+        <Route path="/finance/invoices" element={page(<Invoices />, MONEY)} />
+        <Route path="/finance/payments" element={page(<Payments />, MONEY)} />
+        <Route path="/finance/expenses" element={page(<Expenses />, MONEY)} />
+        <Route path="/finance/accounts" element={page(<Accounts />, MONEY)} />
+        <Route path="/finance/students" element={page(<Students />, MONEY)} />
+        <Route path="/finance/reports" element={page(<Reports />, MONEY)} />
+        <Route path="/finance/audit" element={page(<AuditTrail />, ['admin'])} />
+
+        <Route path="/report-cards" element={page(<ReportCards />, EVERYONE_BUT_BURSAR)} />
+        <Route path="/report-cards/:studentId" element={page(<ReportCards />, EVERYONE_BUT_BURSAR)} />
+        <Route path="/timetable" element={page(<Timetable />, EVERYONE_BUT_BURSAR)} />
+        <Route path="/results" element={page(<Results />, EVERYONE_BUT_BURSAR)} />
+        <Route path="/notices" element={page(<Notices />, EVERYONE_BUT_BURSAR)} />
+        <Route path="/homework" element={page(<Homework />, ['teacher', 'student'])} />
+        <Route path="/quizzes" element={page(<Quiz />, ALL_STAFF_AND_PUPILS)} />
+        <Route path="/admin" element={page(<AdminPanel />, ['admin'])} />
+        <Route path="/courses" element={page(<Courses />, ['teacher', 'student'])} />
+        <Route path="/register" element={page(<Register />, ['teacher', 'student', 'parent'])} />
+        <Route path="/sports" element={page(<Sports />, ALL_STAFF_AND_PUPILS)} />
+        <Route path="/themes" element={page(<Themes />, EVERYONE_BUT_BURSAR)} />
+        <Route path="/admin/analytics" element={page(<AdminAnalytics />, ['admin'])} />
+        <Route path="/admin/compare" element={page(<ClassComparison />, ['admin'])} />
+        <Route path="/exams" element={page(<Grade7Exams />, ['admin', 'teacher'])} />
+        <Route path="/admin/student-stats" element={page(<StudentStats />, ['admin', 'teacher'])} />
+      </Routes>
+    </Suspense>
   );
 }

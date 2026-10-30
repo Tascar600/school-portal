@@ -9,3 +9,11 @@ services:
     envVars:
       - key: NODE_VERSION
         value: 22
+      # Signs every log in. Render makes a private random one; without it anyone could forge an Administrator login.
+      - key: JWT_SECRET
+        generateValue: true
+      # Optional automatic text messages (see the README, "Text messages"). Add them in the Render dashboard.
+      - key: SMS_WEBHOOK_URL
+        sync: false
+      - key: SMS_WEBHOOK_TOKEN
+        sync: false

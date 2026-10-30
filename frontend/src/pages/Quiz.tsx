@@ -14,13 +14,14 @@ export default function Quiz() {
   const [subjects, setSubjects] = useState<any[]>([]);
   const [msg, setMsg] = useState('');
 
-  // Quiz creation form
-  const [form, setForm] = useState({ class_id: user?.role === 'teacher' && user?.class_id ? String(user.class_id) : '', subject_id: '', title: '', description: '', duration_minutes: '10', questions: [{ question: '', options: ['', '', '', ''], correct_answer: '' }] });
+  // Quiz creation form (a teacher's class is fixed, so it must survive form resets)
+  const ownClass = user?.role === 'teacher' && user?.class_id ? String(user.class_id) : '';
+  const [form, setForm] = useState({ class_id: ownClass, subject_id: '', title: '', description: '', duration_minutes: '10', questions: [{ question: '', options: ['', '', '', ''], correct_answer: '' }] });
 
   const load = () => {
     if (user?.role === 'teacher') quizApi.my().then(r => setQuizzes(r.data));
     else if (user?.role === 'student') quizApi.available().then(r => setQuizzes(r.data));
-    else if (user?.role === 'admin') quizApi.my().then(r => setQuizzes(r.data)); // fallback
+    else if (user?.role === 'admin') quizApi.all().then(r => setQuizzes(r.data));
   };
 
   useEffect(() => { load(); }, [user]);
@@ -52,7 +53,7 @@ export default function Quiz() {
     try {
       await quizApi.create({ ...form, duration_minutes: parseInt(form.duration_minutes) });
       setMsg('Quiz created');
-      setForm({ class_id: '', subject_id: '', title: '', description: '', duration_minutes: '10', questions: [{ question: '', options: ['', '', '', ''], correct_answer: '' }] });
+      setForm({ class_id: ownClass, subject_id: '', title: '', description: '', duration_minutes: '10', questions: [{ question: '', options: ['', '', '', ''], correct_answer: '' }] });
       load();
     } catch (err: any) { setMsg(err.response?.data?.message || 'Error'); }
   };
@@ -186,7 +187,7 @@ export default function Quiz() {
         <div className="modal-overlay" onClick={() => setActiveQuiz(null)}>
           <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 700 }}>
             <h2>{activeQuiz.title}</h2>
-            <p style={{ color: '#666' }}>Duration: {activeQuiz.duration_minutes} minutes</p>
+            <p style={{ color: 'var(--text-dim)' }}>Duration: {activeQuiz.duration_minutes} minutes</p>
             {questions.map((q, i) => (
               <div key={q.id} className="question-card">
                 <p><strong>{i + 1}. {q.question}</strong></p>
@@ -215,7 +216,7 @@ export default function Quiz() {
           <div className="stat-card">
             <h3>{result.score}/{result.total}</h3>
             <p>Score</p>
-            <p style={{ fontSize: '1.2rem', fontWeight: 'bold', color: result.score >= result.total / 2 ? '#2e7d32' : '#c62828' }}>
+            <p style={{ fontSize: '1.2rem', fontWeight: 'bold', color: result.score >= result.total / 2 ? 'var(--success)' : 'var(--danger)' }}>
               {result.score >= result.total / 2 ? 'PASSED' : 'FAILED'}
             </p>
           </div>

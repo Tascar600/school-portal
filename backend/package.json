@@ -6,7 +6,20 @@
     "build": "tsc",
     "start": "tsx src/index.ts",
     "postinstall": "cd ../frontend && npm install && npm run build",
-    "migrate": "ts-node src/config/database.ts"
+    "migrate": "ts-node src/config/database.ts",
+    "seed:sample": "tsx scripts/seed-sample-data.ts",
+    "reset-password": "tsx scripts/reset-password.ts",
+    "capture-manual": "tsx scripts/capture-manual-screenshots.ts",
+    "test:pages": "node tests/browser/pages.mjs",
+    "test:journeys": "node tests/browser/journeys.mjs",
+    "test:classwork": "node tests/browser/classwork.mjs",
+    "test:browser": "npm run test:pages && npm run test:journeys && npm run test:classwork && npm run test:mobile",
+    "test": "npm run test:first-login && npm run test:sms && npm run seed:sample && npm run test:browser",
+    "print:samples": "node tests/browser/print.mjs",
+    "test:first-login": "node tests/first-login.mjs",
+    "test:sms": "node tests/sms.mjs",
+    "test:mobile": "node tests/browser/mobile.mjs",
+    "test:production": "npm --prefix ../frontend run build && node tests/production.mjs"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
@@ -30,6 +43,7 @@
     "@types/multer": "^1.4.12",
     "@types/node": "^22.5.0",
     "@types/pdfkit": "^0.17.6",
+    "playwright-core": "^1.64.1",
     "ts-node-dev": "^2.0.0",
     "typescript": "^5.5.4"
   }

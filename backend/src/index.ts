@@ -27,15 +27,21 @@ import paymentRoutes from './routes/payments';
 import accountRoutes from './routes/accounts';
 import expenseCategoryRoutes from './routes/expenseCategories';
 import expenseRoutes from './routes/expenses';
-import reconciliationRoutes from './routes/reconciliation';
-import budgetRoutes from './routes/budgets';
-import sponsorRoutes from './routes/sponsors';
 import discountRoutes from './routes/discounts';
 import studentProfileRoutes from './routes/studentProfiles';
 import reportRoutes from './routes/reports';
 import messageRoutes from './routes/messages';
 import financeStudentRoutes from './routes/financeStudents';
 import currencyRoutes from './routes/currencies';
+import brandingRoutes from './routes/branding';
+import statsRoutes from './routes/stats';
+import manualRoutes from './routes/manual';
+import statementRoutes from './routes/statements';
+import { auditTrail } from './middleware/audit';
+import { startAutomaticCopies } from './utils/backup';
+import auditRoutes from './routes/audit';
+import examRoutes from './routes/exams';
+import parentRoutes from './routes/parents';
 
 dotenv.config();
 
@@ -62,7 +68,7 @@ app.use(express.urlencoded({ extended: true }));
 // Rate limit on auth endpoints
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 100,
+  max: Number(process.env.AUTH_RATE_LIMIT) || 100,
   message: { message: 'Too many attempts. Try again in 15 minutes.' },
   standardHeaders: true,
   legacyHeaders: false,
@@ -91,23 +97,27 @@ app.use('/api/courses', courseRoutes);
 app.use('/api/attendance', attendanceRoutes);
 app.use('/api/sports', sportRoutes);
 app.use('/api/themes', themeRoutes);
-app.use('/api/terms', termRoutes);
-app.use('/api/fee-items', feeItemRoutes);
-app.use('/api/billing', billingRoutes);
-app.use('/api/invoices', invoiceRoutes);
-app.use('/api/payments', paymentRoutes);
-app.use('/api/accounts', accountRoutes);
-app.use('/api/expense-categories', expenseCategoryRoutes);
-app.use('/api/expenses', expenseRoutes);
-app.use('/api/reconciliation', reconciliationRoutes);
-app.use('/api/budgets', budgetRoutes);
-app.use('/api/sponsors', sponsorRoutes);
-app.use('/api/discounts', discountRoutes);
-app.use('/api/student-profiles', studentProfileRoutes);
+app.use('/api/terms', auditTrail, termRoutes);
+app.use('/api/fee-items', auditTrail, feeItemRoutes);
+app.use('/api/billing', auditTrail, billingRoutes);
+app.use('/api/invoices', auditTrail, invoiceRoutes);
+app.use('/api/payments', auditTrail, paymentRoutes);
+app.use('/api/accounts', auditTrail, accountRoutes);
+app.use('/api/expense-categories', auditTrail, expenseCategoryRoutes);
+app.use('/api/expenses', auditTrail, expenseRoutes);
+app.use('/api/discounts', auditTrail, discountRoutes);
+app.use('/api/student-profiles', auditTrail, studentProfileRoutes);
 app.use('/api/reports', reportRoutes);
-app.use('/api/messages', messageRoutes);
-app.use('/api/finance-students', financeStudentRoutes);
-app.use('/api/currencies', currencyRoutes);
+app.use('/api/messages', auditTrail, messageRoutes);
+app.use('/api/finance-students', auditTrail, financeStudentRoutes);
+app.use('/api/currencies', auditTrail, currencyRoutes);
+app.use('/api/branding', brandingRoutes);
+app.use('/api/stats', statsRoutes);
+app.use('/api/manual', manualRoutes);
+app.use('/api/statements', statementRoutes);
+app.use('/api/audit', auditRoutes);
+app.use('/api/exams', examRoutes);
+app.use('/api/parents', parentRoutes);
 
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
@@ -126,6 +136,7 @@ for (const dir of uploadDirs) {
 }
 
 initDatabase().then(() => {
+  startAutomaticCopies();
   app.listen(PORT, () => {
     console.log(`Server running on http://localhost:${PORT}`);
   });

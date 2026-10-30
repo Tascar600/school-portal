@@ -1,6 +1,8 @@
 import { Router, Response } from 'express';
 import { query, queryOne, execute } from '../config/database';
 import { authenticate, authorize, AuthRequest } from '../middleware/auth';
+import { actingStudent, mayActFor } from '../utils/acting';
+import { teacherOwnsClass } from '../utils/ownership';
 
 const router = Router();
 
@@ -8,6 +10,10 @@ const router = Router();
 router.post('/', authenticate, authorize('teacher'), async (req: AuthRequest, res: Response) => {
   try {
     const { class_id, subject_id, date, records } = req.body;
+    if (!(await teacherOwnsClass(req.user!.id, Number(class_id)))) {
+      return res.status(403).json({ message: 'You can only mark the register for your own class' });
+    }
+    if (!date || !Array.isArray(records)) return res.status(400).json({ message: 'A date and a list of records are required' });
     // records: [{student_id, status}], status: present|absent|late|excused
     const existing = await query<any[]>(
       'SELECT id FROM attendance WHERE teacher_id=? AND class_id=? AND date=?',
@@ -47,9 +53,10 @@ router.get('/', authenticate, authorize('teacher'), async (req: AuthRequest, res
 });
 
 // Student: view own attendance
-router.get('/my', authenticate, authorize('student'), async (req: AuthRequest, res: Response) => {
+router.get('/my', authenticate, authorize('student', 'parent'), async (req: AuthRequest, res: Response) => {
   try {
-    const student = await queryOne<any>('SELECT class_id FROM users WHERE id=?', [req.user!.id]);
+    const sid = await actingStudent(req, res); if (sid === null) return;
+    const student = await queryOne<any>('SELECT class_id FROM users WHERE id=?', [sid]);
     if (!student?.class_id) { res.json([]); return; }
     const records = await query<any[]>(
       'SELECT * FROM attendance WHERE class_id=? ORDER BY date DESC LIMIT 50',
@@ -58,7 +65,7 @@ router.get('/my', authenticate, authorize('student'), async (req: AuthRequest, r
     const myRecords = [];
     for (const r of records) {
       const parsed = typeof r.records === 'string' ? JSON.parse(r.records) : r.records;
-      const myRec = parsed.find((p: any) => p.student_id === req.user!.id);
+      const myRec = parsed.find((p: any) => p.student_id === sid);
       if (myRec) {
         myRecords.push({ date: r.date, subject_id: r.subject_id, status: myRec.status, class_id: r.class_id });
       }

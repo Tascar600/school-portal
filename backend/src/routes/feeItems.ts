@@ -13,7 +13,7 @@ router.get('/', authenticate, async (_req: AuthRequest, res: Response) => {
   } catch (err: any) { res.status(500).json({ message: err.message }); }
 });
 
-router.post('/', authenticate, authorize('admin', 'bursary'), async (req: AuthRequest, res: Response) => {
+router.post('/', authenticate, authorize('bursary'), async (req: AuthRequest, res: Response) => {
   try {
     const { name, description, is_optional, sort_order } = req.body;
     if (!name) return res.status(400).json({ message: 'Name is required' });
@@ -25,7 +25,7 @@ router.post('/', authenticate, authorize('admin', 'bursary'), async (req: AuthRe
   } catch (err: any) { res.status(500).json({ message: err.message }); }
 });
 
-router.put('/:id', authenticate, authorize('admin', 'bursary'), async (req: AuthRequest, res: Response) => {
+router.put('/:id', authenticate, authorize('bursary'), async (req: AuthRequest, res: Response) => {
   try {
     const { name, description, is_optional, sort_order, active } = req.body;
     await execute(
@@ -36,7 +36,7 @@ router.put('/:id', authenticate, authorize('admin', 'bursary'), async (req: Auth
   } catch (err: any) { res.status(500).json({ message: err.message }); }
 });
 
-router.delete('/:id', authenticate, authorize('admin', 'bursary'), async (req: AuthRequest, res: Response) => {
+router.delete('/:id', authenticate, authorize('bursary'), async (req: AuthRequest, res: Response) => {
   try {
     await execute('UPDATE fee_items SET active = 0 WHERE id = ?', [req.params.id]);
     res.json({ message: 'Fee item deactivated' });
@@ -61,7 +61,7 @@ router.get('/structure/:termId', authenticate, async (req: AuthRequest, res: Res
 
 router.put(
   '/structure/:termId/:classId/:feeItemId',
-  authenticate, authorize('admin', 'bursary'),
+  authenticate, authorize('bursary'),
   async (req: AuthRequest, res: Response) => {
     try {
       await ensureTermOpen(Number(req.params.termId));
@@ -88,7 +88,7 @@ router.put(
 // Copy an entire term's fee structure to another term, with an optional % adjustment
 router.post(
   '/structure/:fromTermId/copy-to/:toTermId',
-  authenticate, authorize('admin', 'bursary'),
+  authenticate, authorize('bursary'),
   async (req: AuthRequest, res: Response) => {
     try {
       await ensureTermOpen(Number(req.params.toTermId));

@@ -24,7 +24,7 @@ export default function Register() {
         attendanceApi.students(parseInt(classId)).then(r => setStudents(r.data));
       }
       loadHistory();
-    } else if (user?.role === 'student') {
+    } else if (user?.role === 'student' || user?.role === 'parent') {
       attendanceApi.my().then(r => setMyAttendance(r.data));
     }
   }, [user, classId]);
@@ -62,7 +62,7 @@ export default function Register() {
     } catch (err: any) { setMsg(err.response?.data?.message || 'Error'); }
   };
 
-  const statusColors: Record<string, string> = { present: '#2e7d32', absent: '#c62828', late: '#f57f17', excused: '#1565c0' };
+  const statusColors: Record<string, string> = { present: 'var(--success)', absent: 'var(--danger)', late: 'var(--warning)', excused: 'var(--info)' };
 
   if (user?.role === 'teacher') {
     const csvData = students.map(s => ({ 'Student': s.name, 'Status': records[s.id] || 'unmarked' }));
@@ -73,7 +73,7 @@ export default function Register() {
           <div style={{ display: 'flex', gap: '0.3rem' }}>
             <PrintButton />
             <DownloadCSV data={csvData} headers={['Student', 'Status']} filename="attendance_register.csv" label=" CSV" />
-            <button className="btn" style={{ background: 'rgba(167,139,250,0.2)', color: '#a78bfa', border: '1px solid rgba(167,139,250,0.3)', display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }} onClick={() => setShowPrintPicker(true)}><Printer size={16} /> Print Register</button>
+            <button className="btn" style={{ background: 'var(--surface-2)', color: 'var(--accent)', border: '1px solid var(--surface-2)', display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }} onClick={() => setShowPrintPicker(true)}><Printer size={16} /> Print Register</button>
           </div>
         </div>
         {msg && <div className="alert alert-info">{msg}</div>}
@@ -93,7 +93,7 @@ export default function Register() {
                 <button className="btn btn-success btn-sm" onClick={() => markAll('present')}>Present</button>
                 <button className="btn btn-danger btn-sm" onClick={() => markAll('absent')}>Absent</button>
                 <button className="btn btn-warning btn-sm" onClick={() => markAll('late')}>Late</button>
-                <button className="btn btn-sm" style={{ background: '#1565c0', color: '#fff' }} onClick={() => markAll('excused')}>Excused</button>
+                <button className="btn btn-sm" style={{ background: 'var(--info)', color: '#fff' }} onClick={() => markAll('excused')}>Excused</button>
               </div>
               <table>
                 <thead><tr><th>#</th><th>Student</th><th>Status</th></tr></thead>
@@ -140,13 +140,13 @@ export default function Register() {
                         <tr key={a.id}>
                           <td style={{ fontWeight: 600 }}>{a.date}</td>
                           <td>{parsed.length}</td>
-                          <td style={{ color: '#4ade80' }}>{present}</td>
-                          <td style={{ color: '#f87171' }}>{absent}</td>
-                          <td style={{ color: '#fbbf24' }}>{late}</td>
-                          <td style={{ color: '#a78bfa' }}>{excused}</td>
+                          <td style={{ color: 'var(--success)' }}>{present}</td>
+                          <td style={{ color: 'var(--danger)' }}>{absent}</td>
+                          <td style={{ color: 'var(--warning)' }}>{late}</td>
+                          <td style={{ color: 'var(--accent)' }}>{excused}</td>
                           <td>
                             <button className="btn btn-sm" onClick={() => setExpandedDate(expandedDate === a.date ? null : a.date)}
-                              style={{ background: 'rgba(0,240,255,0.1)', color: 'var(--neon)', border: 'none', borderRadius: 4, cursor: 'pointer', padding: '0.2rem 0.6rem', fontSize: '0.75rem' }}>
+                              style={{ background: 'var(--surface-2)', color: 'var(--neon)', border: 'none', borderRadius: 4, cursor: 'pointer', padding: '0.2rem 0.6rem', fontSize: '0.75rem' }}>
                               {expandedDate === a.date ? '▲ Hide' : '▼ View'}
                             </button>
                             {expandedDate === a.date && (
@@ -154,9 +154,9 @@ export default function Register() {
                                 {parsed.map((r: any, i: number) => {
                                   const s = students.find((st: any) => st.id === r.student_id);
                                   return (
-                                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.15rem 0.5rem', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.15rem 0.5rem', borderBottom: '1px solid var(--surface-2)' }}>
                                       <span>{s?.name || `Student #${r.student_id}`}</span>
-                                      <span style={{ color: r.status === 'present' ? '#4ade80' : r.status === 'absent' ? '#f87171' : r.status === 'late' ? '#fbbf24' : r.status === 'excused' ? '#a78bfa' : '#aaa', fontWeight: 600 }}>
+                                      <span style={{ color: r.status === 'present' ? 'var(--success)' : r.status === 'absent' ? 'var(--danger)' : r.status === 'late' ? 'var(--warning)' : r.status === 'excused' ? 'var(--accent)' : '#aaa', fontWeight: 600 }}>
                                         {r.status?.toUpperCase()}
                                       </span>
                                     </div>
@@ -191,7 +191,7 @@ export default function Register() {
                       setPrintData({ date: a.date, records: parsed, present, absent, late, excused });
                       setShowPrintPicker(false);
                       setTimeout(() => window.print(), 300);
-                    }} style={{ padding: '0.6rem 0.8rem', cursor: 'pointer', borderRadius: 6, marginBottom: '0.3rem', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    }} style={{ padding: '0.6rem 0.8rem', cursor: 'pointer', borderRadius: 6, marginBottom: '0.3rem', background: 'var(--surface-2)', border: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <span style={{ fontWeight: 600 }}>{a.date}</span>
                       <span style={{ color: 'var(--text-dim)', fontSize: '0.85rem' }}>{parsed.length} students</span>
                     </div>
@@ -275,7 +275,7 @@ export default function Register() {
               {myAttendance.map((a: any, i: number) => (
                 <tr key={i}>
                   <td>{a.date}</td>
-                  <td><span style={{ color: statusColors[a.status] || (a.status === 'excused' ? '#a78bfa' : '#333'), fontWeight: 'bold' }}>{a.status?.toUpperCase()}</span></td>
+                  <td><span style={{ color: statusColors[a.status] || (a.status === 'excused' ? 'var(--accent)' : '#333'), fontWeight: 'bold' }}>{a.status?.toUpperCase()}</span></td>
                 </tr>
               ))}
             </tbody>

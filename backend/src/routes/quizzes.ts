@@ -1,6 +1,7 @@
 import { Router, Response } from 'express';
-import { query, execute } from '../config/database';
+import { query, queryOne, execute } from '../config/database';
 import { authenticate, authorize, AuthRequest } from '../middleware/auth';
+import { teacherOwnsClass, studentInClass } from '../utils/ownership';
 
 const router = Router();
 
@@ -8,6 +9,9 @@ const router = Router();
 router.post('/', authenticate, authorize('teacher'), async (req: AuthRequest, res: Response) => {
   try {
     const { class_id, subject_id, title, description, duration_minutes, questions } = req.body;
+    if (!(await teacherOwnsClass(req.user!.id, Number(class_id)))) {
+      return res.status(403).json({ message: 'You can only create quizzes for your own class' });
+    }
     const quizResult = await execute(
       'INSERT INTO quizzes (class_id, subject_id, teacher_id, title, description, duration_minutes) VALUES (?, ?, ?, ?, ?, ?)',
       [class_id, subject_id, req.user!.id, title, description || '', duration_minutes || 10]
@@ -38,6 +42,22 @@ router.get('/my', authenticate, authorize('teacher'), async (req: AuthRequest, r
        WHERE q.teacher_id = ?
        ORDER BY q.created_at DESC`,
       [req.user!.id]
+    );
+    res.json(quizzes);
+  } catch (err: any) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// Admin: every quiz in the school
+router.get('/all', authenticate, authorize('admin'), async (_req: AuthRequest, res: Response) => {
+  try {
+    const quizzes = await query<any[]>(
+      `SELECT q.*, s.name AS subject_name, c.name AS class_name, u.name AS teacher_name FROM quizzes q
+       JOIN subjects s ON s.id = q.subject_id
+       JOIN classes c ON c.id = q.class_id
+       LEFT JOIN users u ON u.id = q.teacher_id
+       ORDER BY c.name, q.created_at DESC`
     );
     res.json(quizzes);
   } catch (err: any) {
@@ -78,12 +98,17 @@ router.get('/available', authenticate, authorize('student'), async (req: AuthReq
 // Student: get quiz questions for attempt
 router.get('/:id/questions', authenticate, authorize('student', 'teacher'), async (req: AuthRequest, res: Response) => {
   try {
+    const quiz = await queryOne<any>('SELECT * FROM quizzes WHERE id = ?', [req.params.id]);
+    if (!quiz) return res.status(404).json({ message: 'Quiz not found' });
+    const allowed = req.user!.role === 'teacher'
+      ? quiz.teacher_id === req.user!.id
+      : await studentInClass(req.user!.id, quiz.class_id);
+    if (!allowed) return res.status(403).json({ message: 'This quiz is not for you' });
     const questions = await query<any[]>(
       'SELECT id, question, options FROM quiz_questions WHERE quiz_id = ?',
       [req.params.id]
     );
-    const quiz = await query<any[]>('SELECT * FROM quizzes WHERE id = ?', [req.params.id]);
-    res.json({ quiz: quiz[0], questions });
+    res.json({ quiz, questions });
   } catch (err: any) {
     res.status(500).json({ message: err.message });
   }
@@ -94,6 +119,15 @@ router.post('/:id/attempt', authenticate, authorize('student'), async (req: Auth
   try {
     const { answers } = req.body; // [{ question_id, selected_answer }]
     const quizId = parseInt(req.params.id);
+    if (!Array.isArray(answers)) return res.status(400).json({ message: 'answers must be a list' });
+    const quiz = await queryOne<any>('SELECT class_id FROM quizzes WHERE id = ?', [quizId]);
+    if (!quiz) return res.status(404).json({ message: 'Quiz not found' });
+    if (!(await studentInClass(req.user!.id, quiz.class_id))) {
+      return res.status(403).json({ message: 'This quiz is not for your class' });
+    }
+    if (await queryOne('SELECT 1 FROM quiz_attempts WHERE quiz_id = ? AND student_id = ?', [quizId, req.user!.id])) {
+      return res.status(400).json({ message: 'You have already attempted this quiz' });
+    }
 
     const questions = await query<any[]>('SELECT id, correct_answer FROM quiz_questions WHERE quiz_id = ?', [quizId]);
     let score = 0;
@@ -131,6 +165,10 @@ router.post('/:id/attempt', authenticate, authorize('student'), async (req: Auth
 // Teacher/Admin: view quiz attempts
 router.get('/:id/attempts', authenticate, authorize('teacher', 'admin'), async (req: AuthRequest, res: Response) => {
   try {
+    if (req.user!.role === 'teacher') {
+      const quiz = await queryOne<any>('SELECT teacher_id FROM quizzes WHERE id = ?', [req.params.id]);
+      if (!quiz || quiz.teacher_id !== req.user!.id) return res.status(403).json({ message: 'This is not your quiz' });
+    }
     const attempts = await query<any[]>(
       `SELECT qa.*, u.name AS student_name FROM quiz_attempts qa
        JOIN users u ON u.id = qa.student_id
@@ -147,6 +185,10 @@ router.get('/:id/attempts', authenticate, authorize('teacher', 'admin'), async (
 // Teacher: delete quiz
 router.delete('/:id', authenticate, authorize('teacher', 'admin'), async (req: AuthRequest, res: Response) => {
   try {
+    if (req.user!.role === 'teacher') {
+      const quiz = await queryOne<any>('SELECT teacher_id FROM quizzes WHERE id = ?', [req.params.id]);
+      if (!quiz || quiz.teacher_id !== req.user!.id) return res.status(403).json({ message: 'This is not your quiz' });
+    }
     await execute('DELETE FROM quizzes WHERE id = ?', [req.params.id]);
     res.json({ message: 'Quiz deleted' });
   } catch (err: any) {

@@ -16,11 +16,7 @@ export default function StudentStats() {
 
   useEffect(() => {
     if (user?.role === 'teacher' && user?.class_id) {
-      adminApi.users().then((r: any) => {
-        const arr = Array.isArray(r.data) ? r.data : (r.data?.users || []);
-        const filtered = arr.filter((u: any) => u.role === 'student' && u.class_id === user.class_id);
-        setStudents(filtered);
-      }).catch(() => {});
+      resultApi.students().then((r: any) => setStudents(Array.isArray(r.data) ? r.data : [])).catch(() => {});
     } else if (user?.role === 'admin') {
       adminApi.users().then((r: any) => {
         const arr = Array.isArray(r.data) ? r.data : (r.data?.users || r.data || []);
@@ -68,10 +64,10 @@ export default function StudentStats() {
   })() : [];
 
   const attData = stats?.attendance?.length ? [
-    { name: 'Present', value: stats.attendance.filter((a: any) => a.status === 'present').length, color: '#4ade80' },
-    { name: 'Late', value: stats.attendance.filter((a: any) => a.status === 'late').length, color: '#fbbf24' },
-    { name: 'Absent', value: stats.attendance.filter((a: any) => a.status === 'absent').length, color: '#f87171' },
-    { name: 'Excused', value: stats.attendance.filter((a: any) => a.status === 'excused').length, color: '#a78bfa' },
+    { name: 'Present', value: stats.attendance.filter((a: any) => a.status === 'present').length, color: 'var(--success)' },
+    { name: 'Late', value: stats.attendance.filter((a: any) => a.status === 'late').length, color: 'var(--warning)' },
+    { name: 'Absent', value: stats.attendance.filter((a: any) => a.status === 'absent').length, color: 'var(--danger)' },
+    { name: 'Excused', value: stats.attendance.filter((a: any) => a.status === 'excused').length, color: 'var(--accent)' },
   ].filter(d => d.value > 0) : [];
 
   const filteredStudents = students.filter((s: any) => {
@@ -96,11 +92,11 @@ export default function StudentStats() {
           <div style={{ display: 'flex', alignItems: 'flex-end', paddingBottom: '0.25rem' }}><button className="btn btn-primary" onClick={handleSearch} disabled={loading}>{loading ? 'Loading...' : 'Search'}</button></div>
         </div>
         {filteredStudents.length > 0 && (
-          <div style={{ maxHeight: 200, overflowY: 'auto', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '0.5rem', marginTop: '0.5rem' }}>
+          <div style={{ maxHeight: 200, overflowY: 'auto', border: '1px solid var(--border)', borderRadius: 8, padding: '0.5rem', marginTop: '0.5rem' }}>
             {filteredStudents.slice(0, 20).map((s: any) => (
               <div key={s.id} 
                 onClick={() => { setSelectedStudent(s); loadStats(s.id); }}
-                style={{ padding: '0.4rem 0.5rem', cursor: 'pointer', borderRadius: 4, background: selectedStudent?.id === s.id ? 'rgba(0,240,255,0.1)' : 'transparent', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                style={{ padding: '0.4rem 0.5rem', cursor: 'pointer', borderRadius: 4, background: selectedStudent?.id === s.id ? 'var(--surface-2)' : 'transparent', borderBottom: '1px solid var(--surface-2)' }}>
                 <span style={{ fontWeight: 600 }}>{s.name}</span> <span style={{ color: 'var(--text-dim)', fontSize: '0.8rem' }}>{s.student_number}</span>
               </div>
             ))}
@@ -129,11 +125,11 @@ export default function StudentStats() {
               <h2>Performance by Subject</h2>
               <ResponsiveContainer width="100%" height={250}>
                 <BarChart data={performanceBySubject}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--surface-2)" />
                   <XAxis dataKey="subject" tick={{ fontSize: 11 }} />
                   <YAxis domain={[0, 100]} />
                   <Tooltip />
-                  <Bar dataKey="avg" name="Average Score" fill="var(--neon)" radius={[4,4,0,0]} />
+                  <Bar isAnimationActive={false} dataKey="avg" name="Average Score" fill="var(--neon)" radius={[4,4,0,0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -145,7 +141,7 @@ export default function StudentStats() {
                 <h2>Attendance</h2>
                 <ResponsiveContainer width="100%" height={200}>
                   <PieChart>
-                    <Pie data={attData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={70} label={({name, value}) => `${name}: ${value}`}>
+                    <Pie isAnimationActive={false} data={attData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={70} label={({name, value}) => `${name}: ${value}`}>
                       {attData.map((e: any, i: number) => <Cell key={i} fill={e.color} />)}
                     </Pie>
                     <Tooltip />
@@ -158,8 +154,8 @@ export default function StudentStats() {
               <div className="card">
                 <h2>Sports</h2>
                 {stats.sports.map((s: any, i: number) => (
-                  <div key={i} style={{ padding: '0.3rem 0', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                    <strong>{s.name}</strong> <span className="badge" style={{ background: s.role === 'captain' ? 'rgba(251,191,36,0.2)' : 'rgba(0,240,255,0.1)', color: s.role === 'captain' ? '#fbbf24' : 'var(--neon)' }}>{s.role}</span>
+                  <div key={i} style={{ padding: '0.3rem 0', borderBottom: '1px solid var(--surface-2)' }}>
+                    <strong>{s.name}</strong> <span className="badge" style={{ background: s.role === 'captain' ? 'var(--surface-2)' : 'var(--surface-2)', color: s.role === 'captain' ? 'var(--warning)' : 'var(--neon)' }}>{s.role}</span>
                   </div>
                 ))}
               </div>
@@ -183,7 +179,7 @@ export default function StudentStats() {
                         <td>{r.test_score||0}</td>
                         <td>{r.exam||0}</td>
                         <td style={{ fontWeight: 'bold' }}>{tot}</td>
-                        <td><span className="badge" style={{ background: tot >= 75 ? 'rgba(74,222,128,0.2)' : tot >= 65 ? 'rgba(34,211,238,0.2)' : tot >= 50 ? 'rgba(251,191,36,0.2)' : tot >= 40 ? 'rgba(248,113,113,0.2)' : 'rgba(167,139,250,0.2)', color: tot >= 75 ? '#4ade80' : tot >= 65 ? '#22d3ee' : tot >= 50 ? '#fbbf24' : tot >= 40 ? '#f87171' : '#a78bfa' }}>{r.grade || '-'}</span></td>
+                        <td><span className="badge" style={{ background: tot >= 75 ? 'var(--surface-2)' : tot >= 65 ? 'var(--surface-2)' : tot >= 50 ? 'var(--surface-2)' : tot >= 40 ? 'var(--surface-2)' : 'var(--surface-2)', color: tot >= 75 ? 'var(--success)' : tot >= 65 ? 'var(--info)' : tot >= 50 ? 'var(--warning)' : tot >= 40 ? 'var(--danger)' : 'var(--accent)' }}>{r.grade || '-'}</span></td>
                         <td style={{ fontSize: '0.8rem' }}>{r.remarks || '-'}</td>
                       </tr>
                     );

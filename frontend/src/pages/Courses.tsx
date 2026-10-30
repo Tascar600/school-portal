@@ -5,7 +5,9 @@ import { courseApi } from '../services/api';
 export default function Courses() {
   const { user } = useAuth();
   const [courses, setCourses] = useState<any[]>([]);
-  const [form, setForm] = useState({ name: '', class_id: '', description: '', day_of_week: '', start_time: '', end_time: '' });
+  // A teacher's class is fixed, so it pre-fills and survives form resets
+  const ownClass = user?.role === 'teacher' && user?.class_id ? String(user.class_id) : '';
+  const [form, setForm] = useState({ name: '', class_id: ownClass, description: '', day_of_week: '', start_time: '', end_time: '' });
   const [editId, setEditId] = useState<number | null>(null);
   const [msg, setMsg] = useState('');
 
@@ -29,7 +31,7 @@ export default function Courses() {
         await courseApi.create(data);
         setMsg('Course created');
       }
-      setForm({ name: '', class_id: '', description: '', day_of_week: '', start_time: '', end_time: '' });
+      setForm({ name: '', class_id: ownClass, description: '', day_of_week: '', start_time: '', end_time: '' });
       setEditId(null);
       load();
     } catch (err: any) { setMsg(err.response?.data?.message || 'Error'); }
@@ -57,7 +59,7 @@ export default function Courses() {
           <form onSubmit={handleSubmit}>
             <div className="form-row">
               <div><label>Course Name</label><input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} required /></div>
-              <div><label>Class ID</label><input value={form.class_id} onChange={e => setForm({ ...form, class_id: e.target.value })} placeholder="e.g. 1" /></div>
+              <div><label>Class ID</label><input value={form.class_id} onChange={e => setForm({ ...form, class_id: e.target.value })} placeholder="e.g. 1" disabled={!!ownClass} /></div>
             </div>
             <label>Description</label>
             <textarea value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} />
@@ -67,7 +69,7 @@ export default function Courses() {
               <div><label>End</label><input type="time" value={form.end_time} onChange={e => setForm({ ...form, end_time: e.target.value })} /></div>
             </div>
             <button type="submit" className="btn btn-primary">{editId ? 'Update' : 'Add Course'}</button>
-            {editId && <button type="button" className="btn" onClick={() => { setEditId(null); setForm({ name: '', class_id: '', description: '', day_of_week: '', start_time: '', end_time: '' }); }}>Cancel</button>}
+            {editId && <button type="button" className="btn" onClick={() => { setEditId(null); setForm({ name: '', class_id: ownClass, description: '', day_of_week: '', start_time: '', end_time: '' }); }}>Cancel</button>}
           </form>
         </div>
         <div className="card">

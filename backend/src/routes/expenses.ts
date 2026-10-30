@@ -3,11 +3,13 @@ import { query, queryOne, execute } from '../config/database';
 import { authenticate, authorize, AuthRequest } from '../middleware/auth';
 import { ensureTermOpen } from '../utils/finance';
 import { nextNo } from '../utils/sequences';
+import { getSchoolInfo } from '../utils/settings';
+import { sendVoucher } from '../utils/financePdf';
 
 const router = Router();
 
 // ── Record an expense (Payment Voucher) ──────────────
-router.post('/', authenticate, authorize('admin', 'bursary'), async (req: AuthRequest, res: Response) => {
+router.post('/', authenticate, authorize('bursary'), async (req: AuthRequest, res: Response) => {
   try {
     const { exp_date, term_id, category_id, account_id, payee, description, amount, reference, attachment } = req.body;
     if (!exp_date || !account_id || !amount) {
@@ -44,10 +46,12 @@ router.post('/', authenticate, authorize('admin', 'bursary'), async (req: AuthRe
 // ── List / search / filter expenses ──────────────────
 router.get('/', authenticate, authorize('admin', 'bursary'), async (req: AuthRequest, res: Response) => {
   try {
-    const { term_id, category_id, account_id, status, q } = req.query as Record<string, string>;
+    const { term_id, category_id, account_id, status, q, from, to } = req.query as Record<string, string>;
     const where: string[] = [];
     const params: any[] = [];
     if (term_id) { where.push('x.term_id = ?'); params.push(term_id); }
+    if (from) { where.push('x.exp_date >= ?'); params.push(from); }
+    if (to) { where.push('x.exp_date <= ?'); params.push(to); }
     if (category_id) { where.push('x.category_id = ?'); params.push(category_id); }
     if (account_id) { where.push('x.account_id = ?'); params.push(account_id); }
     if (status) { where.push('x.status = ?'); params.push(status); }
@@ -59,6 +63,23 @@ router.get('/', authenticate, authorize('admin', 'bursary'), async (req: AuthReq
       ORDER BY x.exp_date DESC, x.id DESC`;
     const rows = await query<any[]>(sql, params);
     res.json(rows);
+  } catch (err: any) { res.status(500).json({ message: err.message }); }
+});
+
+// ── Printable payment voucher (PDF) ───────────────────
+router.get('/:id/voucher.pdf', authenticate, authorize('admin', 'bursary'), async (req: AuthRequest, res: Response) => {
+  try {
+    const x = await queryOne<any>(
+      `SELECT x.*, c.name AS category_name, a.name AS account_name, u.name AS created_by_name FROM expenses x
+       LEFT JOIN expense_categories c ON c.id = x.category_id LEFT JOIN accounts a ON a.id = x.account_id LEFT JOIN users u ON u.id = x.created_by
+       WHERE x.id = ?`, [req.params.id]);
+    if (!x) return res.status(404).json({ message: 'Expense not found' });
+    const printer = await queryOne<any>('SELECT name FROM users WHERE id = ?', [req.user!.id]);
+    sendVoucher(res, await getSchoolInfo(), {
+      voucher_no: x.voucher_no, exp_date: x.exp_date, payee: x.payee, description: x.description, category: x.category_name || '',
+      account: x.account_name || '', amount: x.amount, reference: x.reference || '', created_by: x.created_by_name || '',
+      status: x.status, cancel_reason: x.cancel_reason || '',
+    }, printer?.name || '');
   } catch (err: any) { res.status(500).json({ message: err.message }); }
 });
 
@@ -77,7 +98,7 @@ router.get('/:id', authenticate, authorize('admin', 'bursary'), async (req: Auth
 });
 
 // ── Cancel (never hard-delete) ───────────────────────
-router.put('/:id/cancel', authenticate, authorize('admin', 'bursary'), async (req: AuthRequest, res: Response) => {
+router.put('/:id/cancel', authenticate, authorize('bursary'), async (req: AuthRequest, res: Response) => {
   try {
     const { reason } = req.body;
     if (!reason) return res.status(400).json({ message: 'A cancellation reason is required' });

@@ -1,94 +1,121 @@
-import { ReactNode } from 'react';
+import { ReactNode, useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { BarChart3, User } from 'lucide-react';
-import { useAuth } from '../contexts/AuthContext';
-import ParticleBackground from './ParticleBackground';
+import { BookOpen, KeyRound, LogOut } from 'lucide-react';
+import { useAuth, ROLE_LABEL } from '../contexts/AuthContext';
+import { ChildSwitcher, useChild } from '../contexts/ChildContext';
+import { useSchool } from '../contexts/SchoolContext';
+import { useTheme, THEMES, ThemeId } from '../contexts/ThemeContext';
+import { downloadPdf } from '../services/api';
+
+type Item = { label: string; path: string };
+
+// What each kind of user sees in the menu. The bursar's menu is the whole bursary; the administrator
+// gets one "Bursary" entry (the bursary pages then show their own tabs).
+const NAV: Record<string, Item[]> = {
+  admin: [
+    { label: 'Dashboard', path: '/dashboard' }, { label: 'Bursary', path: '/finance' }, { label: 'Results', path: '/results' },
+    { label: 'Report Cards', path: '/report-cards' }, { label: 'Timetable', path: '/timetable' }, { label: 'Notices', path: '/notices' },
+    { label: 'Quizzes', path: '/quizzes' }, { label: 'Sports', path: '/sports' }, { label: 'Analytics', path: '/admin/analytics' },
+    { label: 'Compare Classes', path: '/admin/compare' }, { label: 'Grade 7 Exams', path: '/exams' }, { label: 'Student Stats', path: '/admin/student-stats' }, { label: 'Admin Panel', path: '/admin' }, { label: 'Appearance', path: '/themes' },
+  ],
+  parent: [
+    { label: 'Dashboard', path: '/dashboard' }, { label: 'Fees', path: '/fees' }, { label: 'Results', path: '/results' },
+    { label: 'Report Cards', path: '/report-cards' }, { label: 'Attendance', path: '/register' }, { label: 'Timetable', path: '/timetable' },
+    { label: 'Notices', path: '/notices' }, { label: 'Appearance', path: '/themes' },
+  ],
+  bursary: [
+    { label: 'Overview', path: '/finance' }, { label: 'Receive Fees', path: '/finance/payments' }, { label: 'Students', path: '/finance/students' },
+    { label: 'Invoices', path: '/finance/invoices' }, { label: 'Expenses', path: '/finance/expenses' }, { label: 'Cash & Bank', path: '/finance/accounts' },
+    { label: 'Reports', path: '/finance/reports' }, { label: 'Setup', path: '/finance/setup' },
+  ],
+  teacher: [
+    { label: 'Dashboard', path: '/dashboard' }, { label: 'Register', path: '/register' }, { label: 'Results', path: '/results' },
+    { label: 'Report Cards', path: '/report-cards' }, { label: 'Homework', path: '/homework' }, { label: 'Quizzes', path: '/quizzes' },
+    { label: 'Timetable', path: '/timetable' }, { label: 'Courses', path: '/courses' }, { label: 'Notices', path: '/notices' },
+    { label: 'Sports', path: '/sports' }, { label: 'Student Stats', path: '/admin/student-stats' }, { label: 'Appearance', path: '/themes' },
+  ],
+  student: [
+    { label: 'Dashboard', path: '/dashboard' }, { label: 'Results', path: '/results' }, { label: 'Report Cards', path: '/report-cards' },
+    { label: 'Fees', path: '/fees' }, { label: 'Timetable', path: '/timetable' }, { label: 'Homework', path: '/homework' },
+    { label: 'Quizzes', path: '/quizzes' }, { label: 'Courses', path: '/courses' }, { label: 'My Attendance', path: '/register' },
+    { label: 'Notices', path: '/notices' }, { label: 'Sports', path: '/sports' }, { label: 'Appearance', path: '/themes' },
+  ],
+};
 
 export default function Layout({ children }: { children: ReactNode }) {
   const { user, logout } = useAuth();
+  const { school, logoUrl } = useSchool();
+  const { theme, setTheme } = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
+  const [manualBusy, setManualBusy] = useState(false);
+  const [manualError, setManualError] = useState('');
 
-  const handleLogout = () => {
-    logout();
-    navigate('/login');
+  const { kids, active, ready } = useChild();
+  const base = NAV[user?.role || ''] || [];
+  // The Grade 7 teacher also gets the Grade 7 exam results
+  const items = user?.role === 'teacher' && (user as any).class_name === 'Grade 7'
+    ? [...base.slice(0, -1), { label: 'Grade 7 Exams', path: '/exams' }, ...base.slice(-1)] : base;
+  const isActive = (p: string, role?: string) => {
+    if (role === 'admin' && p === '/finance') return location.pathname.startsWith('/finance');
+    if (p === '/admin') return location.pathname === '/admin';
+    if (p === '/finance' || p === '/dashboard') return location.pathname === p;
+    return location.pathname === p || location.pathname.startsWith(p + '/');
   };
 
-  const navItems: { label: string; path: string; roles: string[] }[] = [
-    { label: 'Dashboard', path: '/dashboard', roles: ['admin', 'teacher', 'student', 'bursary'] },
-    { label: 'Finance', path: '/finance', roles: ['admin', 'bursary'] },
-    { label: 'Setup', path: '/finance/setup', roles: ['admin', 'bursary'] },
-    { label: 'Invoices', path: '/finance/invoices', roles: ['admin', 'bursary'] },
-    { label: 'Payments', path: '/finance/payments', roles: ['admin', 'bursary'] },
-    { label: 'Expenses', path: '/finance/expenses', roles: ['admin', 'bursary'] },
-    { label: 'Accounts', path: '/finance/accounts', roles: ['admin', 'bursary'] },
-    { label: 'Reconciliation', path: '/finance/reconciliation', roles: ['admin', 'bursary'] },
-    { label: 'Budgets', path: '/finance/budgets', roles: ['admin', 'bursary'] },
-    { label: 'Sponsors', path: '/finance/sponsors', roles: ['admin', 'bursary'] },
-    { label: 'Student Profiles', path: '/finance/students', roles: ['admin', 'bursary'] },
-    { label: 'Reports', path: '/finance/reports', roles: ['admin', 'bursary'] },
-    { label: 'Reminders', path: '/finance/reminders', roles: ['admin', 'bursary'] },
-    { label: 'Report Cards', path: '/report-cards', roles: ['admin', 'teacher', 'student'] },
-    { label: 'Fees', path: '/fees', roles: ['student'] },
-    { label: 'Timetable', path: '/timetable', roles: ['admin', 'teacher', 'student'] },
-    { label: 'Results', path: '/results', roles: ['admin', 'teacher', 'student'] },
-    { label: 'Notices', path: '/notices', roles: ['admin', 'teacher', 'student'] },
-    { label: 'Homework', path: '/homework', roles: ['teacher', 'student'] },
-    { label: 'Quizzes', path: '/quizzes', roles: ['admin', 'teacher', 'student'] },
-    { label: 'Courses', path: '/courses', roles: ['teacher', 'student'] },
-    { label: 'Register', path: '/register', roles: ['teacher', 'student'] },
-    { label: 'Sports', path: '/sports', roles: ['admin', 'teacher', 'student'] },
-    { label: 'Themes', path: '/themes', roles: ['admin', 'teacher', 'student'] },
-    { label: 'Admin Panel', path: '/admin', roles: ['admin'] },
-  ];
+  const downloadManual = async () => {
+    setManualBusy(true); setManualError('');
+    try { await downloadPdf('/manual', `${school.name} - ${ROLE_LABEL[user?.role || ''] || 'User'} Manual.pdf`); }
+    catch { setManualError('The manual could not be downloaded. Please try again.'); setTimeout(() => setManualError(''), 6000); }
+    finally { setManualBusy(false); }
+  };
 
-  const visible = navItems.filter((item) => user && item.roles.includes(user.role));
+  const handleLogout = () => { logout(); navigate('/login'); };
+  const printedAt = new Date().toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' });
 
   return (
     <div className="layout">
-      <div className="scanline" />
-      <ParticleBackground />
       <nav className="navbar">
-        <div className="nav-brand">
-          <span className="pulse-dot" />
-          <Link to="/dashboard">Tascar School Portal</Link>
+        <div className="navbar-top">
+          <Link to="/dashboard" className="nav-brand">
+            <img src={logoUrl} alt="School crest" />
+            <span>
+              <span className="brand-name">{school.name}</span><br />
+              <span className="brand-sub">{school.motto}</span>
+            </span>
+          </Link>
+          <div className="nav-spacer" />
+          <div className="nav-actions">
+            <button className="hdr-btn gold" onClick={downloadManual} disabled={manualBusy} title="Download the user manual for your account as a PDF">
+              <BookOpen size={15} /> {manualBusy ? 'Preparing…' : 'Download Manual'}
+            </button>
+            <ChildSwitcher />
+            <select className="hdr-select" value={theme} onChange={(e) => setTheme(e.target.value as ThemeId)} title="Appearance" aria-label="Appearance">
+              {THEMES.map((t) => <option key={t.id} value={t.id}>{t.id === 'system' ? 'Appearance: Default' : `Appearance: ${t.name}`}</option>)}
+            </select>
+            <div className="nav-user">
+              <div className="who">{user?.name}<small>{ROLE_LABEL[user?.role || ''] || user?.role}</small></div>
+              <Link to="/change-password" className="hdr-btn" title="Change your password" aria-label="Change your password"><KeyRound size={15} /> <span className="hdr-label">Password</span></Link>
+              <button className="hdr-btn" onClick={handleLogout} title="Log out" aria-label="Log out"><LogOut size={15} /> <span className="hdr-label">Log out</span></button>
+            </div>
+          </div>
         </div>
         <div className="nav-links">
-          {visible.map((item) => (
-            <Link
-              key={item.path}
-              to={item.path}
-              className={location.pathname === item.path ? 'active' : ''}
-            >
-              {item.label}
-            </Link>
+          {items.map((item) => (
+            <Link key={item.path} to={item.path} className={isActive(item.path, user?.role) ? 'active' : ''}>{item.label}</Link>
           ))}
-          {user?.role === 'admin' && (
-            <>
-              <Link to="/admin/analytics" className={location.pathname === '/admin/analytics' ? 'nav-link active' : 'nav-link'}>
-                <span className="nav-icon"><BarChart3 size={15} /></span> Analytics
-              </Link>
-              <Link to="/admin/student-stats" className={location.pathname === '/admin/student-stats' ? 'nav-link active' : 'nav-link'}>
-                <span className="nav-icon"><User size={15} /></span> Student Stats
-              </Link>
-            </>
-          )}
-          {user?.role === 'teacher' && (
-            <Link to="/admin/student-stats" className={location.pathname === '/admin/student-stats' ? 'nav-link active' : 'nav-link'}>
-              <span className="nav-icon"><User size={15} /></span> Student Stats
-            </Link>
-          )}
-        </div>
-        <div className="nav-user">
-          <span>{user?.name} <span className="badge" style={{
-            background: user?.role === 'admin' ? 'rgba(239,68,68,0.2)' : user?.role === 'teacher' ? 'rgba(0,240,255,0.2)' : user?.role === 'bursary' ? 'rgba(167,139,250,0.2)' : 'rgba(34,197,94,0.2)',
-            color: user?.role === 'admin' ? '#f87171' : user?.role === 'teacher' ? '#22d3ee' : user?.role === 'bursary' ? '#a78bfa' : '#4ade80',
-            marginLeft: 4
-          }}>{user?.role}</span></span>
-          <button onClick={handleLogout}>EXIT</button>
         </div>
       </nav>
-      <main className="main-content">{children}</main>
+      {manualError && <div className="alert alert-error" style={{ margin: '0.75rem auto 0', maxWidth: 1500, width: '100%' }}>{manualError}</div>}
+      <main className="main-content"><div className="print-sheet" key={active?.id ?? 'none'}>
+        {user?.role === 'parent' && !ready ? <div className="loading">Loading…</div>
+          : user?.role === 'parent' && kids.length === 0 && location.pathname !== '/change-password' ? <div className="card"><h2>No pupil linked yet</h2><p>No pupil is linked to your account yet. Please ask the school office to link your child to it.</p></div>
+          : children}
+      </div></main>
+
+      {/* Printed pages only: the border is drawn by .print-sheet; the crest watermark and footer repeat on every sheet */}
+      <div className="print-watermark"><img src={logoUrl} alt="" /></div>
+      <div className="print-footer">{school.full_name} {'·'} {school.motto} {'·'} Printed {printedAt}{user ? ` by ${user.name}` : ''}</div>
     </div>
   );
 }

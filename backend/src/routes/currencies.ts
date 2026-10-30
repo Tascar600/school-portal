@@ -13,7 +13,7 @@ router.get('/', authenticate, async (_req: AuthRequest, res: Response) => {
 });
 
 // ── Add a currency (e.g. ZWG) ────────────────────────
-router.post('/', authenticate, authorize('admin', 'bursary'), async (req: AuthRequest, res: Response) => {
+router.post('/', authenticate, authorize('bursary'), async (req: AuthRequest, res: Response) => {
   try {
     const { code, name, rate } = req.body;
     if (!code || !name) return res.status(400).json({ message: 'Code and name are required' });
@@ -25,7 +25,7 @@ router.post('/', authenticate, authorize('admin', 'bursary'), async (req: AuthRe
 });
 
 // ── Update a currency's exchange rate / active flag (base currency's rate stays 1) ──
-router.put('/:code', authenticate, authorize('admin', 'bursary'), async (req: AuthRequest, res: Response) => {
+router.put('/:code', authenticate, authorize('bursary'), async (req: AuthRequest, res: Response) => {
   try {
     const code = req.params.code.toUpperCase();
     const existing = await query<any[]>('SELECT * FROM currencies WHERE code = ?', [code]);

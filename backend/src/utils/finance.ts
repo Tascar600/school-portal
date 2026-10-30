@@ -11,7 +11,7 @@ async function studentClassId(studentId: number): Promise<number | null> {
 async function studentProfile(studentId: number): Promise<any> {
   return (
     (await queryOne<any>('SELECT * FROM student_profiles WHERE user_id = ?', [studentId])) || {
-      user_id: studentId, category: 'day', discount_id: null, sponsor_id: null, status: 'active',
+      user_id: studentId, category: 'day', discount_id: null, status: 'active',
     }
   );
 }
@@ -63,13 +63,7 @@ export async function computeTermBill(studentId: number, termId: number) {
 
   const total = gross - discount;
 
-  let sponsorAmount = 0;
-  if (profile.sponsor_id) {
-    const s = await queryOne<any>('SELECT * FROM sponsors WHERE id = ? AND active = 1', [profile.sponsor_id]);
-    if (s) sponsorAmount = total * (s.coverage_percent / 100);
-  }
-
-  return { lines, gross, discount, total, sponsorId: profile.sponsor_id || null, sponsorAmount };
+  return { lines, gross, discount, total };
 }
 
 export async function billStudent(studentId: number, termId: number, date: string, createdBy: number | null) {
@@ -84,9 +78,9 @@ export async function billStudent(studentId: number, termId: number, date: strin
 
   const invoiceNo = await nextNo('INV', 'INV');
   const { insertId } = await execute(
-    `INSERT INTO invoices (invoice_no, type, student_id, term_id, inv_date, gross, discount, total, sponsor_id, sponsor_amount, created_by)
-     VALUES (?, 'term', ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [invoiceNo, studentId, termId, date, bill.gross, bill.discount, bill.total, bill.sponsorId, bill.sponsorAmount, createdBy]
+    `INSERT INTO invoices (invoice_no, type, student_id, term_id, inv_date, gross, discount, total, created_by)
+     VALUES (?, 'term', ?, ?, ?, ?, ?, ?, ?)`,
+    [invoiceNo, studentId, termId, date, bill.gross, bill.discount, bill.total, createdBy]
   );
   for (const line of bill.lines) {
     await execute('INSERT INTO invoice_lines (invoice_id, fee_item_id, description, amount) VALUES (?, ?, ?, ?)', [
@@ -151,10 +145,10 @@ export async function recordPayment(p: {
   amountPaid: number;
   currency: string;
   fxRate: number;
-  method: 'cash' | 'bank' | 'ecocash' | 'swipe' | 'in_kind' | 'sponsor';
+  method: 'cash' | 'bank' | 'ecocash' | 'swipe' | 'in_kind';
   reference?: string;
   accountId?: number | null;
-  sponsorId?: number | null;
+  payer?: string;
   notes?: string;
   receivedBy: number | null;
 }) {
@@ -170,14 +164,17 @@ export async function recordPayment(p: {
   const amount = p.amountPaid / fxRate;
   const receiptNo = await nextNo('RC', 'RC');
   const { insertId } = await execute(
-    `INSERT INTO fee_payments (receipt_no, student_id, term_id, pay_date, amount, currency, fx_rate, amount_paid, method, reference, account_id, sponsor_id, notes, received_by)
+    `INSERT INTO fee_payments (receipt_no, student_id, term_id, pay_date, amount, currency, fx_rate, amount_paid, method, reference, account_id, payer, notes, received_by)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       receiptNo, p.studentId, p.termId, p.payDate, amount, p.currency || 'USD', fxRate, p.amountPaid,
-      p.method, p.reference || '', p.accountId || null, p.sponsorId || null, p.notes || '', p.receivedBy,
+      p.method, p.reference || '', p.accountId || null, (p.payer || '').trim(), p.notes || '', p.receivedBy,
     ]
   );
-  return { paymentId: insertId, receiptNo, amount };
+  // The balance straight after this receipt is printed on it, and must never change when it is reprinted later.
+  const balanceAfter = await studentBalance(p.studentId);
+  await execute('UPDATE fee_payments SET balance_after = ? WHERE id = ?', [Math.round(balanceAfter * 100) / 100, insertId]);
+  return { paymentId: insertId, receiptNo, amount, balanceAfter };
 }
 
 export async function reversePayment(paymentId: number, reason: string, userId: number | null) {
@@ -211,8 +208,13 @@ export async function accountBalance(accountId: number, asOf?: string): Promise<
   const expWhere = asOf ? "AND exp_date <= ?" : '';
   const trWhere = asOf ? "AND tr_date <= ?" : '';
   const payArgs = asOf ? [accountId, asOf] : [accountId];
+  // A receipt counts as paid when it is in the account's own currency; otherwise via its USD value.
   const pay = await queryOne<any>(
-    `SELECT COALESCE(SUM(amount_paid),0) AS t FROM fee_payments WHERE account_id = ? AND status='active' ${payWhere}`,
+    `SELECT COALESCE(SUM(CASE WHEN p.currency = a.currency THEN p.amount_paid ELSE p.amount * COALESCE(c.rate, 1) END),0) AS t
+     FROM fee_payments p
+     JOIN accounts a ON a.id = p.account_id
+     LEFT JOIN currencies c ON c.code = a.currency
+     WHERE p.account_id = ? AND p.status='active' ${payWhere}`,
     payArgs
   );
   const exp = await queryOne<any>(

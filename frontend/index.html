@@ -3,7 +3,12 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Tascar School Portal</title>
+    <title>CHAKARI GVT PRI SCHO</title>
+    <link rel="icon" type="image/png" href="/api/branding/logo?size=small" />
+    <script>
+      // Apply the saved appearance before the page paints, so there is no flash of the wrong theme
+      (function () { var t = localStorage.getItem('theme'); document.documentElement.dataset.theme = ['system', 'light', 'dark', 'black'].indexOf(t) >= 0 ? t : 'system'; })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

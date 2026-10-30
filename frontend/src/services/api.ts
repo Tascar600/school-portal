@@ -10,6 +10,11 @@ api.interceptors.request.use((config) => {
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
+  // A parent looks through one child at a time (see contexts/ChildContext.tsx)
+  const child = localStorage.getItem('activeChild');
+  if (child && (config.method || 'get') === 'get') {
+    try { if (JSON.parse(localStorage.getItem('user') || '{}').role === 'parent') config.params = { child, ...(config.params || {}) }; } catch { /* no stored user */ }
+  }
   return config;
 });
 
@@ -68,6 +73,7 @@ export const resultApi = {
   studentStats: (studentId: number) => api.get(`/results/student-stats/${studentId}`),
   archiveTerm: (data: { term: string; academic_year: string }) => api.post('/results/archive-term', data),
   reportCard: (studentId: number, params?: any) => api.get(`/results/report-card/${studentId}`, { params }),
+  classComparison: (params: { term: string; academic_year: string }) => api.get('/results/class-comparison', { params }),
   students: () => api.get('/results/students'),
 };
 
@@ -94,6 +100,7 @@ export const homeworkApi = {
 export const quizApi = {
   create: (data: any) => api.post('/quizzes', data),
   my: () => api.get('/quizzes/my'),
+  all: () => api.get('/quizzes/all'),
   available: () => api.get('/quizzes/available'),
   getQuestions: (id: number) => api.get(`/quizzes/${id}/questions`),
   attempt: (id: number, data: any) => api.post(`/quizzes/${id}/attempt`, data),
@@ -210,7 +217,7 @@ export const accountsApi = {
   update: (id: number, data: any) => api.put(`/accounts/${id}`, data),
   deactivate: (id: number) => api.delete(`/accounts/${id}`),
   balance: (id: number, asOf?: string) => api.get(`/accounts/${id}/balance`, { params: asOf ? { as_of: asOf } : {} }),
-  ledger: (id: number) => api.get(`/accounts/${id}/ledger`),
+  ledger: (id: number, params?: any) => api.get(`/accounts/${id}/ledger`, { params }),
   transfer: (data: { tr_date: string; from_account: number; to_account: number; amount: number; reference?: string; notes?: string }) =>
     api.post('/accounts/transfer', data),
   deleteTransfer: (id: number) => api.delete(`/accounts/transfer/${id}`),
@@ -232,28 +239,6 @@ export const expensesApi = {
   cancel: (id: number, reason: string) => api.put(`/expenses/${id}/cancel`, { reason }),
 };
 
-// Finance: Bank reconciliation
-export const reconciliationApi = {
-  unreconciled: (accountId: number, upTo?: string) => api.get(`/reconciliation/${accountId}/unreconciled`, { params: upTo ? { upTo } : {} }),
-  save: (accountId: number, data: any) => api.post(`/reconciliation/${accountId}`, data),
-  history: (accountId: number) => api.get(`/reconciliation/${accountId}/history`),
-};
-
-// Finance: Budgets
-export const budgetsApi = {
-  list: (termId: number) => api.get(`/budgets/${termId}`),
-  set: (termId: number, categoryId: number, amount: number) => api.put(`/budgets/${termId}/${categoryId}`, { amount }),
-  copy: (fromTermId: number, toTermId: number) => api.post(`/budgets/${fromTermId}/copy-to/${toTermId}`),
-};
-
-// Finance: Sponsors
-export const sponsorsApi = {
-  list: () => api.get('/sponsors'),
-  create: (data: any) => api.post('/sponsors', data),
-  update: (id: number, data: any) => api.put(`/sponsors/${id}`, data),
-  deactivate: (id: number) => api.delete(`/sponsors/${id}`),
-};
-
 // Finance: Discounts
 export const discountsApi = {
   list: () => api.get('/discounts'),
@@ -262,7 +247,7 @@ export const discountsApi = {
   deactivate: (id: number) => api.delete(`/discounts/${id}`),
 };
 
-// Finance: Student finance profiles (category, discount, sponsor, guardian info)
+// Finance: Student finance profiles (category, discount, guardian info)
 export const studentProfilesApi = {
   get: (studentId: number) => api.get(`/student-profiles/${studentId}`),
   update: (studentId: number, data: any) => api.put(`/student-profiles/${studentId}`, data),
@@ -276,8 +261,6 @@ export const reportsApi = {
   debtors: () => api.get('/reports/debtors'),
   aged: (asOf: string) => api.get('/reports/aged', { params: { asOf } }),
   incomeExpenditure: (termId: number) => api.get('/reports/income-expenditure', { params: { term_id: termId } }),
-  budget: (termId: number) => api.get('/reports/budget', { params: { term_id: termId } }),
-  sponsors: (termId: number) => api.get('/reports/sponsors', { params: { term_id: termId } }),
   methods: (termId: number) => api.get('/reports/methods', { params: { term_id: termId } }),
   classList: (classId: number) => api.get('/reports/class-list', { params: { class_id: classId } }),
   exportXlsx: (reportKey: string, params: Record<string, any>) =>
@@ -289,12 +272,16 @@ export const messagesApi = {
   list: (params?: any) => api.get('/messages', { params }),
   send: (data: { student_id?: number; phone: string; body: string; kind?: string }) => api.post('/messages', data),
   markSent: (id: number) => api.put(`/messages/${id}/sent`),
-  bulkReminder: (data: { class_id?: number; min_balance?: number; template: string }) => api.post('/messages/bulk-reminder', data),
+  bulkReminder: (data: { class_id?: number; min_balance?: number; template: string; channel?: string }) => api.post('/messages/bulk-reminder', data),
+  config: () => api.get('/messages/config'),
+  sendSms: (id: number) => api.post(`/messages/${id}/send-sms`),
+  sendSmsBatch: (ids: number[]) => api.post('/messages/send-sms-batch', { ids }),
 };
 
 // Finance: Student roster — import/export/promotion
 export const financeStudentsApi = {
   list: (params?: any) => api.get('/finance-students', { params }),
+  classes: () => api.get('/finance-students/classes'),
   exportXlsx: (params?: any) => api.get('/finance-students/export.xlsx', { params, responseType: 'blob' }),
   importPreview: (formData: FormData) =>
     api.post('/finance-students/import/preview', formData, { headers: { 'Content-Type': 'multipart/form-data' } }),
@@ -317,6 +304,91 @@ export const adminApi = {
   deleteSubject: (id: number) => api.delete(`/admin/subjects/${id}`),
   dbInfo: () => api.get('/admin/db/info'),
   dbExport: () => api.get('/admin/db/export', { responseType: 'blob' }),
+  closeUser: (id: number) => api.post(`/admin/users/${id}/close`),
+  reopenUser: (id: number) => api.post(`/admin/users/${id}/reopen`),
+  integrity: () => api.get('/admin/db/integrity'),
+  backups: () => api.get('/admin/backups'),
+  backupNow: () => api.post('/admin/backups/now'),
+  backupFile: (name: string) => api.get(`/admin/backups/${name}`, { responseType: 'blob' }),
   dbRestore: (formData: FormData) => api.post('/admin/db/restore', formData, { headers: { 'Content-Type': 'multipart/form-data' } }),
   executeSQL: (sql: string) => api.post('/admin/sql', { sql }),
+};
+
+// ── School branding, curriculum and passwords ────────────────────────────────
+export const brandingApi = {
+  get: () => api.get('/branding'),
+  update: (data: any) => api.put('/branding', data),
+  uploadLogo: (file: File) => { const fd = new FormData(); fd.append('logo', file); return api.post('/branding/logo', fd, { headers: { 'Content-Type': 'multipart/form-data' } }); },
+  resetLogo: () => api.delete('/branding/logo'),
+};
+
+export const passwordApi = {
+  change: (current_password: string, new_password: string) => api.post('/auth/change-password', { current_password, new_password }),
+  forgot: (identifier: string) => api.post('/auth/forgot-password', { identifier }),
+  requests: () => api.get('/admin/password-requests'),
+  dismiss: (id: number) => api.post(`/admin/password-requests/${id}/dismiss`),
+  reset: (userId: number) => api.post(`/admin/users/${userId}/reset-password`),
+};
+
+// ── Bursary statistics and statements (all take a from/to period) ─────────────
+export const statsApi = {
+  overview: (p: { from: string; to: string }) => api.get('/stats/overview', { params: p }),
+  trend: (p: { from: string; to: string }) => api.get('/stats/trend', { params: p }),
+  breakdown: (p: { from: string; to: string }) => api.get('/stats/breakdown', { params: p }),
+};
+// Parents: their own children (parent account) and the Administrator's tools to manage parent accounts
+export const parentsApi = {
+  children: () => api.get('/parents/children'),
+  list: () => api.get('/parents'),
+  create: (data: { name: string; email: string; password?: string; relationship?: string; student_ids: number[] }) => api.post('/parents', data),
+  link: (parentId: number, studentId: number) => api.post(`/parents/${parentId}/children`, { student_id: studentId }),
+  unlink: (parentId: number, studentId: number) => api.delete(`/parents/${parentId}/children/${studentId}`),
+};
+
+// Grade 7 examination results (Administrator and the Grade 7 teacher)
+export const examsApi = {
+  grade7: (year: string) => api.get('/exams/grade7', { params: { year } }),
+  saveGrade7: (data: { academic_year: string; entries: any[] }) => api.put('/exams/grade7', data),
+};
+
+// The Bursary audit trail (Administrator only, read only)
+export const auditApi = {
+  list: (p?: { from?: string; to?: string; action?: string; user_id?: string; q?: string }) => api.get('/audit', { params: p }),
+};
+
+export const statementsApi = {
+  student: (id: number, p: { from?: string; to?: string }) => api.get(`/statements/student/${id}`, { params: p }),
+  my: (p?: { from?: string; to?: string }) => api.get('/statements/my', { params: p }),
+};
+
+// ── Mark sheets, report-card comments and the user manual ────────────────────
+export const markSheetApi = {
+  sheet: (params: { subject: string; term: string; academic_year: string }) => api.get('/results/sheet', { params }),
+  save: (data: any) => api.post('/results/bulk', data),
+  comment: (studentId: number, data: any) => api.put(`/results/comments/${studentId}`, data),
+};
+
+// Opens a PDF from the server in a new tab (the request needs the login token, so a plain link will not do).
+export async function openPdf(path: string, params?: Record<string, any>) {
+  const win = window.open('', '_blank'); // opened first so the browser does not treat it as a pop-up
+  try {
+    const res = await api.get(path, { params, responseType: 'blob' });
+    const url = URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }));
+    if (win) win.location.href = url; else window.location.href = url;
+  } catch (err) { win?.close(); throw err; }
+}
+
+// Saves a PDF from the server to the computer.
+export async function downloadPdf(path: string, filename: string, params?: Record<string, any>) {
+  const res = await api.get(path, { params, responseType: 'blob' });
+  const url = URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }));
+  const a = document.createElement('a');
+  a.href = url; a.download = filename; a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+}
+
+// Reports are chosen by name and take a from/to period (or a class, date and so on)
+export const reportApi = {
+  get: (name: string, params?: Record<string, any>) => api.get(`/reports/${name}`, { params }),
+  xlsx: (name: string, params?: Record<string, any>) => api.get(`/reports/${name}/export.xlsx`, { params, responseType: 'blob' }),
 };

@@ -1,67 +1,48 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { GraduationCap } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
 import { authApi } from '../services/api';
-import ParticleBackground from '../components/ParticleBackground';
+import { useAuth } from '../contexts/AuthContext';
+import { useSchool } from '../contexts/SchoolContext';
 
 export default function ActivateAccount() {
   const navigate = useNavigate();
+  const { applyToken } = useAuth();
+  const { school, logoUrl } = useSchool();
   const [form, setForm] = useState({ student_number: '', email: '', password: '' });
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
-    setSuccess('');
+    setError(''); setSuccess('');
     try {
-      const res = await authApi.activate(form);
-      localStorage.setItem('token', res.data.token);
-      localStorage.setItem('user', JSON.stringify(res.data.user));
-      setSuccess('Account activated! Redirecting...');
-      setTimeout(() => navigate('/dashboard'), 1500);
+      const res = await authApi.activate({ ...form, student_number: form.student_number.trim(), email: form.email.trim() });
+      setSuccess('Your account is ready. Taking you in…');
+      applyToken(res.data.token);
+      setTimeout(() => navigate('/dashboard'), 900);
     } catch (err: any) {
       setError(err.response?.data?.message || err.message || 'Activation failed');
     }
   };
 
   return (
-    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', background: '#0a0a1a', position: 'relative' }}>
-      <ParticleBackground />
-      <div className="scanline" />
-      <div className="card" style={{ width: '100%', maxWidth: 440, position: 'relative', zIndex: 1 }}>
-        <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
-          <div style={{
-            width: 60, height: 60, borderRadius: '50%',
-            background: 'linear-gradient(135deg, #00f0ff, #a855f7)',
-            margin: '0 auto 1rem',
-            boxShadow: '0 0 40px rgba(0,240,255,0.3)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}><GraduationCap size={28} color="#0a0a1a" /></div>
-          <h2 style={{ marginBottom: 0, color: '#fff', fontSize: '1.5rem' }}>
-            Activate Account
-          </h2>
-          <p style={{ color: 'var(--text-dim)', fontSize: '0.85rem', marginTop: '0.5rem' }}>
-            Enter your registration number to create your account
-          </p>
-        </div>
+    <div className="login-page">
+      <div className="login-card">
+        <img className="crest" src={logoUrl} alt="School crest" />
+        <h1>Activate your account</h1>
+        <p className="sub">{school.name}<br />Enter the registration number the school gave you, then choose an email and a password.</p>
         {error && <div className="alert alert-error">{error}</div>}
         {success && <div className="alert alert-success">{success}</div>}
         <form onSubmit={handleSubmit}>
-          <label>Registration Number</label>
-          <input value={form.student_number} onChange={e => setForm({ ...form, student_number: e.target.value })} required placeholder="e.g. c2600001 or t2600001" />
-          <label>Email (for login)</label>
-          <input type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} required placeholder="you@school.com" />
-          <label>Password</label>
-          <input type="password" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} required placeholder="Create a password" />
-          <button type="submit" className="btn btn-primary" style={{ width: '100%', marginTop: '0.75rem', padding: '0.8rem', fontSize: '1rem' }}>
-            Activate
-          </button>
+          <label htmlFor="reg">Registration number</label>
+          <input id="reg" value={form.student_number} onChange={(e) => setForm({ ...form, student_number: e.target.value })} required placeholder="e.g. c2600001c" />
+          <label htmlFor="em">Email address (you will log in with this)</label>
+          <input id="em" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required placeholder="you@example.com" autoComplete="username" />
+          <label htmlFor="pw">Choose a password</label>
+          <input id="pw" type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required minLength={8} placeholder="At least 8 characters, letters and numbers" autoComplete="new-password" />
+          <button type="submit" className="btn btn-primary" style={{ width: '100%', padding: '0.7rem', marginRight: 0 }}>Activate</button>
         </form>
-        <p style={{ marginTop: '1.25rem', textAlign: 'center', color: 'var(--text-dim)', fontSize: '0.9rem' }}>
-          Already activated?{' '}
-          <a href="/login" style={{ color: 'var(--neon)', textDecoration: 'none' }}>Login</a>
-        </p>
+        <p className="small muted" style={{ marginTop: '1rem', textAlign: 'center' }}>Already activated? <Link to="/login">Log in</Link></p>
       </div>
     </div>
   );

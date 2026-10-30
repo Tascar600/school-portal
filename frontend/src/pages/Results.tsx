@@ -1,357 +1,269 @@
-import { useState, useEffect } from 'react';
-import { Archive } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { resultApi, subjectApi } from '../services/api';
+import { useSchool } from '../contexts/SchoolContext';
+import { resultApi, markSheetApi, adminApi } from '../services/api';
 import { PrintButton, DownloadCSV } from '../components/PrintDownload';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
+import PrintHeader from '../components/PrintHeader';
 
-const GRADE_COLORS = ['#4ade80', '#22d3ee', '#fbbf24', '#f87171', '#a78bfa'];
+const TERMS = ['Term 1', 'Term 2', 'Term 3'];
+const currentTerm = () => { const m = new Date().getMonth(); return m < 4 ? 'Term 1' : m < 8 ? 'Term 2' : 'Term 3'; };
 
-export default function Results() {
+function Grade({ r }: { r: { grade: string; unit: number } }) {
+  return <><span className={`grade-${r.grade}`}>{r.grade}</span> <span className="muted small">(Unit {r.unit})</span></>;
+}
+
+// ── Teacher: one learning area for the whole class ───────────────────────────
+function MarkSheet() {
+  const { areas, weights, gradeFor } = useSchool();
+  const [subject, setSubject] = useState('Mathematics');
+  const [term, setTerm] = useState(currentTerm());
+  const [year, setYear] = useState(String(new Date().getFullYear()));
+  const [projectTitle, setProjectTitle] = useState('');
+  const [rows, setRows] = useState<any[]>([]);
+  const [msg, setMsg] = useState<{ text: string; type: 'info' | 'error' | 'success' } | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [dirty, setDirty] = useState(false);
+
+  const load = () => {
+    setMsg(null);
+    markSheetApi.sheet({ subject, term, academic_year: year }).then((r) => {
+      setRows(r.data.rows.map((x: any) => ({ ...x, coursework: x.coursework ?? '', test_score: x.test_score ?? '', exam: x.exam ?? '', remarks: x.remarks ?? '' })));
+      setProjectTitle(r.data.rows.find((x: any) => x.project_title)?.project_title || '');
+      setDirty(false);
+    }).catch((e) => setMsg({ text: e.response?.data?.message || 'Could not load the mark sheet', type: 'error' }));
+  };
+  useEffect(load, [subject, term, year]);
+
+  const set = (i: number, field: string, value: string) => { setRows((rs) => rs.map((r, k) => (k === i ? { ...r, [field]: value } : r))); setDirty(true); };
+  const totalOf = (r: any) => (Number(r.coursework) || 0) + (Number(r.test_score) || 0) + (Number(r.exam) || 0);
+  const marked = (r: any) => r.coursework !== '' || r.test_score !== '' || r.exam !== '';
+  const overMax = (r: any) => Number(r.coursework) > weights.project || Number(r.test_score) > weights.test || Number(r.exam) > weights.exam;
+
+  const save = async () => {
+    setSaving(true); setMsg(null);
+    try {
+      const res = await markSheetApi.save({
+        subject_name: subject, term, academic_year: year, project_title: projectTitle,
+        entries: rows.map((r) => ({ student_id: r.id, coursework: r.coursework, test_score: r.test_score, exam: r.exam, remarks: r.remarks })),
+      });
+      setMsg({ text: res.data.message, type: 'success' }); setDirty(false);
+    } catch (e: any) { setMsg({ text: e.response?.data?.message || 'Could not save', type: 'error' }); }
+    finally { setSaving(false); }
+  };
+
+  const markedRows = rows.filter(marked);
+  const average = markedRows.length ? Math.round((markedRows.reduce((s, r) => s + totalOf(r), 0) / markedRows.length) * 10) / 10 : 0;
+
+  return (
+    <>
+      <PrintHeader title={`Mark sheet – ${subject}`} period={`${term} ${year}`} extra={projectTitle ? `Project: ${projectTitle}` : undefined} />
+      <div className="card no-print">
+        <h2>Mark sheet</h2>
+        <div className="form-row">
+          <div><label>Learning area</label>
+            <select value={subject} onChange={(e) => setSubject(e.target.value)}>
+              {areas.map((a) => <option key={a.name} value={a.name}>{a.name}{a.core ? '' : ' (additional)'}</option>)}
+            </select>
+          </div>
+          <div><label>Term</label><select value={term} onChange={(e) => setTerm(e.target.value)}>{TERMS.map((t) => <option key={t}>{t}</option>)}</select></div>
+          <div><label>Year</label><input value={year} onChange={(e) => setYear(e.target.value)} /></div>
+          <div style={{ flex: 2 }}><label>School-Based Project (title)</label><input value={projectTitle} onChange={(e) => { setProjectTitle(e.target.value); setDirty(true); }} placeholder="e.g. Model of a food chain" /></div>
+        </div>
+        <p className="small muted">
+          Each part has its own maximum: <strong>Project {weights.project}</strong> + <strong>Test {weights.test}</strong> + <strong>Exam {weights.exam}</strong> = 100.
+          Leave a pupil blank if they have not been marked yet.
+        </p>
+      </div>
+      {msg && <div className={`alert alert-${msg.type}`}>{msg.text}</div>}
+      <div className="card">
+        <div className="page-head" style={{ marginBottom: '0.5rem' }}>
+          <h2 style={{ margin: 0, border: 0 }}>{subject} {'–'} {term} {year}</h2>
+          <div className="toolbar no-print">
+            <PrintButton />
+            <DownloadCSV filename={`marks-${subject}-${term}-${year}`} headers={['Pupil', 'Project', 'Test', 'Exam', 'Total', 'Grade', 'Unit']}
+              data={rows.filter(marked).map((r) => ({ Pupil: r.name, Project: r.coursework, Test: r.test_score, Exam: r.exam, Total: totalOf(r), Grade: gradeFor(totalOf(r)).grade, Unit: gradeFor(totalOf(r)).unit }))} />
+            <button className="btn btn-success" onClick={save} disabled={saving || !dirty}>{saving ? 'Saving…' : dirty ? 'Save all marks' : 'Saved'}</button>
+          </div>
+        </div>
+        <div className="table-wrap">
+          <table>
+            <thead><tr><th>#</th><th>Pupil</th><th className="hide-phone">Reg. no.</th><th className="num">Project /{weights.project}</th><th className="num">Test /{weights.test}</th><th className="num">Exam /{weights.exam}</th><th className="num">Total /100</th><th>Grade</th><th>Remark</th></tr></thead>
+            <tbody>
+              {rows.map((r, i) => {
+                const g = gradeFor(totalOf(r));
+                return (
+                  <tr key={r.id}>
+                    <td>{i + 1}</td><td style={{ fontWeight: 600 }}>{r.name}</td><td className="muted small hide-phone">{r.student_number}</td>
+                    <td><input type="number" min={0} max={weights.project} step="0.5" value={r.coursework} onChange={(e) => set(i, 'coursework', e.target.value)} style={{ width: 80 }} aria-label={`Project mark for ${r.name}`} /></td>
+                    <td><input type="number" min={0} max={weights.test} step="0.5" value={r.test_score} onChange={(e) => set(i, 'test_score', e.target.value)} style={{ width: 80 }} aria-label={`Test mark for ${r.name}`} /></td>
+                    <td><input type="number" min={0} max={weights.exam} step="0.5" value={r.exam} onChange={(e) => set(i, 'exam', e.target.value)} style={{ width: 80 }} aria-label={`Exam mark for ${r.name}`} /></td>
+                    <td className="num"><strong style={overMax(r) ? { color: 'var(--danger)' } : undefined}>{marked(r) ? totalOf(r) : '–'}</strong>{overMax(r) && <div className="small" style={{ color: 'var(--danger)' }}>too high</div>}</td>
+                    <td>{marked(r) ? <Grade r={g} /> : '–'}</td>
+                    <td><input value={r.remarks} onChange={(e) => set(i, 'remarks', e.target.value)} placeholder="optional" /></td>
+                  </tr>
+                );
+              })}
+              {rows.length === 0 && <tr><td colSpan={9} className="muted">No pupils in your class yet.</td></tr>}
+            </tbody>
+            {markedRows.length > 0 && <tfoot><tr><td colSpan={6}>Class average ({markedRows.length} marked)</td><td className="num">{average}</td><td colSpan={2}><Grade r={gradeFor(average)} /></td></tr></tfoot>}
+          </table>
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ── Teacher / Admin: everything entered so far, with filters ─────────────────
+function ResultsList() {
   const { user } = useAuth();
-  const [results, setResults] = useState<any[]>([]);
-  const [students, setStudents] = useState<any[]>([]);
-  const [search, setSearch] = useState('');
-  const [filterTerm, setFilterTerm] = useState('');
-  const [filterStatus, setFilterStatus] = useState('');
-  const [form, setForm] = useState({ student_id: '', subject_name: '', term: 'Term 2', academic_year: new Date().getFullYear().toString(), coursework: '', test_score: '', exam: '', grade: '', remarks: '' });
-  const [editId, setEditId] = useState<number | null>(null);
+  const { areas, weights, gradeFor } = useSchool();
+  const isAdmin = user?.role === 'admin';
+  const [rows, setRows] = useState<any[]>([]);
+  const [classes, setClasses] = useState<any[]>([]);
+  const [classId, setClassId] = useState('');
+  const [term, setTerm] = useState('');
+  const [year, setYear] = useState(String(new Date().getFullYear()));
+  const [area, setArea] = useState('');
+  const [q, setQ] = useState('');
+  const [edit, setEdit] = useState<any>(null);
   const [msg, setMsg] = useState('');
 
   const load = () => {
-    if (user?.role === 'student') {
-      resultApi.my().then(r => setResults(r.data));
-    } else if (user?.role === 'teacher') {
-      resultApi.entered({ term: filterTerm || undefined, status: filterStatus || undefined }).then(r => setResults(r.data));
-    } else if (user?.role === 'admin') {
-      resultApi.all({ term: filterTerm || undefined }).then(r => setResults(r.data));
-    }
+    const p: any = { term: term || undefined };
+    if (isAdmin) { p.class_id = classId || undefined; p.academic_year = year || undefined; resultApi.all(p).then((r) => setRows(r.data)); }
+    else resultApi.entered(p).then((r) => setRows(r.data));
   };
+  useEffect(() => { if (isAdmin) adminApi.classes().then((r) => setClasses(r.data)); }, []);
+  useEffect(load, [classId, term, year]);
 
-  useEffect(() => { load(); }, [user, filterTerm, filterStatus]);
+  const shown = useMemo(() => rows.filter((r) => (!area || r.subject_name === area) && (!q || (r.student_name || '').toLowerCase().includes(q.toLowerCase()))), [rows, area, q]);
 
-  useEffect(() => {
-    if (user?.role === 'teacher' && user?.class_id) {
-      subjectApi.studentsByClass(user.class_id).then(r => setStudents(r.data)).catch(() => {});
-    } else if (user?.role === 'admin') {
-      // Admin can get students via another mechanism - but for simplicity, fetch when needed
-    }
-  }, [user]);
-
-  useEffect(() => {
-    // Auto-calculate grade when coursework, test, or exam changes
-    const cw = parseFloat(form.coursework) || 0;
-    const ts = parseFloat(form.test_score) || 0;
-    const ex = parseFloat(form.exam) || 0;
-    const total = cw + ts + ex;
-    let grade = '';
-    if (total >= 75) grade = 'A';
-    else if (total >= 65) grade = 'B';
-    else if (total >= 50) grade = 'C';
-    else if (total >= 40) grade = 'D';
-    else if (total > 0) grade = 'E';
-    setForm(f => ({ ...f, grade }));
-  }, [form.coursework, form.test_score, form.exam]);
-
-  const getTotal = (r: any) => (parseFloat(r.coursework||0) + parseFloat(r.test_score||0) + parseFloat(r.exam||0));
-
-  const handleSubmit = async (e: React.FormEvent) => {
+  const saveEdit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const payload = { ...form, student_id: parseInt(form.student_id), coursework: parseFloat(form.coursework) || 0, test_score: parseFloat(form.test_score) || 0, exam: parseFloat(form.exam) || 0 };
-      if (editId) {
-        await resultApi.update(editId, payload);
-        setMsg('Result updated');
-      } else {
-        await resultApi.create(payload);
-        setMsg('Result created');
-      }
-      setForm({ student_id: '', subject_name: '', term: 'Term 2', academic_year: new Date().getFullYear().toString(), coursework: '', test_score: '', exam: '', grade: '', remarks: '' });
-      setEditId(null);
-      load();
-    } catch (err: any) { setMsg(err.response?.data?.message || 'Error'); }
+      await resultApi.update(edit.id, { coursework: edit.coursework, test_score: edit.test_score, exam: edit.exam, remarks: edit.remarks, project_title: edit.project_title });
+      setEdit(null); setMsg('Result updated'); load();
+    } catch (err: any) { setMsg(err.response?.data?.message || 'Could not save'); }
   };
-
-  const handleEdit = (r: any) => {
-    setEditId(r.id);
-    setForm({
-      student_id: r.student_id,
-      subject_name: r.subject_name || '',
-      term: r.term,
-      academic_year: r.academic_year,
-      coursework: r.coursework?.toString() || '',
-      test_score: r.test_score?.toString() || '',
-      exam: r.exam?.toString() || '',
-      grade: r.grade || '',
-      remarks: r.remarks || '',
-    });
+  const del = async (r: any) => { if (!window.confirm(`Delete ${r.student_name}'s ${r.subject_name} result?`)) return; await resultApi.delete(r.id); load(); };
+  const archive = async () => {
+    const t = prompt('Which term do you want to archive? (e.g. Term 2)'); if (!t) return;
+    const y = prompt('Which year?', year); if (!y) return;
+    try { await resultApi.archiveTerm({ term: t, academic_year: y }); setMsg(`${t} ${y} archived`); load(); } catch (err: any) { setMsg(err.response?.data?.message || 'Error'); }
   };
-
-  const handleDelete = async (id: number) => {
-    try { await resultApi.delete(id); load(); } catch (err: any) { setMsg(err.response?.data?.message || 'Error'); }
-  };
-
-  const handleArchive = async () => {
-    const term = prompt('Enter term to archive (e.g. Term 2):');
-    if (!term) return;
-    const year = prompt('Enter academic year (e.g. 2026):');
-    if (!year) return;
-    try { await resultApi.archiveTerm({ term, academic_year: year }); setMsg('Term archived'); load(); } catch (err: any) { setMsg(err.response?.data?.message || 'Error'); }
-  };
-
-  const filtered = results.filter(r => {
-    const name = (r.student_name || '').toLowerCase();
-    const subj = (r.subject_name || '').toLowerCase();
-    const q = search.toLowerCase();
-    return name.includes(q) || subj.includes(q);
-  });
-
-  // Stats for charts
-  const gradeDist = results.length ? [
-    { name: 'A', value: results.filter(r => (getTotal(r) >= 75)).length, color: '#4ade80' },
-    { name: 'B', value: results.filter(r => getTotal(r) >= 65 && getTotal(r) < 75).length, color: '#22d3ee' },
-    { name: 'C', value: results.filter(r => getTotal(r) >= 50 && getTotal(r) < 65).length, color: '#fbbf24' },
-    { name: 'D', value: results.filter(r => getTotal(r) >= 40 && getTotal(r) < 50).length, color: '#f87171' },
-    { name: 'E', value: results.filter(r => getTotal(r) < 40).length, color: '#a78bfa' },
-  ] : [];
-
-  // Subject averages for bar chart
-  const subjectAverages = (() => {
-    const map: Record<string, { total: number; count: number; cw: number; ts: number; ex: number }> = {};
-    results.filter(r => r.status !== 'archived').forEach(r => {
-      const sn = r.subject_name || 'Unknown';
-      if (!map[sn]) map[sn] = { total: 0, count: 0, cw: 0, ts: 0, ex: 0 };
-      map[sn].total += getTotal(r);
-      map[sn].count++;
-      map[sn].cw += parseFloat(r.coursework||0);
-      map[sn].ts += parseFloat(r.test_score||0);
-      map[sn].ex += parseFloat(r.exam||0);
-    });
-    return Object.entries(map).map(([name, d]) => ({
-      name: name.length > 10 ? name.slice(0, 10) + '...' : name,
-      avg: Math.round(d.total / d.count),
-      coursework: Math.round(d.cw / d.count),
-      test: Math.round(d.ts / d.count),
-      exam: Math.round(d.ex / d.count),
-    }));
-  })();
-
-  const csvData = filtered.map(r => ({
-    Student: r.student_name || '',
-    Subject: r.subject_name,
-    Term: r.term,
-    Year: r.academic_year,
-    Coursework: r.coursework || 0,
-    Test: r.test_score || 0,
-    Exam: r.exam || 0,
-    Total: getTotal(r),
-    Grade: r.grade || '-',
-    Remarks: r.remarks || '',
-    Status: r.status || 'active',
-  }));
-
-  const canEdit = user?.role === 'teacher' || user?.role === 'admin';
 
   return (
-    <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-        <div>
-          <h1 style={{ margin: 0, fontSize: '1.5rem' }}>Chakari (GVT) Primary School</h1>
-          <p style={{ margin: '0.25rem 0 0', color: 'var(--text-dim)', fontSize: '0.85rem' }}>Mashonaland West · Sanyati District · Results Management</p>
-        </div>
-        <div style={{ display: 'flex', gap: '0.3rem', alignItems: 'center' }}>
-          <PrintButton />
-          <DownloadCSV data={csvData} headers={['Student', 'Subject', 'Term', 'Year', 'Coursework', 'Test', 'Exam', 'Total', 'Grade', 'Remarks', 'Status']} filename="results.csv" label=" CSV" />
-          {user?.role === 'admin' && <button className="btn btn-warning" onClick={handleArchive} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}><Archive size={16} /> Archive Term</button>}
+    <>
+      <PrintHeader title="Results" period={`${term || 'All terms'} ${year}`.trim()} />
+      {msg && <div className="alert alert-info">{msg}</div>}
+      <div className="card">
+        <div className="period-bar no-print" style={{ border: 0, padding: 0, margin: 0 }}>
+          {isAdmin && <div><label>Class</label><select value={classId} onChange={(e) => setClassId(e.target.value)}><option value="">All classes</option>{classes.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></div>}
+          <div><label>Term</label><select value={term} onChange={(e) => setTerm(e.target.value)}><option value="">All terms</option>{TERMS.map((t) => <option key={t}>{t}</option>)}</select></div>
+          {isAdmin && <div><label>Year</label><input value={year} onChange={(e) => setYear(e.target.value)} style={{ width: 90 }} /></div>}
+          <div><label>Learning area</label><select value={area} onChange={(e) => setArea(e.target.value)}><option value="">All</option>{areas.map((a) => <option key={a.name}>{a.name}</option>)}</select></div>
+          <div><label>Find a pupil</label><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="name" /></div>
+          <div className="toolbar" style={{ marginLeft: 'auto' }}>
+            <PrintButton />
+            <DownloadCSV filename="results" headers={['Pupil', 'Learning area', 'Term', 'Year', 'Project', 'Test', 'Exam', 'Total', 'Grade', 'Unit']}
+              data={shown.map((r) => ({ Pupil: r.student_name, 'Learning area': r.subject_name, Term: r.term, Year: r.academic_year, Project: r.coursework, Test: r.test_score, Exam: r.exam, Total: r.total, Grade: r.grade, Unit: r.unit }))} />
+            {isAdmin && <button className="btn btn-warning" onClick={archive}>Archive a term</button>}
+          </div>
         </div>
       </div>
-
-      {msg && <div className="alert alert-info">{msg}</div>}
-
-      {/* Teacher/Admin Entry Form */}
-      {canEdit && (
-        <div className="card">
-          <h2>{editId ? 'Edit Result' : 'Enter New Result'}</h2>
-          <form onSubmit={handleSubmit}>
+      <div className="card table-wrap">
+        <table>
+          <thead><tr><th>Pupil</th><th>Learning area</th><th>Term</th><th className="num">Project</th><th className="num">Test</th><th className="num">Exam</th><th className="num">Total</th><th>Grade</th><th>Project title</th><th className="no-print" /></tr></thead>
+          <tbody>
+            {shown.map((r) => (
+              <tr key={r.id}>
+                <td style={{ fontWeight: 600 }}>{r.student_name}</td><td>{r.subject_name}</td><td>{r.term} {r.academic_year}{r.status === 'archived' && <> <span className="badge">archived</span></>}</td>
+                <td className="num">{r.coursework}</td><td className="num">{r.test_score}</td><td className="num">{r.exam}</td><td className="num"><strong>{r.total}</strong></td>
+                <td><Grade r={r} /></td><td className="muted small">{r.project_title}</td>
+                <td className="no-print nowrap"><button className="btn btn-sm" onClick={() => setEdit({ ...r })}>Edit</button>{isAdmin && <button className="btn btn-sm btn-danger" onClick={() => del(r)}>Delete</button>}</td>
+              </tr>
+            ))}
+            {shown.length === 0 && <tr><td colSpan={10} className="muted">No results found for this selection.</td></tr>}
+          </tbody>
+        </table>
+      </div>
+      {edit && (
+        <div className="modal-overlay" onClick={() => setEdit(null)}>
+          <form className="modal" onClick={(e) => e.stopPropagation()} onSubmit={saveEdit}>
+            <h2>{edit.student_name} {'–'} {edit.subject_name} ({edit.term} {edit.academic_year})</h2>
             <div className="form-row">
-              <div>
-                <label>Student</label>
-                {students.length > 0 ? (
-                  <select value={form.student_id} onChange={e => setForm({ ...form, student_id: e.target.value })} required disabled={!!editId}>
-                    <option value="">— Select —</option>
-                    {students.map((s: any) => <option key={s.id} value={s.id}>{s.name}</option>)}
-                  </select>
-                ) : (
-                  <input value={form.student_id} onChange={e => setForm({ ...form, student_id: e.target.value })} required disabled={!!editId} placeholder="Student ID" />
-                )}
-              </div>
-              <div>
-                <label>Subject <span style={{color:'var(--text-dim)',fontSize:'0.75rem'}}>(type subject name)</span></label>
-                <input value={form.subject_name} onChange={e => setForm({ ...form, subject_name: e.target.value })} required placeholder="e.g. ChiShona, English, Maths" list="subjects" />
-                <datalist id="subjects">
-                  {/* Grouped under the 6 Heritage-Based Curriculum (2024-2030) primary learning areas */}
-                  <option value="Indigenous Languages" /><option value="ChiShona" /><option value="IsiNdebele" />
-                  <option value="English Language" />
-                  <option value="Mathematics" />
-                  <option value="Science and Technology" /><option value="Agriculture" /><option value="ICT" />
-                  <option value="Social Science" /><option value="Heritage Studies" /><option value="Family & Religion" />
-                  <option value="Physical Education" /><option value="Sport" />
-                  <option value="Art & Design" /><option value="Music" /><option value="Home Economics" />
-                </datalist>
-              </div>
+              <div><label>Project /{weights.project}</label><input type="number" min={0} max={weights.project} step="0.5" value={edit.coursework} onChange={(e) => setEdit({ ...edit, coursework: e.target.value })} /></div>
+              <div><label>Test /{weights.test}</label><input type="number" min={0} max={weights.test} step="0.5" value={edit.test_score} onChange={(e) => setEdit({ ...edit, test_score: e.target.value })} /></div>
+              <div><label>Exam /{weights.exam}</label><input type="number" min={0} max={weights.exam} step="0.5" value={edit.exam} onChange={(e) => setEdit({ ...edit, exam: e.target.value })} /></div>
             </div>
-            <div className="form-row">
-              <div><label>Term</label><select value={form.term} onChange={e => setForm({ ...form, term: e.target.value })} disabled={!!editId}><option>Term 1</option><option>Term 2</option><option>Term 3</option></select></div>
-              <div><label>Year</label><input value={form.academic_year} onChange={e => setForm({ ...form, academic_year: e.target.value })} disabled={!!editId} /></div>
-              <div><label>School-Based Project</label><input type="number" min="0" max="100" value={form.coursework} onChange={e => setForm({ ...form, coursework: e.target.value })} /></div>
-              <div><label>Test</label><input type="number" min="0" max="100" value={form.test_score} onChange={e => setForm({ ...form, test_score: e.target.value })} /></div>
-              <div><label>Exam</label><input type="number" min="0" max="100" value={form.exam} onChange={e => setForm({ ...form, exam: e.target.value })} /></div>
-              <div><label>Grade</label><input value={form.grade} readOnly style={{ fontWeight: 'bold', color: form.grade === 'A' ? '#4ade80' : form.grade === 'B' ? '#22d3ee' : form.grade === 'C' ? '#fbbf24' : form.grade === 'D' ? '#f87171' : form.grade === 'E' ? '#ef4444' : 'inherit' }} /></div>
-            </div>
-            <div className="form-row">
-              <div style={{ flex: 1 }}><label>Teacher Remarks</label><textarea value={form.remarks} onChange={e => setForm({ ...form, remarks: e.target.value })} rows={2} /></div>
-              <div style={{ display: 'flex', alignItems: 'flex-end', paddingBottom: '0.25rem' }}>
-                <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: 'var(--neon)' }}>Total: {parseFloat(form.coursework||'0') + parseFloat(form.test_score||'0') + parseFloat(form.exam||'0')}</div>
-              </div>
-            </div>
-            <button type="submit" className="btn btn-primary">{editId ? 'Update' : 'Save Result'}</button>
-            {editId && <button type="button" className="btn" onClick={() => { setEditId(null); setForm({ student_id: '', subject_name: '', term: 'Term 2', academic_year: new Date().getFullYear().toString(), coursework: '', test_score: '', exam: '', grade: '', remarks: '' }); }}>Cancel</button>}
+            <p style={{ marginBottom: '0.7rem' }}>Total: <strong>{(Number(edit.coursework) || 0) + (Number(edit.test_score) || 0) + (Number(edit.exam) || 0)}</strong> {'–'} <Grade r={gradeFor((Number(edit.coursework) || 0) + (Number(edit.test_score) || 0) + (Number(edit.exam) || 0))} /></p>
+            <label>Project title</label><input value={edit.project_title || ''} onChange={(e) => setEdit({ ...edit, project_title: e.target.value })} />
+            <label>Remark</label><input value={edit.remarks || ''} onChange={(e) => setEdit({ ...edit, remarks: e.target.value })} />
+            <button className="btn btn-primary" type="submit">Save</button><button className="btn" type="button" onClick={() => setEdit(null)}>Cancel</button>
           </form>
         </div>
       )}
+    </>
+  );
+}
 
-      {/* Charts */}
-      {results.length > 0 && (
-        <div className="card">
-          <h2>Statistics Overview</h2>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-            <div>
-              <h3 style={{ fontSize: '0.9rem', color: 'var(--text-dim)', marginBottom: '0.5rem' }}>Grade Distribution</h3>
-              <ResponsiveContainer width="100%" height={200}>
-                <PieChart>
-                  <Pie data={gradeDist.filter(d => d.value > 0)} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={70} label={({name, value}) => `${name}: ${value}`}>
-                    {gradeDist.filter(d => d.value > 0).map((entry, i) => <Cell key={i} fill={entry.color} />)}
-                  </Pie>
-                  <Tooltip />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-            <div>
-              <h3 style={{ fontSize: '0.9rem', color: 'var(--text-dim)', marginBottom: '0.5rem' }}>Average Scores by Subject</h3>
-              <ResponsiveContainer width="100%" height={200}>
-                <BarChart data={subjectAverages}>
-                  <XAxis dataKey="name" tick={{ fontSize: 10 }} />
-                  <YAxis />
-                  <Tooltip />
-                  <Bar dataKey="coursework" name="Coursework" fill="#22d3ee" stackId="a" />
-                  <Bar dataKey="test" name="Test" fill="#fbbf24" stackId="a" />
-                  <Bar dataKey="exam" name="Exam" fill="#f87171" stackId="a" />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-        </div>
-      )}
+// ── Pupil: my results ────────────────────────────────────────────────────────
+function MyResults() {
+  const { gradeFor } = useSchool();
+  const { user } = useAuth();
+  const [rows, setRows] = useState<any[]>([]);
+  useEffect(() => { resultApi.my().then((r) => setRows(r.data)); }, []);
+  const groups = useMemo(() => {
+    const m = new Map<string, any[]>();
+    for (const r of rows) { const k = `${r.academic_year} ${r.term}`; m.set(k, [...(m.get(k) || []), r]); }
+    return [...m.entries()];
+  }, [rows]);
 
-      {/* Results Table */}
-      <div className="card">
-        <h2>{user?.role === 'student' ? 'My Results' : 'All Results'}</h2>
-        <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.75rem' }}>
-          <input placeholder="Search by name or subject..." value={search} onChange={e => setSearch(e.target.value)} style={{ flex: 1 }} />
-          {canEdit && (
-            <>
-              <select value={filterTerm} onChange={e => setFilterTerm(e.target.value)} style={{ width: 'auto' }}>
-                <option value="">All Terms</option>
-                <option value="Term 1">Term 1</option>
-                <option value="Term 2">Term 2</option>
-                <option value="Term 3">Term 3</option>
-              </select>
-              <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} style={{ width: 'auto' }}>
-                <option value="">All Status</option>
-                <option value="active">Active</option>
-                <option value="archived">Archived</option>
-              </select>
-            </>
-          )}
-        </div>
-        {filtered.length === 0 ? <p>No results found.</p> : (
-          <div style={{ overflowX: 'auto' }}>
+  return (
+    <>
+      <PrintHeader title={`Results – ${user?.name}`} />
+      <div className="page-head"><div><h1>My results</h1><p>Marks for every learning area, with your grade and unit.</p></div><div className="toolbar"><PrintButton /></div></div>
+      {groups.length === 0 && <div className="card muted">No results have been entered for you yet.</div>}
+      {groups.map(([label, list]) => {
+        const core = list.filter((r) => r.core);
+        const avg = core.length ? Math.round((core.reduce((s, r) => s + r.total, 0) / core.length) * 10) / 10 : 0;
+        return (
+          <div className="card table-wrap" key={label}>
+            <h2>{label}</h2>
             <table>
-              <thead>
-                <tr>
-                  {user?.role !== 'student' && <th>Student</th>}
-                  <th>Subject</th>
-                  <th>Term</th>
-                  <th>School-Based Project</th>
-                  <th>Test</th>
-                  <th>Exam</th>
-                  <th>Total</th>
-                  <th>Grade</th>
-                  <th>Remarks</th>
-                  <th>Status</th>
-                  {canEdit && <th>Actions</th>}
-                </tr>
-              </thead>
+              <thead><tr><th>Learning area</th><th className="num">Project</th><th className="num">Test</th><th className="num">Exam</th><th className="num">Total /100</th><th>Grade</th><th>Teacher's remark</th></tr></thead>
               <tbody>
-                {filtered.map((r: any) => {
-                  const total = getTotal(r);
-                  return (
-                    <tr key={r.id}>
-                      {user?.role !== 'student' && <td>{r.student_name}</td>}
-                      <td>{r.subject_name}</td>
-                      <td>{r.term}</td>
-                      <td>{r.coursework || 0}</td>
-                      <td>{r.test_score || 0}</td>
-                      <td>{r.exam || 0}</td>
-                      <td style={{ fontWeight: 'bold' }}>{total}</td>
-                      <td><span className="badge" style={{ background: total >= 75 ? 'rgba(74,222,128,0.2)' : total >= 65 ? 'rgba(34,211,238,0.2)' : total >= 50 ? 'rgba(251,191,36,0.2)' : total >= 40 ? 'rgba(248,113,113,0.2)' : 'rgba(167,139,250,0.2)', color: total >= 75 ? '#4ade80' : total >= 65 ? '#22d3ee' : total >= 50 ? '#fbbf24' : total >= 40 ? '#f87171' : '#a78bfa' }}>{r.grade || '-'}</span></td>
-                      <td style={{ fontSize: '0.8rem', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.remarks || '-'}</td>
-                      <td><span className="badge" style={{ background: r.status === 'archived' ? 'rgba(100,100,100,0.2)' : 'rgba(74,222,128,0.2)', color: r.status === 'archived' ? '#aaa' : '#4ade80' }}>{r.status}</span></td>
-                      {canEdit && (
-                        <td>
-                          <button className="btn btn-warning btn-sm" onClick={() => handleEdit(r)}>Edit</button>
-                          {user?.role === 'admin' && <button className="btn btn-danger btn-sm" onClick={() => handleDelete(r.id)}>Del</button>}
-                        </td>
-                      )}
-                    </tr>
-                  );
-                })}
+                {list.map((r) => (
+                  <tr key={r.id}>
+                    <td style={{ fontWeight: 600 }}>{r.subject_name}{!r.core && <span className="muted small"> (additional)</span>}{r.project_title && <div className="muted small">Project: {r.project_title}</div>}</td>
+                    <td className="num">{r.coursework}</td><td className="num">{r.test_score}</td><td className="num">{r.exam}</td><td className="num"><strong>{r.total}</strong></td><td><Grade r={r} /></td><td className="muted small">{r.remarks}</td>
+                  </tr>
+                ))}
               </tbody>
+              {core.length > 0 && <tfoot><tr><td>Average of the {core.length} core learning areas</td><td colSpan={3} /><td className="num">{avg}</td><td colSpan={2}><Grade r={gradeFor(avg)} /></td></tr></tfoot>}
             </table>
           </div>
-        )}
-        <p style={{ color: 'var(--text-dim)', fontSize: '0.8rem', marginTop: '0.5rem' }}>Showing {filtered.length} of {results.length} results</p>
-      </div>
+        );
+      })}
+    </>
+  );
+}
 
-      {/* Per-subject mini charts for each result (student view) */}
-      {user?.role === 'student' && results.length > 0 && (
-        <div className="card">
-          <h2>Performance Breakdown</h2>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '1rem' }}>
-            {results.map(r => {
-              const barData = [
-                { name: 'SBP', score: parseFloat(r.coursework||0) },
-                { name: 'Test', score: parseFloat(r.test_score||0) },
-                { name: 'Exam', score: parseFloat(r.exam||0) },
-              ];
-              return (
-                <div key={r.id} className="stat-card">
-                  <h3 style={{ fontSize: '0.9rem', marginBottom: '0.25rem' }}>{r.subject_name}</h3>
-                  <p style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}>{r.term} {r.academic_year} · Grade: <strong style={{ color: getTotal(r) >= 75 ? '#4ade80' : getTotal(r) >= 65 ? '#22d3ee' : getTotal(r) >= 50 ? '#fbbf24' : getTotal(r) >= 40 ? '#f87171' : '#a78bfa' }}>{r.grade}</strong></p>
-                  <ResponsiveContainer width="100%" height={80}>
-                    <BarChart data={barData}>
-                      <XAxis dataKey="name" tick={{ fontSize: 10 }} />
-                      <Tooltip />
-                      <Bar dataKey="score" fill="var(--neon)" radius={[3,3,0,0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                  {r.remarks && <p style={{ fontSize: '0.75rem', color: 'var(--text-dim)', marginTop: '0.25rem', fontStyle: 'italic' }}>"{r.remarks}"</p>}
-                </div>
-              );
-            })}
-          </div>
+export default function Results() {
+  const { user } = useAuth();
+  const [tab, setTab] = useState<'sheet' | 'list'>('sheet');
+  if (user?.role === 'student' || user?.role === 'parent') return <MyResults />;
+  const isTeacher = user?.role === 'teacher';
+  return (
+    <div>
+      <div className="page-head no-print"><div><h1>Results</h1><p>Heritage-Based Curriculum: six core learning areas plus ICT and Robotics. Marks out of 100 give a grade and a unit.</p></div></div>
+      {isTeacher && (
+        <div className="tabs no-print">
+          <button className={`tab${tab === 'sheet' ? ' active' : ''}`} onClick={() => setTab('sheet')}>Enter marks (mark sheet)</button>
+          <button className={`tab${tab === 'list' ? ' active' : ''}`} onClick={() => setTab('list')}>Marks I have entered</button>
         </div>
       )}
+      {isTeacher && tab === 'sheet' ? <MarkSheet /> : <ResultsList />}
     </div>
   );
 }

@@ -18,7 +18,7 @@ router.get('/current', authenticate, async (_req: AuthRequest, res: Response) =>
   } catch (err: any) { res.status(500).json({ message: err.message }); }
 });
 
-router.post('/', authenticate, authorize('admin', 'bursary'), async (req: AuthRequest, res: Response) => {
+router.post('/', authenticate, authorize('bursary'), async (req: AuthRequest, res: Response) => {
   try {
     const { year, term_no, start_date, end_date } = req.body;
     if (!year || !term_no) return res.status(400).json({ message: 'Year and term number are required' });
@@ -30,7 +30,7 @@ router.post('/', authenticate, authorize('admin', 'bursary'), async (req: AuthRe
   } catch (err: any) { res.status(500).json({ message: err.message }); }
 });
 
-router.put('/:id', authenticate, authorize('admin', 'bursary'), async (req: AuthRequest, res: Response) => {
+router.put('/:id', authenticate, authorize('bursary'), async (req: AuthRequest, res: Response) => {
   try {
     const { start_date, end_date } = req.body;
     await execute('UPDATE terms SET start_date = ?, end_date = ? WHERE id = ?', [start_date || null, end_date || null, req.params.id]);
@@ -38,7 +38,7 @@ router.put('/:id', authenticate, authorize('admin', 'bursary'), async (req: Auth
   } catch (err: any) { res.status(500).json({ message: err.message }); }
 });
 
-router.put('/:id/set-current', authenticate, authorize('admin', 'bursary'), async (req: AuthRequest, res: Response) => {
+router.put('/:id/set-current', authenticate, authorize('bursary'), async (req: AuthRequest, res: Response) => {
   try {
     await execute('UPDATE terms SET is_current = 0');
     await execute('UPDATE terms SET is_current = 1 WHERE id = ?', [req.params.id]);
@@ -46,7 +46,7 @@ router.put('/:id/set-current', authenticate, authorize('admin', 'bursary'), asyn
   } catch (err: any) { res.status(500).json({ message: err.message }); }
 });
 
-router.put('/:id/lock', authenticate, authorize('admin', 'bursary'), async (req: AuthRequest, res: Response) => {
+router.put('/:id/lock', authenticate, authorize('bursary'), async (req: AuthRequest, res: Response) => {
   try {
     const { locked } = req.body;
     await execute('UPDATE terms SET is_locked = ? WHERE id = ?', [locked ? 1 : 0, req.params.id]);

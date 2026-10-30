@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { resultApi, adminApi, analyticsApi } from '../services/api';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, Legend, CartesianGrid } from 'recharts';
 
-const COLORS = ['#22d3ee', '#fbbf24', '#f87171', '#4ade80', '#a78bfa', '#f472b6'];
+const COLORS = ['var(--info)', 'var(--warning)', 'var(--danger)', 'var(--success)', 'var(--accent)', 'var(--accent)'];
 
 export default function AdminAnalytics() {
   const { user } = useAuth();
@@ -32,11 +32,11 @@ export default function AdminAnalytics() {
 
   const cls = classes.find((c:any) => c.id === parseInt(selectedClass));
   const gradeDist = subjectBreakdown.length ? [
-    { name: 'A (75+)', value: classSummary.reduce((s:number, r:any) => s + (r.As||0), 0), color: '#4ade80' },
-    { name: 'B (65-74)', value: classSummary.reduce((s:number, r:any) => s + (r.Bs||0), 0), color: '#22d3ee' },
-    { name: 'C (50-64)', value: classSummary.reduce((s:number, r:any) => s + (r.Cs||0), 0), color: '#fbbf24' },
-    { name: 'D (40-49)', value: classSummary.reduce((s:number, r:any) => s + (r.Ds||0), 0), color: '#f87171' },
-    { name: 'E (<40)', value: classSummary.reduce((s:number, r:any) => s + (r.Es||0), 0), color: '#a78bfa' },
+    { name: 'A (75+)', value: classSummary.reduce((s:number, r:any) => s + (r.As||0), 0), color: 'var(--success)' },
+    { name: 'B (65-74)', value: classSummary.reduce((s:number, r:any) => s + (r.Bs||0), 0), color: 'var(--info)' },
+    { name: 'C (50-64)', value: classSummary.reduce((s:number, r:any) => s + (r.Cs||0), 0), color: 'var(--warning)' },
+    { name: 'D (40-49)', value: classSummary.reduce((s:number, r:any) => s + (r.Ds||0), 0), color: 'var(--danger)' },
+    { name: 'E (<40)', value: classSummary.reduce((s:number, r:any) => s + (r.Es||0), 0), color: 'var(--accent)' },
   ].filter(d => d.value > 0) : [];
 
   const avgScoreData = subjectBreakdown.map((s:any) => ({
@@ -91,7 +91,7 @@ export default function AdminAnalytics() {
             <h2>Grade Distribution (Pie)</h2>
             <ResponsiveContainer width="100%" height={300}>
               <PieChart>
-                <Pie data={gradeDist} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} label={({name, value}) => `${name}: ${value}`}>
+                <Pie isAnimationActive={false} data={gradeDist} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} label={({name, value}) => `${name}: ${value}`}>
                   {gradeDist.map((e:any,i:number) => <Cell key={i} fill={e.color} />)}
                 </Pie>
                 <Tooltip />
@@ -104,14 +104,14 @@ export default function AdminAnalytics() {
             <h2>Subject Average Scores (Bar)</h2>
             <ResponsiveContainer width="100%" height={300}>
               <BarChart data={avgScoreData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--surface-2)" />
                 <XAxis dataKey="name" tick={{ fontSize: 11 }} />
                 <YAxis />
                 <Tooltip />
                 <Legend />
-                <Bar dataKey="CW" stackId="a" fill="#22d3ee" />
-                <Bar dataKey="Test" stackId="a" fill="#fbbf24" />
-                <Bar dataKey="Exam" stackId="a" fill="#f87171" />
+                <Bar isAnimationActive={false} dataKey="CW" stackId="a" fill="var(--info)" />
+                <Bar isAnimationActive={false} dataKey="Test" stackId="a" fill="var(--warning)" />
+                <Bar isAnimationActive={false} dataKey="Exam" stackId="a" fill="var(--danger)" />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -127,13 +127,13 @@ export default function AdminAnalytics() {
                       <td>{i+1}</td>
                       <td>{r.student_name}</td>
                       <td style={{ fontSize: '0.8rem' }}>{r.student_number}</td>
-                      <td style={{ fontWeight: 'bold', color: r.avg_score >= 75 ? '#4ade80' : r.avg_score >= 65 ? '#22d3ee' : r.avg_score >= 50 ? '#fbbf24' : r.avg_score >= 40 ? '#f87171' : '#a78bfa' }}>{Math.round(r.avg_score)}%</td>
+                      <td style={{ fontWeight: 'bold', color: r.avg_score >= 75 ? 'var(--success)' : r.avg_score >= 65 ? 'var(--info)' : r.avg_score >= 50 ? 'var(--warning)' : r.avg_score >= 40 ? 'var(--danger)' : 'var(--accent)' }}>{Math.round(r.avg_score)}%</td>
                       <td>{r.subjects_count}</td>
-                      <td style={{ color: '#4ade80' }}>{r.As||0}</td>
-                      <td style={{ color: '#22d3ee' }}>{r.Bs||0}</td>
-                      <td style={{ color: '#fbbf24' }}>{r.Cs||0}</td>
-                      <td style={{ color: '#f87171' }}>{r.Ds||0}</td>
-                      <td style={{ color: '#a78bfa' }}>{r.Es||0}</td>
+                      <td style={{ color: 'var(--success)' }}>{r.As||0}</td>
+                      <td style={{ color: 'var(--info)' }}>{r.Bs||0}</td>
+                      <td style={{ color: 'var(--warning)' }}>{r.Cs||0}</td>
+                      <td style={{ color: 'var(--danger)' }}>{r.Ds||0}</td>
+                      <td style={{ color: 'var(--accent)' }}>{r.Es||0}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -153,12 +153,12 @@ export default function AdminAnalytics() {
             </div>
             <ResponsiveContainer width="100%" height={300}>
               <BarChart data={attendanceStats.filter((s:any) => s.total > 0)}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--surface-2)" />
                 <XAxis dataKey="name" tick={{ fontSize: 10 }} />
                 <YAxis domain={[0, 100]} />
                 <Tooltip />
                 <Legend />
-                <Bar dataKey="attendance_pct" name="Attendance %" fill="#4ade80" />
+                <Bar isAnimationActive={false} dataKey="attendance_pct" name="Attendance %" fill="var(--success)" />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -170,11 +170,11 @@ export default function AdminAnalytics() {
                 {attendanceStats.filter((s:any) => s.total > 0).map((s:any, i:number) => (
                   <tr key={i}>
                     <td>{s.name}</td>
-                    <td style={{ color: '#4ade80' }}>{s.present}</td>
-                    <td style={{ color: '#f87171' }}>{s.absent}</td>
-                    <td style={{ color: '#fbbf24' }}>{s.late}</td>
+                    <td style={{ color: 'var(--success)' }}>{s.present}</td>
+                    <td style={{ color: 'var(--danger)' }}>{s.absent}</td>
+                    <td style={{ color: 'var(--warning)' }}>{s.late}</td>
                     <td>{s.total}</td>
-                    <td><span className="badge" style={{ background: s.attendance_pct >= 80 ? 'rgba(74,222,128,0.2)' : 'rgba(248,113,113,0.2)', color: s.attendance_pct >= 80 ? '#4ade80' : '#f87171' }}>{s.attendance_pct}%</span></td>
+                    <td><span className="badge" style={{ background: s.attendance_pct >= 80 ? 'var(--surface-2)' : 'var(--surface-2)', color: s.attendance_pct >= 80 ? 'var(--success)' : 'var(--danger)' }}>{s.attendance_pct}%</span></td>
                   </tr>
                 ))}
               </tbody>
@@ -190,13 +190,13 @@ export default function AdminAnalytics() {
             <>
               <ResponsiveContainer width="100%" height={250}>
                 <BarChart data={sportsStats}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--surface-2)" />
                   <XAxis dataKey="sport_name" />
                   <YAxis />
                   <Tooltip />
                   <Legend />
-                  <Bar dataKey="participants" name="Participants" fill="#22d3ee" />
-                  <Bar dataKey="captains" name="Captains" fill="#fbbf24" />
+                  <Bar isAnimationActive={false} dataKey="participants" name="Participants" fill="var(--info)" />
+                  <Bar isAnimationActive={false} dataKey="captains" name="Captains" fill="var(--warning)" />
                 </BarChart>
               </ResponsiveContainer>
               <table>
@@ -219,13 +219,13 @@ export default function AdminAnalytics() {
             <>
               <ResponsiveContainer width="100%" height={250}>
                 <BarChart data={homeworkStats}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--surface-2)" />
                   <XAxis dataKey="name" tick={{ fontSize: 10 }} />
                   <YAxis />
                   <Tooltip />
                   <Legend />
-                  <Bar dataKey="total_hw" name="Assigned" fill="#22d3ee" />
-                  <Bar dataKey="submitted" name="Submitted" fill="#4ade80" />
+                  <Bar isAnimationActive={false} dataKey="total_hw" name="Assigned" fill="var(--info)" />
+                  <Bar isAnimationActive={false} dataKey="submitted" name="Submitted" fill="var(--success)" />
                 </BarChart>
               </ResponsiveContainer>
               <table>

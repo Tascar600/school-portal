@@ -9,7 +9,9 @@ export default function Homework() {
   const [submissions, setSubmissions] = useState<any[]>([]);
   const [viewSubId, setViewSubId] = useState<number | null>(null);
   const [subjects, setSubjects] = useState<any[]>([]);
-  const [form, setForm] = useState({ class_id: user?.role === 'teacher' && user?.class_id ? String(user.class_id) : '', subject_id: '', title: '', description: '', due_date: '' });
+  // A teacher's class is fixed, so it must survive form resets
+  const ownClass = user?.role === 'teacher' && user?.class_id ? String(user.class_id) : '';
+  const [form, setForm] = useState({ class_id: ownClass, subject_id: '', title: '', description: '', due_date: '' });
   const [msg, setMsg] = useState('');
 
   const load = () => {
@@ -30,7 +32,7 @@ export default function Homework() {
     try {
       await homeworkApi.create({ ...form, due_date: new Date(form.due_date).toISOString() });
       setMsg('Homework assigned');
-      setForm({ class_id: '', subject_id: '', title: '', description: '', due_date: '' });
+      setForm({ class_id: ownClass, subject_id: '', title: '', description: '', due_date: '' });
       load();
     } catch (err: any) { setMsg(err.response?.data?.message || 'Error'); }
   };
@@ -52,7 +54,7 @@ export default function Homework() {
   const viewSubmissions = async (id: number) => {
     try {
       const res = await homeworkApi.submissions(id);
-      setSubmissions(res.data);
+      setSubmissions(res.data.submissions || []);
       setViewSubId(id);
     } catch (err: any) { setMsg(err.response?.data?.message || 'Error'); }
   };
@@ -151,9 +153,9 @@ export default function Homework() {
         <div className="card">
           <h2>My Homework</h2>
           {homework.length === 0 ? <p>No homework assigned.</p> : homework.map((h: any) => (
-            <div key={h.id} style={{ borderBottom: '1px solid #e0e0e0', padding: '1rem 0' }}>
+            <div key={h.id} style={{ borderBottom: '1px solid var(--border)', padding: '1rem 0' }}>
               <h3>{h.title}</h3>
-              <p style={{ color: '#666' }}>{h.subject_name} - Due: {new Date(h.due_date).toLocaleString()}</p>
+              <p style={{ color: 'var(--text-dim)' }}>{h.subject_name} - Due: {new Date(h.due_date).toLocaleString()}</p>
               <p>{h.description}</p>
               {h.submission ? (
                 <div className="alert alert-success">
@@ -186,7 +188,7 @@ export default function Homework() {
                   {submissions.map((s: any) => (
                     <tr key={s.id}>
                       <td>{s.student_name}</td>
-                      <td>{s.file ? <a href={`http://localhost:5000${s.file}`} target="_blank" rel="noreferrer">View</a> : '-'}</td>
+                      <td>{s.file ? <a href={s.file} target="_blank" rel="noreferrer">View</a> : '-'}</td>
                       <td>{new Date(s.submitted_at).toLocaleString()}</td>
                       <td>{s.grade !== null ? s.grade : '-'}</td>
                       <td><button className="btn btn-warning btn-sm" onClick={() => handleGrade(s.id)}>Grade</button></td>

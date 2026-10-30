@@ -15,7 +15,7 @@ router.get('/', authenticate, async (_req: AuthRequest, res: Response) => {
   } catch (err: any) { res.status(500).json({ message: err.message }); }
 });
 
-router.post('/', authenticate, authorize('admin', 'bursary'), async (req: AuthRequest, res: Response) => {
+router.post('/', authenticate, authorize('bursary'), async (req: AuthRequest, res: Response) => {
   try {
     const { name, type, value, fee_item_id } = req.body;
     if (!name || !type) return res.status(400).json({ message: 'Name and type are required' });
@@ -28,7 +28,7 @@ router.post('/', authenticate, authorize('admin', 'bursary'), async (req: AuthRe
   } catch (err: any) { res.status(500).json({ message: err.message }); }
 });
 
-router.put('/:id', authenticate, authorize('admin', 'bursary'), async (req: AuthRequest, res: Response) => {
+router.put('/:id', authenticate, authorize('bursary'), async (req: AuthRequest, res: Response) => {
   try {
     const { name, type, value, fee_item_id, active } = req.body;
     if (!name || !type) return res.status(400).json({ message: 'Name and type are required' });
@@ -41,7 +41,7 @@ router.put('/:id', authenticate, authorize('admin', 'bursary'), async (req: Auth
   } catch (err: any) { res.status(500).json({ message: err.message }); }
 });
 
-router.delete('/:id', authenticate, authorize('admin', 'bursary'), async (req: AuthRequest, res: Response) => {
+router.delete('/:id', authenticate, authorize('bursary'), async (req: AuthRequest, res: Response) => {
   try {
     await execute('UPDATE discounts SET active = 0 WHERE id = ?', [req.params.id]);
     res.json({ message: 'Discount deactivated' });

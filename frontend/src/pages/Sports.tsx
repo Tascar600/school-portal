@@ -93,7 +93,7 @@ export default function Sports() {
             {sports.map((s: any) => (
               <div key={s.id} style={{ background: '#fff', borderRadius: 8, padding: '1rem', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
                 <h3>{s.name}</h3>
-                <p style={{ color: '#666', fontSize: '0.9rem' }}>{s.description}</p>
+                <p style={{ color: 'var(--text-dim)', fontSize: '0.9rem' }}>{s.description}</p>
                 <p><strong>Coach:</strong> {s.coach_name || 'TBD'}</p>
                 <p><strong>Participants:</strong> {s.participant_count}{s.max_participants > 0 ? ` / ${s.max_participants}` : ''}</p>
                 <div style={{ marginTop: '0.5rem' }}>
