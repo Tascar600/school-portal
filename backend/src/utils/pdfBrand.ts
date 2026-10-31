@@ -1,5 +1,5 @@
 import PDFDocument from 'pdfkit';
-import { COLORS, logoPath } from './branding';
+import { COLORS, DEVELOPER_CREDIT, logoPath } from './branding';
 import { SchoolInfo } from './settings';
 
 // Shared look for every PDF the portal produces: school letterhead, a double page border in the school
@@ -183,7 +183,7 @@ export function stamp(b: Brand, text: string, color = COLORS.red) {
   doc.restore();
 }
 
-// Footer on every page, then close the document.
+// Footer on every page (who printed it and when, page number, and the developer's contact line), then close the document.
 export function finish(b: Brand, generatedBy?: string) {
   const { doc, W, H, M, school } = b;
   const range = doc.bufferedPageRange();
@@ -193,8 +193,9 @@ export function finish(b: Brand, generatedBy?: string) {
     const keep = doc.page.margins.bottom;
     doc.page.margins.bottom = 0; // text in the bottom margin would otherwise add a blank page
     doc.fillColor(COLORS.grey).font('Helvetica').fontSize(7.2);
-    doc.text(`${school.full_name}  ·  ${stampText}`, M, H - 31, { width: W - 2 * M - 70, lineBreak: false });
-    doc.text(`Page ${i - range.start + 1} of ${range.count}`, W - M - 70, H - 31, { width: 70, align: 'right', lineBreak: false });
+    doc.text(`${school.full_name}  ·  ${stampText}`, M, H - 38, { width: W - 2 * M - 70, lineBreak: false });
+    doc.text(`Page ${i - range.start + 1} of ${range.count}`, W - M - 70, H - 38, { width: 70, align: 'right', lineBreak: false });
+    doc.fontSize(6.6).text(DEVELOPER_CREDIT, M, H - 28.5, { width: W - 2 * M, align: 'center', lineBreak: false });
     doc.page.margins.bottom = keep;
   }
   doc.end();

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { passwordApi } from '../services/api';
 import { useSchool } from '../contexts/SchoolContext';
+import DeveloperFooter from '../components/DeveloperFooter';
 
 export default function ForgotPassword() {
   const { school, logoUrl } = useSchool();
@@ -48,6 +49,7 @@ export default function ForgotPassword() {
         )}
         <p className="small" style={{ marginTop: '1rem', textAlign: 'center' }}><Link to="/login">Back to log in</Link></p>
       </div>
+      <DeveloperFooter />
     </div>
   );
 }

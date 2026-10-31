@@ -6,6 +6,7 @@ import { ChildSwitcher, useChild } from '../contexts/ChildContext';
 import { useSchool } from '../contexts/SchoolContext';
 import { useTheme, THEMES, ThemeId } from '../contexts/ThemeContext';
 import { downloadPdf } from '../services/api';
+import DeveloperFooter, { DEVELOPER_CREDIT } from './DeveloperFooter';
 
 type Item = { label: string; path: string };
 
@@ -112,10 +113,14 @@ export default function Layout({ children }: { children: ReactNode }) {
           : user?.role === 'parent' && kids.length === 0 && location.pathname !== '/change-password' ? <div className="card"><h2>No pupil linked yet</h2><p>No pupil is linked to your account yet. Please ask the school office to link your child to it.</p></div>
           : children}
       </div></main>
+      <DeveloperFooter />
 
       {/* Printed pages only: the border is drawn by .print-sheet; the crest watermark and footer repeat on every sheet */}
       <div className="print-watermark"><img src={logoUrl} alt="" /></div>
-      <div className="print-footer">{school.full_name} {'·'} {school.motto} {'·'} Printed {printedAt}{user ? ` by ${user.name}` : ''}</div>
+      <div className="print-footer">
+        {school.full_name} {'·'} {school.motto} {'·'} Printed {printedAt}{user ? ` by ${user.name}` : ''}
+        <div className="print-credit">{DEVELOPER_CREDIT}</div>
+      </div>
     </div>
   );
 }

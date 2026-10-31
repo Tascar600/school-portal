@@ -1,5 +1,6 @@
 import { Response } from 'express';
 import ExcelJS from 'exceljs';
+import { DEVELOPER_CREDIT } from './branding';
 
 // Shared helper: streams a simple one-sheet Excel workbook as the HTTP response.
 // headers: column titles (also used as the object keys via `key`, in order).
@@ -15,6 +16,8 @@ export async function sendXlsx(
 
   sheet.columns = headers.map((h) => ({ header: h, key: h, width: Math.max(12, h.length + 4) }));
   sheet.getRow(1).font = { bold: true };
+  // Nothing is added to the data itself (people sort and total these sheets); the line shows on paper, in Print Preview
+  sheet.headerFooter.oddFooter = `&C&8${DEVELOPER_CREDIT}`;
 
   for (const row of rows) {
     const values = headers.map((h) => {

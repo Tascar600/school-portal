@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { authApi } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useSchool } from '../contexts/SchoolContext';
+import DeveloperFooter from '../components/DeveloperFooter';
 
 export default function ActivateAccount() {
   const navigate = useNavigate();
@@ -44,6 +45,7 @@ export default function ActivateAccount() {
         </form>
         <p className="small muted" style={{ marginTop: '1rem', textAlign: 'center' }}>Already activated? <Link to="/login">Log in</Link></p>
       </div>
+      <DeveloperFooter />
     </div>
   );
 }

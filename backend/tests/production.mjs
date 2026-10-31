@@ -7,8 +7,10 @@ import { spawn, spawnSync } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import zlib from 'zlib';
 import { createRequire } from 'module';
 const jwt = createRequire(import.meta.url)('jsonwebtoken');
+const JSZip = createRequire(import.meta.url)('jszip');
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const BACKEND = path.resolve(HERE, '..');
@@ -192,6 +194,42 @@ try {
   check('[limit] with a wrong setting the log warns that everyone would share one limit', /WARNING: the portal sees this visitor as .*everyone shares one log in limit/.test(wrongLog), wrongLog.slice(-400));
 } finally {
   if (limited) await stop(limited);
+  fs.rmSync(DATA, { recursive: true, force: true });
+}
+
+// ── The developer's contact line is printed on every page of every PDF and on printed Excel sheets ──────────────────────
+// (The website's own pages and its printed sheets are checked in the browser tests, tests/browser/pages.mjs.)
+const CREDIT = 'For all your system development contact 0710325831';
+// pdfkit stores text as hex pieces inside kerning arrays, so decode every drawn line back into plain text
+function pdfLines(buf) {
+  const raw = buf.toString('latin1'), re = /stream\r?\n/g, lines = [];
+  let m;
+  while ((m = re.exec(raw))) {
+    const start = m.index + m[0].length, end = raw.indexOf('endstream', start);
+    let s; try { s = zlib.inflateSync(buf.subarray(start, end)).toString('latin1'); } catch { continue; } // pictures are not text
+    for (const l of s.split('\n')) if (/ T[jJ]$/.test(l)) lines.push([...l.matchAll(/<([0-9a-f]+)>/gi)].map((x) => Buffer.from(x[1], 'hex').toString('latin1')).join(''));
+  }
+  return lines;
+}
+let documents;
+try {
+  fs.rmSync(DATA, { recursive: true, force: true });
+  documents = await startOnDisk();
+  const login = await post('/auth/login', null, { email: 'punhamasiwa@gmail.com', password: '1234' });
+  const auth = { Authorization: 'Bearer ' + (await post('/auth/change-password', login.token, { current_password: '1234', new_password: PASSWORD })).token };
+
+  const manual = Buffer.from(await (await fetch(API + '/manual', { headers: auth })).arrayBuffer());
+  const lines = pdfLines(manual);
+  const pages = Number(lines.map((l) => /^Page \d+ of (\d+)$/.exec(l)?.[1]).find(Boolean));
+  const credits = lines.filter((l) => l === CREDIT).length;
+  check('[footer] the manual PDF carries the developer\'s contact line on every one of its pages', pages > 5 && credits === pages, `${credits} lines for ${pages} pages`);
+
+  const xlsx = await (await fetch(API + '/reports/debtors/export.xlsx', { headers: auth })).arrayBuffer();
+  const sheet = await (await JSZip.loadAsync(Buffer.from(xlsx))).file('xl/worksheets/sheet1.xml').async('string');
+  check('[footer] an Excel export prints the developer\'s contact line in the page footer', sheet.includes(`<oddFooter>&amp;C&amp;8${CREDIT}</oddFooter>`), sheet.match(/<headerFooter>.*<\/headerFooter>/)?.[0] || 'no footer in the sheet');
+  check('[footer] and adds nothing to the data itself', !/contact 0710325831/.test(sheet.replace(/<headerFooter>.*<\/headerFooter>/, '')));
+} finally {
+  if (documents) await stop(documents.server);
   fs.rmSync(DATA, { recursive: true, force: true });
 }
 

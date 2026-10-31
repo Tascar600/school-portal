@@ -22,6 +22,9 @@ export function logoPath(size: 'full' | 'small' = 'full'): string {
   return path.join(ASSET_DIR, size === 'small' ? 'logo-small.png' : 'logo.png');
 }
 
+// Printed small at the bottom of every PDF and every printed Excel sheet (the website repeats it: frontend/src/components/DeveloperFooter.tsx)
+export const DEVELOPER_CREDIT = 'For all your system development contact 0710325831';
+
 // School colours: green, cream and gold
 export const COLORS = {
   green: '#1f5a2e',

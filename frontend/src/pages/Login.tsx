@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useSchool } from '../contexts/SchoolContext';
+import DeveloperFooter from '../components/DeveloperFooter';
 
 export default function Login() {
   const { login, user } = useAuth();
@@ -48,6 +49,7 @@ export default function Login() {
           <Link to="/activate">I have a registration number</Link>
         </p>
       </div>
+      <DeveloperFooter />
     </div>
   );
 }

@@ -111,6 +111,8 @@ For each text the portal sends one `POST` with JSON `{"to": "+263771234567", "me
 
 Every page with a **Print** button (and the receipts, invoices, statements and vouchers, which are PDFs) prints on the school letterhead: crest, school name, district and province, contacts, motto, the page title and period, who printed it and when. Every printed sheet has a green and gold **page border**, a faint **crest watermark** and a footer line. Menus and buttons are left off the paper.
 
+A small line, *For all your system development contact 0710325831*, is at the bottom of every page of the website, on every printed sheet, on every page of every PDF (receipts, invoices, statements, vouchers, the user manuals) and in the print footer of the Excel exports (it shows in Print Preview; nothing is added to the data). To change the wording or number, edit it in two places: `frontend/src/components/DeveloperFooter.tsx` (the website and printed web pages) and `backend/src/utils/branding.ts` (the PDFs and Excel files). `npm run test:production` and `npm run test:pages` check that it is there.
+
 Browser printing uses `box-decoration-break: clone` to repeat the border on each page, which needs a current Chrome, Edge or Firefox. On a very old browser the border may show only at the top of the first page and the bottom of the last.
 
 ---
