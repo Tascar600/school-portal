@@ -156,6 +156,45 @@ try {
   fs.rmSync(DATA, { recursive: true, force: true });
 }
 
+// ── Behind a host's proxies, every visitor needs their OWN log in limit ──────────────────────────────────────────────
+// On Render every request arrives through Cloudflare and Render's own proxy, so the portal only sees a proxy's address
+// unless it is told which addresses are proxies. It used to share ONE limit (100 requests per 15 minutes) between the
+// whole school, and the page-load check (/auth/me) uses it too. Here the test plays the proxy: it connects from this
+// computer (a private address, like Render's) and writes the visitor's address in X-Forwarded-For, the way Cloudflare does.
+let limited;
+try {
+  fs.rmSync(DATA, { recursive: true, force: true });
+  const env = { ...process.env, PORT: String(PORT), DATA_DIR: DATA, RENDER: 'true', JWT_SECRET: 'rehearsal-secret-' + 'x'.repeat(40), AUTH_RATE_LIMIT: '3' };
+  for (const k of ['DB_PATH', 'FIRST_LOGIN_PASSWORD_CHANGE', 'SMS_WEBHOOK_URL', 'BACKUP_EMAIL_TO', 'TRUST_PROXY']) delete env[k];
+  let log = '';
+  limited = spawn(process.execPath, [path.join(BACKEND, 'node_modules/tsx/dist/cli.mjs'), 'src/index.ts'], { cwd: BACKEND, env, stdio: ['ignore', 'pipe', 'pipe'] });
+  limited.stdout.on('data', (d) => (log += d)); limited.stderr.on('data', (d) => (log += d));
+  for (let i = 0; i < 40; i++) { try { if ((await fetch(API + '/branding')).ok) break; } catch { /* not up yet */ } await new Promise((r) => setTimeout(r, 500)); }
+  const attempt = async (forwardedFor) => (await fetch(API + '/auth/login', { method: 'POST', headers: { 'content-type': 'application/json', 'X-Forwarded-For': forwardedFor }, body: JSON.stringify({ email: 'nobody@example.com', password: 'wrong' }) })).status;
+  const CLOUDFLARE = '172.70.1.1'; // inside Cloudflare's published ranges
+  const a = []; for (let i = 0; i < 4; i++) a.push(await attempt(`41.1.1.1, ${CLOUDFLARE}`));
+  check('[limit] one visitor is stopped after their own 3 tries', JSON.stringify(a) === JSON.stringify([401, 401, 401, 429]), JSON.stringify(a));
+  check('[limit] a different visitor is NOT stopped by it (not one limit for the whole school)', (await attempt(`41.2.2.2, ${CLOUDFLARE}`)) === 401);
+  check('[limit] nor one arriving without Cloudflare\'s entry in the header', (await attempt('41.3.3.3')) === 401);
+  check('[limit] writing a made-up address into the header does not give the stopped visitor a fresh limit', (await attempt(`41.9.9.9, 41.1.1.1, ${CLOUDFLARE}`)) === 429);
+  check('[limit] the server does not complain about its proxy setting', !/ERR_ERL_UNEXPECTED_X_FORWARDED_FOR/.test(log), log.slice(-300));
+  check('[limit] and logs how it sees a visitor, so a wrong setting can be spotted', /sees this visitor as 41\.1\.1\.1/.test(log), log.slice(-300));
+  check('[limit] with the right setting it raises no warning', !/WARNING: the portal sees this visitor/.test(log), log.slice(-300));
+  await stop(limited); limited = null;
+
+  // A wrong setting (the proxy that connects is not recognised as one) must be noticed, not silently share one limit
+  fs.rmSync(DATA, { recursive: true, force: true });
+  let wrongLog = '';
+  limited = spawn(process.execPath, [path.join(BACKEND, 'node_modules/tsx/dist/cli.mjs'), 'src/index.ts'], { cwd: BACKEND, env: { ...env, TRUST_PROXY: '10.99.99.99' }, stdio: ['ignore', 'pipe', 'pipe'] });
+  limited.stdout.on('data', (d) => (wrongLog += d)); limited.stderr.on('data', (d) => (wrongLog += d));
+  for (let i = 0; i < 40; i++) { try { if ((await fetch(API + '/branding')).ok) break; } catch { /* not up yet */ } await new Promise((r) => setTimeout(r, 500)); }
+  await attempt(`41.1.1.1, ${CLOUDFLARE}`);
+  check('[limit] with a wrong setting the log warns that everyone would share one limit', /WARNING: the portal sees this visitor as .*everyone shares one log in limit/.test(wrongLog), wrongLog.slice(-400));
+} finally {
+  if (limited) await stop(limited);
+  fs.rmSync(DATA, { recursive: true, force: true });
+}
+
 // And the warning itself: on a host with no DATA_DIR the portal must say its storage is temporary.
 // (Checked on the setting alone, so no database is made in the project folder.)
 function temporary(env) {

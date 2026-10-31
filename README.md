@@ -284,7 +284,8 @@ Settings (environment variables, all optional):
 | `DATA_DIR` | One folder for everything that must survive a restart: the database, its `backups`, and `uploads` (homework, payment proofs, the logo). On a host, set it to the permanent disk's mount path (Render: `/var/data`). Without it everything stays in the project folder, which a free host wipes |
 | `DB_PATH` | Use a different database file (the tests use this for throw-away copies); its `backups` folder sits beside it |
 | `BACKUP_DIR` | Put the automatic daily copies somewhere else |
-| `AUTH_RATE_LIMIT` | Log in / sign-up requests allowed per 15 minutes (default 100). Raise it **only for local testing** |
+| `AUTH_RATE_LIMIT` | Log in / sign-up requests allowed per 15 minutes **for each visitor** (default 100; the page-load check counts too). Raise it **only for local testing** |
+| `TRUST_PROXY` | Which addresses are proxies, so each visitor gets their own log in limit. On a host (Render) the portal already trusts the private network and Cloudflare's published ranges, so leave this alone. Override with a number (that many proxies), `false`, or a comma-separated list of addresses. The log shows `Visitor address check: the portal sees this visitor as ...` for the first two visitors after each start, and a `WARNING` if that is a proxy rather than the visitor |
 | `FIRST_LOGIN_PASSWORD_CHANGE=off` | Do not make the Administrator and Bursar choose a password on first log in. **Only for a fresh local test database** |
 | `SMS_WEBHOOK_URL`, `SMS_WEBHOOK_TOKEN`, `SMS_SENDER_ID` | Turn on automatic text messages (see "Text messages") |
 | `BACKUP_EMAIL_TO`, `SMTP_HOST`, `SMTP_USER`, `SMTP_PASS`, `SMTP_PORT`, `SMTP_FROM` | Turn on emailed backups (see "Emailed backups"). `SMTP_PORT` defaults to 465; `SMTP_FROM` to `SMTP_USER` |

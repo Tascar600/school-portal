@@ -7,6 +7,7 @@ import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
 import { initDatabase } from './config/database';
 import { UPLOADS_DIR, storageIsTemporary } from './config/paths';
+import { trustProxySetting } from './config/proxy';
 import authRoutes from './routes/auth';
 import timetableRoutes from './routes/timetables';
 import resultRoutes from './routes/results';
@@ -49,6 +50,26 @@ dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+
+// Which addresses are proxies, so each visitor is told apart (config/proxy.ts). Must be set before anything that reads req.ip.
+app.set('trust proxy', trustProxySetting());
+// Shows, for the first two visitors after each start, how the portal sees them, and warns when that is plainly wrong.
+let addressChecks = 0;
+if (trustProxySetting() !== false) {
+  app.use((req, _res, next) => {
+    if (addressChecks < 2 && req.headers['x-forwarded-for']) {
+      addressChecks++;
+      console.log(`Visitor address check: the portal sees this visitor as ${req.ip}. X-Forwarded-For: "${req.headers['x-forwarded-for']}", connection from ${req.socket.remoteAddress}.`);
+      // Wrong if the address picked is one of the portal's own proxies (every hop was trusted), or is simply the address the
+      // connection came from although a proxy header is present (the proxy that connected was not recognised as one).
+      // Either way every visitor would share one log in limit again.
+      if (app.get('trust proxy fn')(req.ip, 0) || req.ip === req.socket.remoteAddress) {
+        console.error(`\n!! WARNING: the portal sees this visitor as ${req.ip}, which is a proxy and not the visitor, so everyone shares one log in limit. Set TRUST_PROXY (README, "Settings").\n`);
+      }
+    }
+    next();
+  });
+}
 
 // Security headers
 app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
