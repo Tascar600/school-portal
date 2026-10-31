@@ -91,6 +91,7 @@ await run('pupil quiz', async () => {
   const s = await session(PUPIL); const { page } = s;
   await page.goto(`${SITE}/quizzes`);
   const row = page.locator('tr', { hasText: 'Know Your Zimbabwe' });
+  await row.first().waitFor({ timeout: 10000 }); // the list arrives from the server after the page has loaded; counting the buttons before that finds none
   if ((await row.locator('button:text-is("Take Quiz")').count()) === 0) {
     check('already taken on an earlier run (the row shows a score)', (await row.innerText()).includes('Score'));
   } else {
