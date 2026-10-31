@@ -1,9 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import dotenv from 'dotenv';
-import { onAHost } from './auth';
-
-dotenv.config(); // so DATA_DIR and DB_PATH can also be written in backend/.env
+import { onAHost } from './host'; // also reads backend/.env, so DATA_DIR and DB_PATH can be written there
 
 // Where the portal keeps everything that has to survive a restart: the database, its automatic daily copies, and every
 // uploaded file (homework, payment proofs, the school logo).

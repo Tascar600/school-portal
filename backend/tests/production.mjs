@@ -71,9 +71,10 @@ const PASSWORD = 'Chakari2026!';
 const LOGO = fs.readFileSync(path.join(BACKEND, 'assets/logo-small.png'));
 const strayLogo = path.join(BACKEND, 'uploads/branding/logo.png');
 
-async function startOnDisk() {
+async function startOnDisk({ ownSecret = true } = {}) {
   const env = { ...process.env, PORT: String(PORT), DATA_DIR: DATA, RENDER: 'true', JWT_SECRET: 'rehearsal-secret-' + 'x'.repeat(40) };
   for (const k of ['DB_PATH', 'FIRST_LOGIN_PASSWORD_CHANGE', 'AUTH_RATE_LIMIT', 'SMS_WEBHOOK_URL', 'BACKUP_DIR']) delete env[k];
+  if (!ownSecret) delete env.JWT_SECRET;
   let log = '';
   const server = spawn(process.execPath, [path.join(BACKEND, 'node_modules/tsx/dist/cli.mjs'), 'src/index.ts'], { cwd: BACKEND, env, stdio: ['ignore', 'pipe', 'pipe'] });
   server.stdout.on('data', (d) => (log += d)); server.stderr.on('data', (d) => (log += d));
@@ -230,6 +231,54 @@ try {
   check('[footer] and adds nothing to the data itself', !/contact 0710325831/.test(sheet.replace(/<headerFooter>.*<\/headerFooter>/, '')));
 } finally {
   if (documents) await stop(documents.server);
+  fs.rmSync(DATA, { recursive: true, force: true });
+}
+
+// ── No JWT_SECRET, but a permanent disk: the portal keeps a secret of its own on the disk ──────────────────────────────
+// Without a fixed secret everyone is logged out at every restart and the Administrator sees a red notice. With the disk the
+// portal can make a secret once and keep it. A JWT_SECRET setting, if there is one, always wins over the kept one.
+const KEPT = path.join(DATA, 'jwt-secret');
+let keeper;
+try {
+  fs.rmSync(DATA, { recursive: true, force: true });
+  keeper = await startOnDisk({ ownSecret: false });
+  const login = await post('/auth/login', null, { email: 'punhamasiwa@gmail.com', password: '1234' });
+  const token = (await post('/auth/change-password', login.token, { current_password: '1234', new_password: PASSWORD })).token;
+  const me = async (t) => (await fetch(API + '/auth/me', { headers: { Authorization: 'Bearer ' + t } })).status;
+  const insecure = async (t) => (await (await fetch(API + '/dashboard', { headers: { Authorization: 'Bearer ' + t } })).json()).insecureSecret;
+  const read = () => (fs.existsSync(KEPT) ? fs.readFileSync(KEPT, 'utf8').trim() : '');
+  const secret = read();
+  const log1 = keeper.getLog();
+
+  check('[secret] with a disk and no JWT_SECRET the portal makes a secret and keeps it on the disk', secret.length >= 32 && /Log in secret: .*made its own/.test(log1), `file "${secret.slice(0, 6)}...", log: ${log1.slice(-300)}`);
+  check('[secret] it raises no warning, and the Administrator is not shown the red notice', !/SECURITY WARNING/.test(log1) && (await insecure(token)) === false, log1.slice(-200));
+  check('[secret] the secret itself is never written to the log', !!secret && !log1.includes(secret));
+  const exported = Buffer.from(await (await fetch(API + '/admin/db/export', { headers: { Authorization: 'Bearer ' + token } })).arrayBuffer());
+  const copies = fs.readdirSync(path.join(DATA, 'backups')).map((n) => fs.readFileSync(path.join(DATA, 'backups', n)));
+  check('[secret] it is not inside the database, its exported copy or the daily copies (so not in a downloaded or emailed backup)', !!secret && !exported.includes(secret) && copies.length > 0 && copies.every((c) => !c.includes(secret)));
+  let leaked = '';
+  for (const u of ['/jwt-secret', '/uploads/jwt-secret', '/uploads/%2e%2e/jwt-secret', '/api/jwt-secret', '/backups/../jwt-secret']) {
+    const r = await fetch(SITE + u); if (secret && (await r.text()).includes(secret)) leaked = u;
+  }
+  check('[secret] no web address serves it', !!secret && !leaked, leaked);
+  const publicOne = jwt.sign({ id: 1, email: 'punhamasiwa@gmail.com', role: 'admin' }, 'fallback_secret_do_not_use_in_prod', { expiresIn: '5m' });
+  check('[secret] a login forged with the public fallback secret is still refused', (await me(publicOne)) === 401 && (await me(token)) === 200);
+
+  await stop(keeper.server);
+  keeper = await startOnDisk({ ownSecret: false });   // the host restarts
+  check('[secret] after a restart the same secret is used, so everyone stays logged in', (await me(token)) === 200 && read() === secret && /Log in secret: .*using the one it keeps/.test(keeper.getLog()), `me ${await me(token)}, log: ${keeper.getLog().slice(-250)}`);
+
+  await stop(keeper.server);
+  keeper = await startOnDisk();                        // now JWT_SECRET is set in the host's settings
+  check('[secret] a JWT_SECRET setting wins over the kept secret (old log ins stop working, the kept file is left alone)', (await me(token)) === 401 && read() === secret && (await insecure((await post('/auth/login', null, { email: 'punhamasiwa@gmail.com', password: PASSWORD })).token)) === false && !/SECURITY WARNING|Log in secret/.test(keeper.getLog()), keeper.getLog().slice(-250));
+
+  await stop(keeper.server);
+  fs.writeFileSync(KEPT, 'short');                     // a damaged or emptied file must not become the secret
+  keeper = await startOnDisk({ ownSecret: false });
+  const mended = read();
+  check('[secret] a damaged secret file is replaced by a proper one (the portal still starts)', mended.length >= 32 && mended !== 'short' && (await me(token)) === 401 && !!(await post('/auth/login', null, { email: 'punhamasiwa@gmail.com', password: PASSWORD })).token, `file "${mended.slice(0, 8)}"`);
+} finally {
+  if (keeper) await stop(keeper.server);
   fs.rmSync(DATA, { recursive: true, force: true });
 }
 

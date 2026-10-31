@@ -4,7 +4,7 @@ import { authenticate, AuthRequest } from '../middleware/auth';
 import { pupilBalances } from './stats';
 import { backupStatus } from '../utils/backup';
 import { childrenWithBalances } from './parents';
-import { usingDefaultSecret, onAHost } from '../config/auth';
+import { insecureSecret } from '../config/auth';
 import { storageIsTemporary } from '../config/paths';
 
 const router = Router();
@@ -25,7 +25,7 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
       data.classes = classes.count;
       data.outstandingFees = Math.round(balances.reduce((s, b) => s + b.balance, 0) * 100) / 100;
       data.debtorCount = balances.filter((b) => b.balance > 0.004).length;
-      data.insecureSecret = usingDefaultSecret && onAHost;
+      data.insecureSecret = insecureSecret;
       data.temporaryStorage = storageIsTemporary();
       const b = await backupStatus();
       data.backup = { daysSince: b.daysSince, stale: b.stale, lastDownloadAt: b.lastDownloadAt, staleAfterDays: b.staleAfterDays };
