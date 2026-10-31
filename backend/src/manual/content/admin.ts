@@ -8,7 +8,7 @@ export const admin: RoleManual = {
   pages: [
     {
       id: 'dashboard', title: 'Dashboard', route: '/dashboard',
-      intro: 'Numbers for the whole school at a glance, and a warning when someone has asked for a new password.',
+      intro: 'Numbers for the whole school at a glance, and warnings at the top when something needs you: someone has asked for a new password, no backup has been downloaded or emailed for a week, or (in red) the portal is on temporary storage and could lose its information.',
       callouts: [
         { target: '.kpi >> nth=0', press: 'Pupils / Teachers / Classes', does: 'How many of each are registered.', kind: 'area' },
         { target: '.kpi >> nth=3', press: 'Fees outstanding', does: 'What pupils owe the school today, as the Bursar sees it.', kind: 'area' },
@@ -208,15 +208,24 @@ export const admin: RoleManual = {
       id: 'database', title: 'Database: backup and restore', route: '/admin',
       steps: [{ click: 'button.tab:has-text("Database")' }, { wait: 900 }],
       cropFrom: 'h2:text-is("Backups")',
-      intro: 'The whole school’s information lives in one database file. Back it up regularly. When no backup has been downloaded for a week, your Dashboard shows a yellow reminder.',
+      intro: 'The whole school’s information lives in one database file. Back it up regularly. When no backup has been downloaded or emailed for a week, your Dashboard shows a yellow reminder.',
       callouts: [
         { target: 'button:text-is("Download a backup now")', press: 'Download a backup now', does: 'Saves a copy of everything to your computer. Keep copies somewhere safe, away from the portal’s computer.', kind: 'primary' },
         { target: 'button:text-is("Make a copy now")', press: 'Make a copy now', does: 'Refreshes today’s automatic copy, kept on the portal’s computer. Use it just before a risky change.', kind: 'default' },
-        { target: 'thead th:text-is("Automatic copy")', press: 'Automatic copies', does: 'One for each of the last 14 days. They protect against mistakes, but not against the portal’s computer losing its files.', kind: 'area' },
-        { target: 'button:text-is("Restore Database")', press: 'Restore Database', does: 'Replaces EVERYTHING with a backup file you choose.', kind: 'danger' },
+        { target: 'button:text-is("Email me a backup now")', press: 'Email me a backup now', does: 'Sends the whole database to the email address chosen for backups, together with any new homework pictures and payment proofs (zipped, in separate emails). The portal also does this by itself about once a day. The button is only there once emailed backups have been set up; see "How do I get the backup sent to my email?" at the end of this manual.', kind: 'default' },
+        { target: 'thead th:text-is("Automatic copy")', press: 'Automatic copies', does: 'One for each of the last 14 days, and a "before-restore" copy each time a backup is restored. They protect against mistakes, but not against the portal’s computer losing its files.', kind: 'area' },
+        { target: 'button:text-is("Restore Database")', press: 'Restore Database', does: 'Replaces EVERYTHING with the backup file you choose. The portal first checks that it really is a backup of this portal (anything else is refused and nothing changes), and keeps what it held just before as a "before-restore" copy in the list above.', kind: 'danger' },
       ],
-      tips: ['"Check the database" (further down) looks for records that point at something that is gone, such as a bill for a pupil who was deleted. It only reports; it never deletes anything.'],
-      warnings: ['Download a backup every week, and before every term opens. If the portal is hosted on a free service its files can be wiped when it restarts.', 'Restoring a backup replaces all current information. Only do it if you are sure.'],
+      tasks: [
+        { title: 'have the portal email you a backup', steps: ['Open Admin Panel and press the "Database" tab.', 'Press "Email me a backup now".', 'Wait for the message "Backup emailed to ..." (with many uploaded files it can take a minute or two). If a red box appears instead, it says what went wrong.', 'Open your mailbox, and look in Spam too. The email "… backup - (date)" has the database attached as a .db file. Further emails carry the homework pictures and payment proofs.', 'Keep the newest one somewhere safe. From then on the portal sends one by itself about once a day.'] },
+        { title: 'bring a backup back (restore)', steps: ['Find the backup you want: a .db file you downloaded, or the one attached to a backup email. Save it on your computer. If it ends in .zip, unzip it first.', 'Open Admin Panel, press the "Database" tab and scroll down to "Restore Backup".', 'Press "Choose File", pick the .db file, then press "Restore Database".', 'Read the message. It says the portal is now using the backup, and names the "before-restore" copy it kept.', 'Refresh the page and check that the school’s information is back. If you chose the wrong file, download the "before-restore" copy from the list and restore that one instead.'] },
+      ],
+      tips: ['"Check the database" (further down) looks for records that point at something that is gone, such as a bill for a pupil who was deleted. It only reports; it never deletes anything.', 'A backup that has been emailed counts as a downloaded one, so the Dashboard reminder stays away while the emails keep arriving. If emailing stops working, the reminder comes back after a week.'],
+      warnings: [
+        'Download a backup every week, and before every term opens. On a free hosting service the portal’s files (the whole database and every upload) are wiped whenever it restarts, is updated, or goes to sleep after 15 quiet minutes. If your Dashboard shows a red "temporary storage" message, the portal is on such a service: ask whoever looks after the portal to attach a permanent disk, and until then download a backup every day.',
+        'Restoring a backup replaces all current information. Only do it if you are sure.',
+        'Backup emails hold the children’s records and fee details. Keep that mailbox private and do not forward them. The homework pictures and payment proofs that come by email cannot be put back with a button; ask whoever looks after the portal.',
+      ],
     },
   ],
   quick: [
@@ -229,7 +238,8 @@ export const admin: RoleManual = {
     { job: 'Check the school’s money', where: 'Bursary', how: 'Choose a period → "Print".' },
     { job: 'Compare the classes at the end of term', where: 'Compare Classes', how: 'Choose the term → "Print".' },
     { job: 'See who reversed or cancelled something', where: 'Bursary → Audit trail', how: 'Choose "What was done" and the period.' },
-    { job: 'Back up the portal', where: 'Admin Panel → Database', how: '"Download a backup now".' },
+    { job: 'Back up the portal', where: 'Admin Panel → Database', how: '"Download a backup now", or "Email me a backup now".' },
+    { job: 'Bring a backup back', where: 'Admin Panel → Database', how: 'Restore Backup → choose the .db file → "Restore Database".' },
   ],
   faqs: [
     { q: 'I forgot the administrator password.', a: 'Another administrator can reset it (Admin Panel → Users → Reset password). If there is none, switch the portal off and run "npm run reset-password -- your@email.com NewPassword1" inside the backend folder, then start the portal again.' },
@@ -239,6 +249,9 @@ export const admin: RoleManual = {
     { q: 'Pupils say the timetable is empty.', a: 'Publish it first: pupils see only published lessons.' },
     { q: 'Report cards show different grades from before.', a: 'Someone changed the grade bands under "Grading and marks". Grades always follow the current bands.' },
     { q: 'I cannot change a payment.', a: 'Only the Bursar can change money records. This protects the accounts. Every change the Bursar makes is written in Bursary → Audit trail.' },
+    { q: 'How do I get the backup sent to my email?', a: 'Whoever looks after the portal sets it up once (the README section "Emailed backups" lists what to enter: the address to send to and a mail account). After that the portal emails the database about once a day, and "Email me a backup now" in Admin Panel → Database sends one straight away. It needs a paid hosting plan, because free hosting blocks outgoing email.' },
+    { q: 'Under Backups a red box says the last emailed backup did not work.', a: 'The box gives the reason. "App Password" means the mail account refused the password: Gmail needs an App Password, not the normal one. "Could not be reached" means the portal cannot contact the mail server, which is what free hosting does to email. Ask whoever looks after the portal to correct it, then press "Email me a backup now" to try again.' },
+    { q: 'The Dashboard says "This portal is on temporary storage".', a: 'The host erases the portal’s files whenever it restarts or goes to sleep, so pupils, marks and payments disappear. Ask whoever looks after the portal to attach a permanent disk (README: "Keeping your data"). Until then download a backup every day, and restore it after each time the portal is wiped.' },
     { q: 'Can the audit trail be edited or deleted?', a: 'Not from the portal. It is written automatically, there is no page or button to change or remove a line, and even the SQL tool in the Database tab refuses to. Restoring an old backup does replace the whole database, including this record, so keep your backups.' },
   ],
   glossary: [
@@ -247,5 +260,7 @@ export const admin: RoleManual = {
     { term: 'Learning area', meaning: 'A subject in the Heritage-Based Curriculum.' },
     { term: 'Archive', meaning: 'Moving a finished term’s results out of the live lists. They are kept.' },
     { term: 'Publish', meaning: 'Making a timetable visible to pupils and teachers.' },
+    { term: 'Backup', meaning: 'A copy of the whole database in one .db file. Download it or have it emailed, and keep it away from the portal’s computer.' },
+    { term: 'Restore', meaning: 'Putting a backup back, which replaces everything the portal holds now. The portal keeps what it held just before as a "before-restore" copy.' },
   ],
 };

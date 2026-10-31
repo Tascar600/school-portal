@@ -274,8 +274,10 @@ function render(manual: RoleManual, school: SchoolInfo, who: Who, portalUrl: str
   doc.fillColor('#ffffff').font('Helvetica-Bold').fontSize(8.6).text('The job', M + 6, y + 5, { lineBreak: false }).text('Where', M + 185, y + 5, { lineBreak: false }).text('How', M + 300, y + 5, { lineBreak: false });
   y += 17;
   manual.quick.forEach((q, i) => {
+    doc.font('Helvetica-Bold').fontSize(9); // the job is printed in bold, which is wider, so measure it in bold or its row comes out too short
+    const jobHeight = doc.heightOfString(q.job, { width: 170 });
     doc.font('Helvetica').fontSize(9);
-    const h = Math.max(doc.heightOfString(q.job, { width: 170 }), doc.heightOfString(q.where, { width: 105 }), doc.heightOfString(q.how, { width: width - 305 })) + 9;
+    const h = Math.max(jobHeight, doc.heightOfString(q.where, { width: 105 }), doc.heightOfString(q.how, { width: width - 305 })) + 9;
     ensure(h);
     if (i % 2 === 0) doc.save().rect(M, y, width, h).fill(COLORS.cream).restore();
     doc.fillColor(COLORS.ink).font('Helvetica-Bold').text(q.job, M + 6, y + 4.5, { width: 170 });
@@ -353,6 +355,8 @@ function render(manual: RoleManual, school: SchoolInfo, who: Who, portalUrl: str
 
 // Two passes: the first learns which page every heading lands on, the second prints those numbers in the contents.
 export async function buildManual(manual: RoleManual, school: SchoolInfo, who: Who, portalUrl: string): Promise<Buffer> {
+  // The PDF's built-in font has no arrow character (it printed as "!'"), so the "Admin Panel → Database" style paths use ">"
+  manual = JSON.parse(JSON.stringify(manual).replace(/→/g, '>'));
   const first = await render(manual, school, who, portalUrl, new Map());
   return (await render(manual, school, who, portalUrl, first.pages)).buf;
 }

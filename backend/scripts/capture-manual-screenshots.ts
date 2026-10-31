@@ -5,6 +5,7 @@
  *   cd backend
  *   npm run capture-manual                      # all pictures
  *   npm run capture-manual -- bursary           # only one account type
+ *   npm run capture-manual -- admin database    # only one page of one account type (its id in src/manual/content)
  *   SITE=http://localhost:3000 npm run capture-manual
  *
  * For every control a manual explains, a gold numbered marker is drawn over the control, so the numbers in the
@@ -22,6 +23,7 @@ const OUT = path.join(__dirname, '../assets/manual');
 const WIDTH = 1100;
 const MAX_HEIGHT = 1250; // taller pictures are shrunk to fit the PDF page, so controls must sit inside this
 const only = process.argv[2];
+const onlyPage = process.argv[3]; // with an account type: retake just that page's picture, e.g. "admin database"
 
 const missing: string[] = [];
 
@@ -141,10 +143,11 @@ async function main() {
     await login(page, manual.sampleLogin.email, manual.sampleLogin.password, manual.sampleLogin.landing);
     const landing = manual.sampleLogin.landing;
     const layout = commonPages(manual.role).find((x) => x.id === 'layout')!;
-    await capture(page, `${manual.role}-layout`, layout, landing);
+    if (!onlyPage) await capture(page, `${manual.role}-layout`, layout, landing);
     const takeAll = async () => {
       for (const p of manual.pages) {
         if (p.noImage) continue;
+        if (onlyPage && p.id !== onlyPage) continue;
         const name = p.image || `${manual.role}-${p.id}`;
         console.log(name);
         try { await capture(page, name, p, landing); } catch (e: any) { missing.push(`${name}: page failed: ${String(e.message).split('\n')[0]}`); }

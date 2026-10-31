@@ -105,7 +105,7 @@ export function commonPages(role: Role): ManualPage[] {
       route: '/forgot-password',
       intro: role === 'admin'
         ? 'Another administrator can give you a temporary password (Admin Panel, then Users, then Reset password). If you are the only administrator and cannot log in, whoever looks after the portal can reset it from the server; see the last page of this manual.'
-        : 'The portal does not send emails. Instead you ask the school administrator, who gives you a temporary password. You then choose a new one of your own.',
+        : 'The portal does not email passwords. Instead you ask the school administrator, who gives you a temporary password. You then choose a new one of your own.',
       callouts: [
         { target: '#identifier', press: 'Email address or registration number', does: 'Type the email you log in with, or your registration number.', kind: 'field' },
         { target: 'button:text-is("Ask for a new password")', press: 'Ask for a new password', does: 'Tells the administrator that you need help. Nothing else happens until they act.', kind: 'primary' },
