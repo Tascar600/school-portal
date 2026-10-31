@@ -1,9 +1,10 @@
 import fs from 'fs';
 import path from 'path';
+import { UPLOADS_DIR } from '../config/paths';
 
 // One logo for the whole system. The Admin can upload a replacement (Admin Panel > School Details);
 // until then the crest in backend/assets is used.
-export const UPLOAD_DIR = path.join(__dirname, '../../uploads/branding');
+export const UPLOAD_DIR = path.join(UPLOADS_DIR, 'branding');
 const ASSET_DIR = path.join(__dirname, '../../assets');
 
 export function uploadedLogoPath(): string | null {

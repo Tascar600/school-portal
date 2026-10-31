@@ -142,6 +142,18 @@ There are no animations or moving effects anywhere in the portal.
 
 ---
 
+## Installing as an app
+
+The portal can be installed on a phone, tablet or computer, so it opens from its own icon (the school badge) in its own window, with no address bar.
+
+* **Android (Chrome):** open the portal, then menu (⋮) → **Install app** (or **Add to Home screen**).
+* **iPhone / iPad (Safari):** open the portal, press **Share** → **Add to Home Screen**.
+* **Windows / Mac (Chrome or Edge):** press the install icon at the right end of the address bar.
+
+It is still the live portal: it needs an internet connection, and marks, fees and receipts are never kept on the device (pages under `/api` and `/uploads` are never cached). With no connection it shows a plain "You are offline" page. The pieces are `frontend/public/manifest.webmanifest`, `sw.js` (the service worker), `offline.html` and the icons. If `backend/assets/logo.png` is ever replaced, run `node scripts/make-app-icons.mjs` in `backend/` and rebuild to redraw the icons.
+
+---
+
 ## Sample Data & Automated Feature Check (local development only)
 
 An **opt-in** script fills a *local* database with a realistic school and checks every feature while doing it. It is never run automatically and refuses to talk to anything but `localhost`.
@@ -261,12 +273,14 @@ It needs Google Chrome installed, logs in as each sample account, draws the gold
 | `npm run test:mobile` | Opens every page of every account at phone width and fails if any page has to be dragged sideways |
 | `npm run print:samples` | Prints key pages to PDF in `tests/browser/output/printed/` so you can inspect the paper layout |
 | `npm run reset-password -- <email> <new password>` | Emergency password reset (portal switched off) |
+| `node scripts/make-app-icons.mjs` | Redraws the installable-app icons from the school badge (needs Chrome) |
 
 Settings (environment variables, all optional):
 
 | Variable | Meaning |
 |---|---|
 | `PORT` | Port the portal listens on (default 5000) |
+| `DATA_DIR` | One folder for everything that must survive a restart: the database, its `backups`, and `uploads` (homework, payment proofs, the logo). On a host, set it to the permanent disk's mount path (Render: `/var/data`). Without it everything stays in the project folder, which a free host wipes |
 | `DB_PATH` | Use a different database file (the tests use this for throw-away copies); its `backups` folder sits beside it |
 | `BACKUP_DIR` | Put the automatic daily copies somewhere else |
 | `AUTH_RATE_LIMIT` | Log in / sign-up requests allowed per 15 minutes (default 100). Raise it **only for local testing** |
@@ -429,7 +443,25 @@ See the **Bursary** section above.
 
 `render.yaml` describes the service: it builds the frontend (`npm install` in `backend/` runs the build), starts the backend, and asks Render to make a private random `JWT_SECRET`. **Deploying is something you do from your Render account; this project is not connected to one from here.** In outline:
 
-1. **Back up first.** On Render's free tier every deploy and restart starts from an *empty* database: only the Administrator, the Bursar and the class list come back. In the portal go to **Admin Panel → Database → Download a backup now**, and after the deploy use **Restore Database**. (A paid plan with a persistent disk avoids this.)
+### Keeping your data: the permanent disk (do this once)
+
+Render's **free** web service has temporary storage: its files, including the database and everything uploaded, are erased on every redeploy, every restart and every time it goes to sleep after 15 minutes without a visitor. A **paid** instance can have a **persistent disk**, which keeps its files. The portal keeps everything it must not lose (the database, its daily copies, uploaded homework and payment proofs, the school logo) in **one folder, `DATA_DIR`**, so all you do is point that folder at the disk.
+
+For a service you made by hand in the Render dashboard (the existing one):
+
+1. Open the service → **Settings → Instance Type** → choose a paid type (for example *Starter*). See [render.com/pricing](https://render.com/pricing) for the price. The free type cannot have a disk.
+2. **Disks → Add Disk**: name `school-data`, **Mount Path** `/var/data`, size **1 GB** is plenty (disks cost [$0.25 per GB per month](https://render.com/pricing)).
+3. **Environment → Add Environment Variable**: `DATA_DIR` = `/var/data` (exactly the mount path, or the data is lost again).
+4. Save. Render redeploys. The first start on the new disk is an empty database: log in as the Administrator (`punhamasiwa@gmail.com` / `1234`) and the Bursar (`tascarmasiwa@gmail.com` / `12345678`), choose your own passwords, then **Restore Database** if you have a downloaded backup.
+5. Check it worked: the Administrator's dashboard must **not** show a red "This portal is on temporary storage" message. Then make a small change (for example add a notice), use **Manual Deploy → Restart** in Render, and confirm the change is still there.
+
+A service created from `render.yaml` (New → Blueprint) already has the paid instance, the disk and `DATA_DIR` set. Two limits of a Render disk: only one copy of the portal can run, and a redeploy takes the portal offline for a short moment.
+
+The disk protects against restarts and redeploys, **not** against a mistake or the host losing the disk itself, so keep downloading a backup every week (the dashboard reminds the Administrator) and keep it somewhere other than the portal.
+
+### Deploying
+
+1. **Back up first.** In the portal go to **Admin Panel → Database → Download a backup now**. (Without the disk above, every deploy starts from an *empty* database and you must **Restore Database** afterwards.)
 2. Put this project in the Git repository your Render service watches and push, or create a service from `render.yaml` (New → Blueprint).
 3. In Render → Environment add `JWT_SECRET` (a long random value; `render.yaml` does this only when the service is created from it as a Blueprint, **not** for a service created by hand). If it is missing the portal is still safe: on a host it makes a random secret each time it starts instead of using the public fallback in the source code, but everyone is logged out whenever it restarts, and the Administrator sees a notice on the dashboard.
 4. Open the live address. On a brand-new database the first log in to the Administrator (`punhamasiwa@gmail.com` / `1234`) and the Bursar (`tascarmasiwa@gmail.com` / `12345678`) makes each choose their own password. Do both straight away.
@@ -441,10 +473,7 @@ See the **Bursary** section above.
 
 ## Important Notes
 
-- **⚠ Render free tier uses an ephemeral filesystem.** The SQLite database file is wiped on every server restart/redeploy, so a restart will silently erase **real** pupils, teachers, invoices, payments and marks, leaving only the Administrator/Bursar accounts and the class list. Before going live on the free tier, either:
-  - Use **Admin Panel → Database → Download a backup now** regularly (daily, at minimum before any deploy) and **Restore** it after each restart, or
-  - Move to a Render plan with a persistent disk (or any host with persistent storage) so the database survives restarts on its own.
-
-  This is the single most important operational risk in the current setup — treat backups as mandatory, not optional, until persistent storage is in place. A logo you upload is stored in `backend/uploads/branding/` and has the same risk.
+- **⚠ Render's free tier has temporary storage.** The database file and every upload are wiped on every redeploy, every restart **and every time the free service goes to sleep after 15 minutes without a visitor** ([Render's free-tier rules](https://render.com/docs/free)), which silently erases **real** pupils, teachers, invoices, payments and marks, leaving only the Administrator/Bursar accounts and the class list. Use a paid instance with a persistent disk and set `DATA_DIR` (see "Keeping your data" above). The Administrator's dashboard shows a red warning for as long as the portal is on a host without it. On the free tier the only protection is a downloaded backup (**Admin Panel → Database → Download a backup now**, daily) and **Restore Database** after each wipe.
+- **Restore Database** replaces everything with the file you choose. It first checks the file really is a backup of this portal (anything else is refused and nothing changes), and it saves what the portal held just before as `school_portal-<date>-before-restore-<time>.db` in the backup list, so restoring the wrong file can be undone by downloading that copy and restoring it. *(Before 2026-10-31 this button reported success but did not actually restore anything on a running portal; it does now, and `npm run test:production` checks it.)*
 - The Administrator (**1234**) and Bursar (**12345678**) passwords above are first-login credentials. Change both before real use.
 - The portal is in English only.

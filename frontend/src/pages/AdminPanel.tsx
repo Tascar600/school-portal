@@ -340,7 +340,7 @@ export default function AdminPanel() {
                   ))}
                 </div>
                 <p style={{ color: 'var(--text-dim)', fontSize: '0.8rem', marginTop: '1rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                  <AlertTriangle size={14} /> On Render free tier, the database resets on every deploy. Use the backup tools below.
+                  <AlertTriangle size={14} /> If the host ever loses the portal's files, the database starts empty. A downloaded backup (below) is what brings everything back.
                 </p>
               </div>
             ) : <p style={{ color: 'var(--text-dim)' }}>Loading...</p>}
@@ -357,8 +357,8 @@ export default function AdminPanel() {
               const fd = new FormData();
               fd.append('database', dbRestoreFile);
               try {
-                await adminApi.dbRestore(fd);
-                setMsg('Database restored! Refresh the page to see changes.');
+                const r = await adminApi.dbRestore(fd);
+                setMsg((r.data.message || 'Database restored.') + ' Refresh the page to see the restored data.');
                 setDbRestoreFile(null);
                 adminApi.dbInfo().then(r => setDbInfo(r.data)).catch(() => {});
               } catch (err: any) { setMsg(err.response?.data?.message || 'Restore failed'); }

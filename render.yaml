@@ -2,13 +2,23 @@ services:
   - type: web
     name: school-portal-api
     env: node
+    # A permanent disk is only available on a paid instance. On the free plan every restart, redeploy and idle sleep wipes the database.
+    plan: starter
     rootDir: backend
     buildCommand: npm install
     startCommand: npx tsx src/index.ts
     healthCheckPath: /api/auth/login
+    # The database, its daily copies, uploaded files and the school logo all live on this disk (DATA_DIR below).
+    disk:
+      name: school-data
+      mountPath: /var/data
+      sizeGB: 1
     envVars:
       - key: NODE_VERSION
         value: 22
+      # Must be the same as the disk's mountPath above, or the portal writes to the temporary disk and the data is lost again.
+      - key: DATA_DIR
+        value: /var/data
       # Signs every log in. Render makes a private random one; without it anyone could forge an Administrator login.
       - key: JWT_SECRET
         generateValue: true

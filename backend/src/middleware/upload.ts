@@ -1,9 +1,10 @@
 import multer from 'multer';
 import path from 'path';
+import { UPLOADS_DIR } from '../config/paths';
 
 const paymentStorage = multer.diskStorage({
   destination: (_req, _file, cb) => {
-    cb(null, path.join(__dirname, '../../uploads/payments'));
+    cb(null, path.join(UPLOADS_DIR, 'payments'));
   },
   filename: (_req, file, cb) => {
     const unique = Date.now() + '-' + Math.round(Math.random() * 1e9);
@@ -13,7 +14,7 @@ const paymentStorage = multer.diskStorage({
 
 const homeworkStorage = multer.diskStorage({
   destination: (_req, _file, cb) => {
-    cb(null, path.join(__dirname, '../../uploads/homework'));
+    cb(null, path.join(UPLOADS_DIR, 'homework'));
   },
   filename: (_req, file, cb) => {
     const unique = Date.now() + '-' + Math.round(Math.random() * 1e9);

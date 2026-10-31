@@ -6,6 +6,7 @@ import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
 import { initDatabase } from './config/database';
+import { UPLOADS_DIR, storageIsTemporary } from './config/paths';
 import authRoutes from './routes/auth';
 import timetableRoutes from './routes/timetables';
 import resultRoutes from './routes/results';
@@ -78,7 +79,7 @@ const authLimiter = rateLimit({
 app.use('/school_portal.db', (_req, res) => res.status(403).json({ message: 'Forbidden' }));
 app.use('/backend/school_portal.db', (_req, res) => res.status(403).json({ message: 'Forbidden' }));
 
-app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+app.use('/uploads', express.static(UPLOADS_DIR));
 
 // Serve built frontend
 const frontendDist = path.join(__dirname, '../../frontend/dist');
@@ -128,14 +129,13 @@ app.get('*', (_req, res) => {
   res.sendFile(path.join(frontendDist, 'index.html'));
 });
 
-// Ensure upload directories exist (Render ephemeral filesystem)
-const uploadDirs = ['uploads/payments', 'uploads/homework'];
-for (const dir of uploadDirs) {
-  const p = path.join(__dirname, '..', dir);
-  if (!fs.existsSync(p)) fs.mkdirSync(p, { recursive: true });
-}
+// Make sure the upload folders exist (a new host, or a freshly attached disk, starts without them)
+for (const dir of ['payments', 'homework', 'branding']) fs.mkdirSync(path.join(UPLOADS_DIR, dir), { recursive: true });
 
 initDatabase().then(() => {
+  if (storageIsTemporary()) {
+    console.error('\n!! WARNING: this portal keeps its data on the host\'s temporary disk. Pupils, marks, payments and uploads are erased whenever the host\n!! restarts, redeploys or goes to sleep. Attach a permanent disk and set DATA_DIR to its mount path (README, "Deploying (Render)").\n');
+  }
   startAutomaticCopies();
   app.listen(PORT, () => {
     console.log(`Server running on http://localhost:${PORT}`);

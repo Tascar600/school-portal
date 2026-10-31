@@ -2,8 +2,8 @@ import { Router, Response } from 'express';
 import path from 'path';
 import fs from 'fs';
 import multer from 'multer';
-import { query, execute, dbPath, ensureSubjectsForClass } from '../config/database';
-import { noteDownload, backupStatus, makeCopy, copyPath } from '../utils/backup';
+import { query, execute, dbPath, ensureSubjectsForClass, checkDatabaseFile, replaceDatabase } from '../config/database';
+import { noteDownload, backupStatus, makeCopy, copyBeforeRestore, copyPath } from '../utils/backup';
 import { recordsOfUser, recordsOfClass, describeRecords, integrityReport } from '../utils/integrity';
 import { ALL_AREA_NAMES } from '../config/curriculum';
 import { authenticate, authorize, AuthRequest } from '../middleware/auth';
@@ -384,15 +384,20 @@ const uploadDb = multer({
 router.post('/db/restore', (req: AuthRequest, res: Response) => {
   uploadDb(req, res, async (err) => {
     if (err) return res.status(400).json({ message: err.message });
+    const temp = req.file?.path;
     try {
       if (!req.file) return res.status(400).json({ message: 'No file uploaded' });
-      // Overwrite the live database with the uploaded file
       const uploaded = fs.readFileSync(req.file.path);
-      fs.writeFileSync(dbPath, uploaded);
-      // Cleanup temp upload
-      try { fs.unlinkSync(req.file.path); } catch {}
-      res.json({ message: 'Database restored. Restart the app or wait for auto-reload.' });
+      // Refuse anything that is not a healthy backup of this portal, before anything is touched
+      const problem = await checkDatabaseFile(uploaded);
+      if (problem) return res.status(400).json({ message: problem });
+      // Keep what the portal holds now, so that restoring the wrong file can be undone (it shows in the backup list)
+      const kept = copyBeforeRestore();
+      // Switch the running portal onto the backup (writing the file alone would be undone by the next save)
+      await replaceDatabase(uploaded);
+      res.json({ message: `Database restored. The portal is now using the backup you chose. What it held just before is kept in the backup list as ${kept.name}.`, kept: kept.name });
     } catch (err: any) { res.status(500).json({ message: err.message }); }
+    finally { if (temp) try { fs.unlinkSync(temp); } catch { /* already gone */ } }
   });
 });
 

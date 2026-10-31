@@ -53,6 +53,9 @@ export default function Dashboard() {
           {data.insecureSecret && (
             <div className="alert alert-error"><strong>JWT_SECRET is not set on this portal.</strong> Log ins are still safe (a random secret is made at each start), but everyone is logged out whenever it restarts. Set <code>JWT_SECRET</code> to a long random value in the host's settings (on Render: Environment) to stop that.</div>
           )}
+          {data.temporaryStorage && (
+            <div className="alert alert-error"><strong>This portal is on temporary storage.</strong> Everything (pupils, marks, payments, uploads) is erased whenever the host restarts, redeploys or goes to sleep. Attach a permanent disk and set <code>DATA_DIR</code> to its mount path (on Render: Disks, then Environment). Until then, download a backup every day.</div>
+          )}
           <BackupNotice backup={data.backup} onDone={() => dashboardApi.get().then((res) => setData(res.data)).catch(() => {})} />
           {pendingResets > 0 && (
             <div className="alert alert-warning">

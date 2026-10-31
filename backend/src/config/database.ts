@@ -5,12 +5,14 @@ import path from 'path';
 import dotenv from 'dotenv';
 import { hashPassword } from './auth';
 import { ALL_AREA_NAMES, LEGACY_AREA_NAMES } from './curriculum';
+import { dbPath } from './paths';
 
 dotenv.config();
 
 let db: SqlJsDatabase;
-// DB_PATH lets a test run use a throw-away database; normally it is backend/school_portal.db
-export const dbPath = process.env.DB_PATH ? path.resolve(process.env.DB_PATH) : path.resolve(__dirname, '../../school_portal.db');
+let SQL: Awaited<ReturnType<typeof initSqlJs>>;
+// Where the database file lives (DB_PATH, or DATA_DIR, or backend/school_portal.db): see config/paths.ts
+export { dbPath };
 
 function createTables(): void {
   db.run(`
@@ -569,13 +571,56 @@ function seedFinanceDefaults(): void {
 }
 
 export async function initDatabase(): Promise<void> {
-  const SQL = await initSqlJs();
+  SQL = await initSqlJs();
   if (fs.existsSync(dbPath)) {
     const buffer = fs.readFileSync(dbPath);
     db = new SQL.Database(buffer);
   } else {
     db = new SQL.Database();
   }
+  prepareDatabase();
+  save();
+  console.log('Database initialized at', dbPath);
+}
+
+// Is this file a healthy backup of this portal? Returns what is wrong with it, or null when it can be used.
+export async function checkDatabaseFile(file: Buffer): Promise<string | null> {
+  if (!SQL) SQL = await initSqlJs();
+  let probe: SqlJsDatabase | undefined;
+  try {
+    probe = new SQL.Database(file);
+    const integrity = probe.exec('PRAGMA integrity_check')[0]?.values[0][0];
+    if (integrity !== 'ok') return 'That file is damaged, so it was not used. Nothing was changed.';
+    if (!probe.exec("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'users'")[0]) return 'That file is not a backup of this portal, so it was not used. Nothing was changed.';
+    return null;
+  } catch {
+    return 'That file is not a database, so it was not used. Nothing was changed.';
+  } finally {
+    try { probe?.close(); } catch { /* nothing to close */ }
+  }
+}
+
+// Switches the running portal onto a backup file (Admin Panel > Database > Restore). Writing the file alone is not enough:
+// the portal works from a copy of the database held in memory and saves it over the file on the next change, which
+// would silently undo the restore. An older backup is brought up to date exactly as at start-up. If anything goes
+// wrong the portal carries on with the data it had.
+export async function replaceDatabase(file: Buffer): Promise<void> {
+  if (!SQL) SQL = await initSqlJs();
+  const before = db;
+  db = new SQL.Database(file);
+  try {
+    prepareDatabase();
+    save();
+  } catch (err) {
+    db = before;
+    save();
+    throw err;
+  }
+  try { before.close(); } catch { /* already closed */ }
+}
+
+// Brings a freshly opened database up to the current layout and makes sure the starting records exist
+function prepareDatabase(): void {
   db.run('PRAGMA foreign_keys = ON');
   createTables();
   try { db.run("CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)"); } catch {}
@@ -607,8 +652,6 @@ export async function initDatabase(): Promise<void> {
   seedBursary();
   seedFinanceDefaults();
   migrateCurriculum(); // again, so the classes seeded above also get their learning areas
-  save();
-  console.log('Database initialized at', dbPath);
 }
 
 function createExtraTables(): void {
