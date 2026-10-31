@@ -309,6 +309,7 @@ export const adminApi = {
   integrity: () => api.get('/admin/db/integrity'),
   backups: () => api.get('/admin/backups'),
   backupNow: () => api.post('/admin/backups/now'),
+  backupEmail: () => api.post('/admin/backups/email', {}, { timeout: 180000 }), // sending the files can take a minute or two
   backupFile: (name: string) => api.get(`/admin/backups/${name}`, { responseType: 'blob' }),
   dbRestore: (formData: FormData) => api.post('/admin/db/restore', formData, { headers: { 'Content-Type': 'multipart/form-data' } }),
   executeSQL: (sql: string) => api.post('/admin/sql', { sql }),

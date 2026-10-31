@@ -14,12 +14,13 @@
     "test:journeys": "node tests/browser/journeys.mjs",
     "test:classwork": "node tests/browser/classwork.mjs",
     "test:browser": "npm run test:pages && npm run test:journeys && npm run test:classwork && npm run test:mobile",
-    "test": "npm run test:first-login && npm run test:sms && npm run seed:sample && npm run test:browser",
+    "test": "npm run test:first-login && npm run test:sms && npm run test:email && npm run seed:sample && npm run test:browser",
     "print:samples": "node tests/browser/print.mjs",
     "test:first-login": "node tests/first-login.mjs",
     "test:sms": "node tests/sms.mjs",
     "test:mobile": "node tests/browser/mobile.mjs",
-    "test:production": "npm --prefix ../frontend run build && node tests/production.mjs"
+    "test:production": "npm --prefix ../frontend run build && node tests/production.mjs",
+    "test:email": "node tests/email.mjs"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
@@ -30,7 +31,9 @@
     "express-rate-limit": "^8.5.2",
     "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.2",
+    "jszip": "^3.10.2",
     "multer": "^1.4.5-lts.1",
+    "nodemailer": "^10.3.1",
     "pdfkit": "^0.20.2",
     "sql.js": "^1.11.0",
     "tsx": "^4.22.0"
@@ -42,6 +45,7 @@
     "@types/jsonwebtoken": "^9.0.6",
     "@types/multer": "^1.4.12",
     "@types/node": "^22.5.0",
+    "@types/nodemailer": "^8.0.2",
     "@types/pdfkit": "^0.17.6",
     "playwright-core": "^1.64.1",
     "ts-node-dev": "^2.0.0",

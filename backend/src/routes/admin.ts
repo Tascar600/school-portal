@@ -4,6 +4,7 @@ import fs from 'fs';
 import multer from 'multer';
 import { query, execute, dbPath, ensureSubjectsForClass, checkDatabaseFile, replaceDatabase } from '../config/database';
 import { noteDownload, backupStatus, makeCopy, copyBeforeRestore, copyPath } from '../utils/backup';
+import { emailBackupConfigured, emailBackupStatus, sendBackupEmail } from '../utils/emailBackup';
 import { recordsOfUser, recordsOfClass, describeRecords, integrityReport } from '../utils/integrity';
 import { ALL_AREA_NAMES } from '../config/curriculum';
 import { authenticate, authorize, AuthRequest } from '../middleware/auth';
@@ -349,13 +350,23 @@ router.get('/db/export', async (req: AuthRequest, res: Response) => {
   } catch (err: any) { res.status(500).json({ message: err.message }); }
 });
 
-// GET /admin/backups — when a copy was last downloaded, and the automatic copies kept on the server
+const fullBackupStatus = async () => ({ ...(await backupStatus()), email: await emailBackupStatus() });
+
+// GET /admin/backups — when a copy was last downloaded, the automatic copies kept on the server, and the emailed copies
 router.get('/backups', async (_req: AuthRequest, res: Response) => {
-  try { res.json(await backupStatus()); } catch (err: any) { res.status(500).json({ message: err.message }); }
+  try { res.json(await fullBackupStatus()); } catch (err: any) { res.status(500).json({ message: err.message }); }
 });
 // POST /admin/backups/now — make today's automatic copy right now
 router.post('/backups/now', async (_req: AuthRequest, res: Response) => {
-  try { makeCopy(); res.json(await backupStatus()); } catch (err: any) { res.status(500).json({ message: err.message }); }
+  try { makeCopy(); res.json(await fullBackupStatus()); } catch (err: any) { res.status(500).json({ message: err.message }); }
+});
+// POST /admin/backups/email — email the database (and any new uploaded files) to the address set in BACKUP_EMAIL_TO
+router.post('/backups/email', async (_req: AuthRequest, res: Response) => {
+  if (!emailBackupConfigured()) return res.status(400).json({ message: 'Emailed backups are not set up on this portal (see the README, "Emailed backups").' });
+  try {
+    const sent = await sendBackupEmail();
+    res.json({ ...(await fullBackupStatus()), sent, message: `Backup emailed to ${sent.to}: the database${sent.files ? ` and ${sent.files} uploaded file${sent.files === 1 ? '' : 's'}` : ''} (${sent.emails} email${sent.emails === 1 ? '' : 's'}).${sent.filesLeft ? ` ${sent.filesLeft} more uploaded files will follow in the next backup.` : ''}` });
+  } catch (err: any) { res.status(502).json({ message: err.message, ...(await fullBackupStatus()) }); }
 });
 // GET /admin/backups/:name — download one of the automatic copies (this counts as a downloaded backup)
 router.get('/backups/:name', async (req: AuthRequest, res: Response) => {

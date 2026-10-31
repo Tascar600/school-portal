@@ -269,6 +269,7 @@ It needs Google Chrome installed, logs in as each sample account, draws the gold
 | `npm run test:first-login` | Starts a throw-away empty portal on port 5055 and checks what the very first log in does (your real database is never touched) |
 | `npm run test:browser` | The browser tests only (`test:pages`, `test:journeys`, `test:classwork`) |
 | `npm run test:sms` | Starts a pretend SMS service and a throw-away portal on ports 5098/5056 and checks automatic text messages |
+| `npm run test:email` | Starts a pretend mail server and throw-away portals on ports 5097/5059 and checks the emailed backups (attachments, new files only, daily send, errors) |
 | `npm run test:production` | Builds the frontend with the real build command and starts the portal the way a host does, on an empty database (port 5057), to check what a visitor gets and that the security warning works |
 | `npm run test:mobile` | Opens every page of every account at phone width and fails if any page has to be dragged sideways |
 | `npm run print:samples` | Prints key pages to PDF in `tests/browser/output/printed/` so you can inspect the paper layout |
@@ -286,6 +287,7 @@ Settings (environment variables, all optional):
 | `AUTH_RATE_LIMIT` | Log in / sign-up requests allowed per 15 minutes (default 100). Raise it **only for local testing** |
 | `FIRST_LOGIN_PASSWORD_CHANGE=off` | Do not make the Administrator and Bursar choose a password on first log in. **Only for a fresh local test database** |
 | `SMS_WEBHOOK_URL`, `SMS_WEBHOOK_TOKEN`, `SMS_SENDER_ID` | Turn on automatic text messages (see "Text messages") |
+| `BACKUP_EMAIL_TO`, `SMTP_HOST`, `SMTP_USER`, `SMTP_PASS`, `SMTP_PORT`, `SMTP_FROM` | Turn on emailed backups (see "Emailed backups"). `SMTP_PORT` defaults to 465; `SMTP_FROM` to `SMTP_USER` |
 
 ### Automated tests
 
@@ -436,6 +438,30 @@ See the **Bursary** section above.
 | **Excel Import/Export** | exceljs (pure JS) |
 | **Picture capture for manuals** | playwright-core + Google Chrome (development only) |
 | **Hosting** | Render (free tier) |
+
+---
+
+## Emailed backups
+
+The portal can email a backup to you, so a copy always exists somewhere other than the portal's own computer. About once a day (and whenever the Administrator presses **Admin Panel → Database → Backups → Email me a backup now**) it sends:
+
+* **one email with the whole database**, as the plain `.db` file that **Restore Database** accepts (zipped only if it grows over 15 MB), and
+* **the uploaded files** (homework, payment proofs, the logo) that are **new since the last email**, zipped, in as many further emails as it takes (each stays under 15 MB, because a mail message may not be over 25 MB). Only new files are sent, so a normal day's email is small. A school with only the two starting accounts is not emailed automatically.
+
+An emailed copy counts as a downloaded backup, so the dashboard stops asking for one while the emails keep arriving. If sending fails, the Backups panel shows why in plain words, and the dashboard reminder returns after a week.
+
+**Setting it up with Gmail** (the sending account can be the same as the receiving one):
+
+1. In the Gmail account that will send, switch on **2-Step Verification** (myaccount.google.com → Security).
+2. Make an **App Password** at myaccount.google.com/apppasswords (call it "School portal") and copy the 16 letters. Gmail refuses the normal password here.
+3. In Render → Environment add: `BACKUP_EMAIL_TO` = `punhamasiwa@gmail.com`, `SMTP_HOST` = `smtp.gmail.com`, `SMTP_USER` = the sending Gmail address, `SMTP_PASS` = the App Password. (`SMTP_PORT` defaults to 465, which is what Gmail wants.)
+4. Save, wait for the redeploy, then press **Email me a backup now** to test.
+
+**It needs a paid Render instance.** Render's free web services block outgoing email on ports 25, 465 and 587 ([Render's notice](https://render.com/changelog/free-web-services-will-no-longer-allow-outbound-traffic-to-smtp-ports)). Any mail server works, not only Gmail.
+
+**Restoring:** use the `.db` from the newest email in **Restore Database**. The portal has no button to put the uploaded files back; unzip them into the portal's `uploads` folder (on Render: the disk, under `DATA_DIR`).
+
+**Keep those emails private.** They hold children's records, fee details and (scrambled) passwords. Protect that mailbox with 2-Step Verification, and do not forward the emails. `npm run test:email` checks all of this against a pretend mail server; it has not been tried against real Gmail.
 
 ---
 

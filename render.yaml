@@ -22,6 +22,15 @@ services:
       # Signs every log in. Render makes a private random one; without it anyone could forge an Administrator login.
       - key: JWT_SECRET
         generateValue: true
+      # Optional emailed backups (see the README, "Emailed backups"). Add the values in the Render dashboard.
+      - key: BACKUP_EMAIL_TO
+        sync: false
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
       # Optional automatic text messages (see the README, "Text messages"). Add them in the Render dashboard.
       - key: SMS_WEBHOOK_URL
         sync: false

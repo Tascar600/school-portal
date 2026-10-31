@@ -36,6 +36,7 @@ export function BackupNotice({ backup, onDone }: { backup?: { daysSince: number 
 export function BackupManager() {
   const [status, setStatus] = useState<any>(null);
   const [msg, setMsg] = useState('');
+  const [emailing, setEmailing] = useState(false);
   const load = () => adminApi.backups().then((r) => setStatus(r.data)).catch(() => setMsg('The backup list could not be loaded'));
   useEffect(() => { load(); }, []);
   if (!status) return <div className="card"><h2>Backups</h2><p className="muted">{msg || 'Loading…'}</p></div>;
@@ -53,7 +54,29 @@ export function BackupManager() {
       <div className="toolbar" style={{ marginBottom: '0.8rem' }}>
         <button className="btn btn-primary" onClick={async () => { try { await downloadDatabase(); setMsg('Backup downloaded.'); load(); } catch (e: any) { setMsg(e.response?.data?.message || 'Download failed'); } }}>Download a backup now</button>
         <button className="btn" onClick={async () => { try { const r = await adminApi.backupNow(); setStatus(r.data); setMsg('Today\'s automatic copy was refreshed.'); } catch (e: any) { setMsg(e.response?.data?.message || 'Could not make a copy'); } }}>Make a copy now</button>
+        {status.email?.configured && (
+          <button className="btn" disabled={emailing} onClick={async () => {
+            setEmailing(true); setMsg('');
+            try { const r = await adminApi.backupEmail(); setStatus(r.data); setMsg(r.data.message); }
+            catch (e: any) {
+              // the reason is kept in the status and shown in the red box below, so it is not shown twice
+              if (e.response?.data?.email) setStatus(e.response.data); else setMsg(e.response?.data?.message || 'The backup could not be emailed');
+            }
+            finally { setEmailing(false); }
+          }}>{emailing ? 'Sending…' : 'Email me a backup now'}</button>
+        )}
       </div>
+      {status.email?.configured ? (
+        <p className="muted small" style={{ marginBottom: '0.8rem' }}>
+          A copy is also emailed to <strong>{status.email.to}</strong> about once a day: the whole database, and any new uploaded files. Last emailed: <strong>{status.email.lastAt ? fmtDateTime(status.email.lastAt) : 'not yet'}</strong>.
+          {status.email.backlog && ' More uploaded files are waiting for the next email.'}
+        </p>
+      ) : (
+        <p className="muted small" style={{ marginBottom: '0.8rem' }}>
+          Backups are not being emailed. To have the portal email you a copy every day, set <code>BACKUP_EMAIL_TO</code> and the <code>SMTP_…</code> settings on the host (see the README, "Emailed backups").
+        </p>
+      )}
+      {status.email?.lastError && <div className="alert alert-error">The last emailed backup did not work: {status.email.lastError}</div>}
       <div className="table-wrap">
         <table>
           <thead><tr><th>Automatic copy</th><th>Saved</th><th className="num">Size</th><th className="no-print" /></tr></thead>

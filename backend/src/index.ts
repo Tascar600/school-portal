@@ -40,6 +40,7 @@ import manualRoutes from './routes/manual';
 import statementRoutes from './routes/statements';
 import { auditTrail } from './middleware/audit';
 import { startAutomaticCopies } from './utils/backup';
+import { startEmailedBackups } from './utils/emailBackup';
 import auditRoutes from './routes/audit';
 import examRoutes from './routes/exams';
 import parentRoutes from './routes/parents';
@@ -137,6 +138,7 @@ initDatabase().then(() => {
     console.error('\n!! WARNING: this portal keeps its data on the host\'s temporary disk. Pupils, marks, payments and uploads are erased whenever the host\n!! restarts, redeploys or goes to sleep. Attach a permanent disk and set DATA_DIR to its mount path (README, "Deploying (Render)").\n');
   }
   startAutomaticCopies();
+  startEmailedBackups();
   app.listen(PORT, () => {
     console.log(`Server running on http://localhost:${PORT}`);
   });
