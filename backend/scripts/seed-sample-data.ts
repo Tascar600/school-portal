@@ -190,7 +190,7 @@ async function main() {
   if (created > 0) {
     const reg = (await get('/admin/users', A)).data.find((u: any) => u.email === allStudents[0].email);
     expectStatus('re-activating an active account is rejected', await post('/auth/activate', undefined, { student_number: reg.student_number, email: 'x@y.zw', password: 'z' }), 400);
-    expectStatus('activating with an unknown registration number is rejected', await post('/auth/activate', undefined, { student_number: 'c99999999c', email: 'x@y.zw', password: 'z' }), 404);
+    expectStatus('activating with an unknown registration number is rejected', await post('/auth/activate', undefined, { student_number: 'c99999999c', email: 'x@y.zw', password: 'Strong@123' }), 404);
     expectStatus('activation without fields is rejected', await post('/auth/activate', undefined, {}), 400);
   }
 

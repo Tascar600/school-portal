@@ -11,3 +11,5 @@ dist/
 frontend/dist/
 tmp/
 *.tsbuildinfo
+demo-data/
+data/

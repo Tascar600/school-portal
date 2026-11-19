@@ -260,12 +260,29 @@ It needs Google Chrome installed, logs in as each sample account, draws the gold
 
 ---
 
+## Demo school (works with no internet)
+
+To show the portal to someone, double-click **`Start Demo.bat`** (or run `npm run demo` in `backend/`). It starts the portal on this computer at **http://localhost:5050** and opens the browser. Nothing is fetched from the internet, so it works with no connection at all.
+
+The first time it also loads a complete school, which takes about two minutes: 9 teachers, **10 pupils in every class (90)**, 17 parent accounts (brothers and sisters in different classes), 15 days of register, 9 homework tasks and 6 quizzes per class with hand-ins, marks and feedback, Terms 1 and 2 results and report cards, Grade 7 examination marks, 20 notices, sports teams, and the whole bursary (bills for Terms 2 and 3, payments in cash, bank, EcoCash, swipe and ZWG, instalments, arrears, charges, fee waivers, expenses, transfers and reminders). After that it starts at once with the same school.
+
+* **It never touches your real school.** The demo school lives in its own folder, `demo-data/` beside `backend/` (ignored by Git). `npm start` still uses `backend/school_portal.db`.
+* **Start again from a fresh demo:** `npm run demo -- --reset` (or `"Start Demo.bat" --reset`) throws the demo folder away and loads a new one. `--no-open` does not open the browser; `DEMO_PORT` changes the port. Press Ctrl+C (or close the window) to stop.
+* **Log ins** are the sample ones in "Sample Data" above (Administrator `punhamasiwa@gmail.com` / `1234`, Bursar `tascarmasiwa@gmail.com` / `12345678`, teachers `Teacher@123`, pupils `Student@123`), plus parents `parent.<surname>@chakari.school` / `Parent@123` (for example `parent.khumalo@`, three children in three classes). The demo starts with first-log-in password changes switched off so those work straight away; never use that setting on a real school.
+* The demo adds to `seed:sample`'s school with `npm run seed:demo`, which is safe to run twice. Do not run `seed:sample` again on a school that has had it: that script counts exactly 5 pupils per class.
+
+---
+
 ## Scripts
 
 | Command (in `backend/`) | What it does |
 |-------------------------|--------------|
 | `npm start` | Runs the portal (serves the built frontend and the API) |
 | `npm run seed:sample` | Loads the sample school and runs the feature check (local only) |
+| `npm run demo` | Starts a complete demo school on this computer, with no internet (see "Demo school") |
+| `npm run seed:demo` | Adds the bigger demo data (10 pupils per class, fees, homework, quizzes) to a school that has had `seed:sample` (`npm run demo` does both) |
+| `npm run test:backup` | Checks the off-site backup against a pretend GitHub: encryption, upload, restore, refusing to start, and a full redeploy |
+| `npm run backup:check` | Downloads and decrypts the latest off-site backup and says what is in it, changing nothing (see "Off-site backup to GitHub") |
 | `npm run capture-manual` | Takes the pictures used in the PDF manuals |
 | `npm test` | Runs everything below: the first-login check, the sample-school API check, then all the browser tests |
 | `npm run test:first-login` | Starts a throw-away empty portal on port 5055 and checks what the very first log in does (your real database is never touched) |
@@ -291,6 +308,7 @@ Settings (environment variables, all optional):
 | `FIRST_LOGIN_PASSWORD_CHANGE=off` | Do not make the Administrator and Bursar choose a password on first log in. **Only for a fresh local test database** |
 | `SMS_WEBHOOK_URL`, `SMS_WEBHOOK_TOKEN`, `SMS_SENDER_ID` | Turn on automatic text messages (see "Text messages") |
 | `BACKUP_EMAIL_TO`, `SMTP_HOST`, `SMTP_USER`, `SMTP_PASS`, `SMTP_PORT`, `SMTP_FROM` | Turn on emailed backups (see "Emailed backups"). `SMTP_PORT` defaults to 465; `SMTP_FROM` to `SMTP_USER` |
+| `BACKUP_GITHUB_TOKEN`, `BACKUP_GITHUB_REPO`, `BACKUP_PASSPHRASE` | Turn on the encrypted off-site backup to a private GitHub repository, and the automatic restore after a wipe (see "Off-site backup to GitHub"). All three are needed; with any missing it does nothing. Optional: `BACKUP_BRANCH` (default `data-backup`), `BACKUP_FILE` (default `snapshot.bin`), `BACKUP_INTERVAL_MS` (default `60000`) |
 
 ### Automated tests
 
@@ -468,6 +486,60 @@ An emailed copy counts as a downloaded backup, so the dashboard stops asking for
 
 ---
 
+## Off-site backup to GitHub
+
+The portal can keep an **encrypted copy of the whole database in a private GitHub repository** and **bring the school back by itself** when its host loses the disk. It is free, works on Render's free plan (where every redeploy, restart and sleep wipes the disk), and is a second safety net on a paid plan with a disk.
+
+**What it does**
+
+* About every minute, **only if something changed**, it takes a consistent copy of the database from memory, compresses it, **encrypts it** (AES-256-GCM, with a key made from your passphrase) and puts it on a branch of your private repository. When Render stops the portal for a redeploy it makes one last upload first.
+* When the portal **starts and has no database file**, it downloads the latest copy, decrypts and checks it, and puts it in place **before the database is opened**. The log says `Off-site backup: the database was missing, so it was restored from the off-site copy`.
+* A database that is **already there is never touched or replaced**, and no network is needed to start.
+* **If a restore is needed but fails** (GitHub unreachable, wrong passphrase, damaged file) the portal **refuses to start** and says why. Starting with an empty school would, a minute later, replace your good copy with the empty one. The very first start, when nothing has been backed up yet, is normal and starts empty.
+* A school that holds only the two starting accounts is never uploaded. A **public** repository is refused.
+* It is switched off completely unless all three settings below exist. If only some are set, or a name has a dash instead of an underscore (the host silently ignores those), the log says so by name.
+
+**What is in the copy, and what is not.** The database: pupils, teachers, parents, marks, fees, payments, notices, the audit trail, the settings (passwords are stored scrambled, as always). **Not** the uploaded files (homework pictures, payment proofs, the logo): the emailed backups carry those ("Emailed backups" above). The log in secret is not in it either, so after a restore people may have to log in again once.
+
+### Setting it up (once)
+
+1. **A private repository.** On github.com: **+ → New repository**. Give it a name such as `school-portal-backups`, choose **Private**, tick **Add a README file** (the repository needs a first branch to make the backup branch from), **Create**.
+2. **A token that can touch only that repository.** GitHub → your picture → **Settings → Developer settings → Personal access tokens → Fine-grained tokens → Generate new token**. Name it `school portal backup`. **Repository access: Only select repositories** → the repository from step 1. **Permissions → Repository permissions → Contents: Read and write**. Choose an expiry (a long one; write the date in your diary, see "When it stops working" below). Generate and copy the token (it starts `github_pat_`; GitHub shows it only once).
+3. **A passphrase.** Make up a long phrase, for example five unrelated words and a number. **Write it on paper and keep it somewhere safe, with someone you trust as well.** Without it no copy can ever be read again: nobody can recover it, and that includes whoever built this portal.
+4. **Tell the host.** On Render: your service → **Environment → Add Environment Variable**, three times (the names use **underscores**):
+
+   | Name | Value |
+   |------|-------|
+   | `BACKUP_GITHUB_TOKEN` | the token from step 2 |
+   | `BACKUP_GITHUB_REPO` | `your-github-name/school-portal-backups` |
+   | `BACKUP_PASSPHRASE` | the passphrase from step 3 |
+
+   Save. Render redeploys. Optional: `BACKUP_BRANCH` (default `data-backup`), `BACKUP_FILE` (default `snapshot.bin`), `BACKUP_INTERVAL_MS` (default `60000`, see "Limits").
+5. **Check it.** In Render → **Logs**, look for `Off-site backup is ON`. Once the school holds some data (more than the two starting accounts) and a minute has passed, the log says `Off-site backup: uploaded ... KB`, and on GitHub the repository has a branch **`data-backup`** with a file `snapshot.bin` (unreadable, as it should be).
+
+### Test a restore (do this once, before you need it)
+
+* **The safe check, which changes nothing:** on your own computer, in `backend/`, with the same three settings, run `npm run backup:check`. It downloads the latest copy, decrypts it and prints what is inside, for example `The database inside is healthy ... It holds: 1 admin, 1 bursary, 9 teacher, 90 student ...`. A wrong passphrase prints `BACKUP_PASSPHRASE is not the phrase it was made with`. In PowerShell:
+
+  ```powershell
+  cd backend
+  $env:BACKUP_GITHUB_TOKEN = 'github_pat_...'; $env:BACKUP_GITHUB_REPO = 'you/school-portal-backups'; $env:BACKUP_PASSPHRASE = 'your phrase'
+  npm run backup:check
+  ```
+* **The whole thing, on your own computer:** start the portal with the same three settings and `DATA_DIR` set to a **new empty folder** (never your real one). It prints `restored from the off-site copy` and your school is there. Look, then stop it without changing anything: a portal with the settings uploads its changes to the same repository.
+* **The automatic test:** `npm run test:backup` checks every part against a pretend GitHub (encryption and the wrong passphrase, upload and download, the schedule and the last upload, every way a restore can fail, a portal that refuses to start, and a complete redeploy: start, change something, delete the whole disk, start on an empty one, and the data is back).
+
+**Last resort.** If the off-site copy ever cannot be used, **Admin Panel → Database → Download a backup now** and **Restore Database** (a downloaded or emailed `.db` file) still work.
+
+### When it stops working, and limits
+
+* **The token expires** on the date you chose, and then uploads fail (`Off-site backup FAILED ... 401`). The log shows each problem once, not every minute, so look at the Render log now and then. If the disk is lost while the token is expired, the portal refuses to start; put a fresh token in `BACKUP_GITHUB_TOKEN` and it restores. The data is still on GitHub.
+* **Every upload is one commit** on the branch, and old ones are kept by GitHub. A busy school day can make hundreds of uploads of a few hundred KB each. Keep the repository comfortably under 1 GB: for a larger school raise `BACKUP_INTERVAL_MS` (`600000` is ten minutes), and every few months, while the portal is healthy, delete the `data-backup` branch in GitHub (after downloading a backup); the portal makes it again at the next change.
+* **Only one portal** should use one repository and branch. Two portals would overwrite each other's copy.
+* This has been tested against a pretend GitHub (`npm run test:backup`), **not against github.com itself**. Do the first test above with your real token before you rely on it.
+
+---
+
 ## Deploying (Render)
 
 `render.yaml` describes the service: it builds the frontend (`npm install` in `backend/` runs the build), starts the backend, and asks Render to make a private random `JWT_SECRET`. **Deploying is something you do from your Render account; this project is not connected to one from here.** In outline:
@@ -502,7 +574,7 @@ The disk protects against restarts and redeploys, **not** against a mistake or t
 
 ## Important Notes
 
-- **⚠ Render's free tier has temporary storage.** The database file and every upload are wiped on every redeploy, every restart **and every time the free service goes to sleep after 15 minutes without a visitor** ([Render's free-tier rules](https://render.com/docs/free)), which silently erases **real** pupils, teachers, invoices, payments and marks, leaving only the Administrator/Bursar accounts and the class list. Use a paid instance with a persistent disk and set `DATA_DIR` (see "Keeping your data" above). The Administrator's dashboard shows a red warning for as long as the portal is on a host without it. On the free tier the only protection is a downloaded backup (**Admin Panel → Database → Download a backup now**, daily) and **Restore Database** after each wipe.
+- **⚠ Render's free tier has temporary storage.** The database file and every upload are wiped on every redeploy, every restart **and every time the free service goes to sleep after 15 minutes without a visitor** ([Render's free-tier rules](https://render.com/docs/free)), which silently erases **real** pupils, teachers, invoices, payments and marks, leaving only the Administrator/Bursar accounts and the class list. Use a paid instance with a persistent disk and set `DATA_DIR` (see "Keeping your data" above). The Administrator's dashboard shows a red warning for as long as the portal is on a host without it. On the free tier the only protection is a downloaded backup (**Admin Panel → Database → Download a backup now**, daily) and **Restore Database** after each wipe, or the automatic encrypted copy on GitHub described in "Off-site backup to GitHub", which restores the database by itself (not the uploaded files).
 - **Restore Database** replaces everything with the file you choose. It first checks the file really is a backup of this portal (anything else is refused and nothing changes), and it saves what the portal held just before as `school_portal-<date>-before-restore-<time>.db` in the backup list, so restoring the wrong file can be undone by downloading that copy and restoring it. *(Before 2026-10-31 this button reported success but did not actually restore anything on a running portal; it does now, and `npm run test:production` checks it.)*
 - The Administrator (**1234**) and Bursar (**12345678**) passwords above are first-login credentials. Change both before real use.
 - The portal is in English only.

@@ -5,8 +5,8 @@ import fs from 'fs';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
-import { initDatabase } from './config/database';
-import { UPLOADS_DIR, storageIsTemporary } from './config/paths';
+import { initDatabase, checkDatabaseFile, snapshotDatabase, databaseChanges, queryOne } from './config/database';
+import { UPLOADS_DIR, dbPath, storageIsTemporary } from './config/paths';
 import { trustProxySetting } from './config/proxy';
 import authRoutes from './routes/auth';
 import timetableRoutes from './routes/timetables';
@@ -42,6 +42,7 @@ import statementRoutes from './routes/statements';
 import { auditTrail } from './middleware/audit';
 import { startAutomaticCopies } from './utils/backup';
 import { startEmailedBackups } from './utils/emailBackup';
+import { restoreIfNeeded, startOffsiteBackups, offsiteSetupWarnings, REFUSAL } from './utils/offsiteBackup';
 import auditRoutes from './routes/audit';
 import examRoutes from './routes/exams';
 import parentRoutes from './routes/parents';
@@ -154,15 +155,37 @@ app.get('*', (_req, res) => {
 // Make sure the upload folders exist (a new host, or a freshly attached disk, starts without them)
 for (const dir of ['payments', 'homework', 'branding']) fs.mkdirSync(path.join(UPLOADS_DIR, dir), { recursive: true });
 
-initDatabase().then(() => {
+async function start(): Promise<void> {
+  for (const w of offsiteSetupWarnings()) console.error(`!! ${w}`);
+
+  // If this host lost its disk, bring the school back from the encrypted off-site copy BEFORE the database is opened. A database
+  // that is already there is never touched. If a restore was needed and failed, this throws and the portal does not start.
+  try {
+    const restored = await restoreIfNeeded({ dbFile: dbPath, validate: checkDatabaseFile });
+    if (restored.status === 'restored') console.log(`Off-site backup: the database was missing, so it was restored from the off-site copy (${(restored.bytes / 1024).toFixed(0)} KB).`);
+    else if (restored.status === 'none') console.log('Off-site backup: no copy exists yet (this looks like the very first start), starting with a new database.');
+  } catch (err: any) {
+    console.error(`\n!! Off-site backup: ${err.message}\n!! ${REFUSAL}\n`);
+    process.exit(1);
+  }
+
+  await initDatabase();
   if (storageIsTemporary()) {
     console.error('\n!! WARNING: this portal keeps its data on the host\'s temporary disk. Pupils, marks, payments and uploads are erased whenever the host\n!! restarts, redeploys or goes to sleep. Attach a permanent disk and set DATA_DIR to its mount path (README, "Deploying (Render)").\n');
   }
   startAutomaticCopies();
   startEmailedBackups();
+  startOffsiteBackups({
+    snapshot: snapshotDatabase,
+    version: databaseChanges,
+    // a school with only the two starting accounts has nothing worth sending, and must never replace a good copy
+    worthBackingUp: async () => Number((await queryOne<any>('SELECT COUNT(*) AS n FROM users'))?.n || 0) > 2,
+  });
   app.listen(PORT, () => {
     console.log(`Server running on http://localhost:${PORT}`);
   });
-});
+}
+
+start().catch((err) => { console.error('The portal could not start:', err); process.exit(1); });
 
 export default app;

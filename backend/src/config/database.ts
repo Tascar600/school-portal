@@ -725,12 +725,25 @@ export function ensureSubjectsForClass(classId: number): void {
   save();
 }
 
+let changes = 0;
+
 function save(): void {
   const data = db.export();
   fs.writeFileSync(dbPath, Buffer.from(data));
+  changes++;
   // sql.js switches foreign-key checking off every time it exports the database; switch it back on so the rules
   // (no mark without a pupil, no receipt without a pupil ...) hold for the whole time the portal is running
   db.run('PRAGMA foreign_keys = ON');
+}
+
+// For the off-site backup (utils/offsiteBackup.ts): how many times the database has been saved since the portal started,
+// and a consistent copy of it exactly as it is right now. Taken from memory, never by copying the file, which could be
+// caught half way through a save. Everything here is synchronous, so no write can slip in while the copy is being made.
+export const databaseChanges = (): number => changes;
+export function snapshotDatabase(): Buffer {
+  const data = db.export();
+  db.run('PRAGMA foreign_keys = ON'); // export switches it off, see save()
+  return Buffer.from(data);
 }
 
 export async function query<T = any>(sql: string, params?: any[]): Promise<T> {

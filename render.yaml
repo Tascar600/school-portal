@@ -31,6 +31,14 @@ services:
         sync: false
       - key: SMTP_PASS
         sync: false
+      # Optional encrypted off-site backup to a private GitHub repository, restored automatically after a wipe (see the README,
+      # "Off-site backup to GitHub"). All three are needed; add the values in the Render dashboard. Names use underscores.
+      - key: BACKUP_GITHUB_TOKEN
+        sync: false
+      - key: BACKUP_GITHUB_REPO
+        sync: false
+      - key: BACKUP_PASSPHRASE
+        sync: false
       # Optional automatic text messages (see the README, "Text messages"). Add them in the Render dashboard.
       - key: SMS_WEBHOOK_URL
         sync: false
