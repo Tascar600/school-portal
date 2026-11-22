@@ -12,12 +12,13 @@
     "demo": "node scripts/demo.mjs",
     "reset-password": "tsx scripts/reset-password.ts",
     "backup:check": "tsx scripts/offsite-backup.ts",
+    "import:register": "tsx scripts/import-register.ts",
     "capture-manual": "tsx scripts/capture-manual-screenshots.ts",
     "test:pages": "node tests/browser/pages.mjs",
     "test:journeys": "node tests/browser/journeys.mjs",
     "test:classwork": "node tests/browser/classwork.mjs",
     "test:browser": "npm run test:pages && npm run test:journeys && npm run test:classwork && npm run test:mobile",
-    "test": "npm run test:first-login && npm run test:sms && npm run test:email && npm run test:backup && npm run test:reset && npm run seed:sample && npm run test:browser",
+    "test": "npm run test:first-login && npm run test:sms && npm run test:email && npm run test:backup && npm run test:reset && npm run test:import && npm run seed:sample && npm run test:browser",
     "print:samples": "node tests/browser/print.mjs",
     "test:first-login": "node tests/first-login.mjs",
     "test:sms": "node tests/sms.mjs",
@@ -25,7 +26,8 @@
     "test:production": "npm --prefix ../frontend run build && node tests/production.mjs",
     "test:email": "node tests/email.mjs",
     "test:backup": "node --import tsx --test tests/offsite-backup.test.mjs",
-    "test:reset": "node --test tests/emergency-reset.test.mjs"
+    "test:reset": "node --test tests/emergency-reset.test.mjs",
+    "test:import": "node --test tests/import-register.test.mjs"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

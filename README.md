@@ -274,11 +274,36 @@ The first time it also loads a complete school, which takes about two minutes: 9
 
 ---
 
+## Loading class lists and registers from Excel
+
+The school's class lists and term registers can be loaded into the live portal from the Excel sheets (one workbook per class, with the sheets **Pupils** and **Attendance Import**, and optionally **Attendance Register**). Double-click **`Import Class Registers.bat`** and drag the `.xlsx` files onto it, or run in `backend/`:
+
+```
+npm run import:register -- "C:\path\Chakari_ECD_A_2026_Pupils_and_Attendance.xlsx" "C:\path\Chakari_ECD_B_2026_Pupils_and_Attendance.xlsx"
+```
+
+It runs **on your own computer** and talks to the portal over the internet, so you log in with your own Administrator account (it asks for the portal's address, the email, and the password, which is not shown as you type). Choose your own password on the portal first: the importer refuses an account that still has to change its starting password.
+
+* **It shows the plan first** (pupils to add, register days to add, anything it will skip) and changes nothing until you type `IMPORT`. `--dry-run` shows the plan and stops.
+* **Each pupil goes into the class named in the sheet** ("ECD A", "ECD B"). If the portal has no class with that name, nothing at all is added; make the class under Classes first.
+* **Pupils are added as closed accounts** with a registration number, like any pupil created by the Administrator. Gender, date of birth and the day they joined are filled in; a date of birth that was unclear in the scan is not guessed, but written in the pupil's notes with the sheet's own remark.
+* **Registers:** one register for each school day in the sheet, owned by the Administrator. Days with no marks (holidays) get no register. `N` (admitted that day) is handled as each sheet says: left out of the count, or counted as present.
+* **Pupils marked `T` (transferred)** are closed and recorded as having left, with their attendance up to that day kept.
+* **A row with no name** (for example "(NAME MISSING)") is skipped and reported; add the name in Excel and run it again.
+* **Safe to run again:** pupils and register days already in the portal are not added twice, and anything the school has edited in the portal is never overwritten.
+* **Check the notes:** every doubtful row in the sheet ("Check / Notes") is copied to the pupil's notes beginning `CHECK:`, so the school can find and correct them.
+
+`npm run test:import` checks all of this against a throw-away portal, with invented names.
+
+---
+
 ## Scripts
 
 | Command (in `backend/`) | What it does |
 |-------------------------|--------------|
 | `npm start` | Runs the portal (serves the built frontend and the API) |
+| `npm run import:register -- <files.xlsx>` | Loads class lists and attendance registers from Excel into a portal (see "Loading class lists and registers from Excel") |
+| `npm run test:import` | Checks that loader against a throw-away portal with invented names |
 | `npm run seed:sample` | Loads the sample school and runs the feature check (local only) |
 | `npm run demo` | Starts a complete demo school on this computer, with no internet (see "Demo school") |
 | `npm run seed:demo` | Adds the bigger demo data (10 pupils per class, fees, homework, quizzes) to a school that has had `seed:sample` (`npm run demo` does both) |
