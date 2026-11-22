@@ -9,6 +9,9 @@
  * Nothing is changed before that. It only ADDS: it never edits or deletes anything that is already in the portal, and it is
  * safe to run again (pupils and days already there are skipped).
  *
+ * With --names-only (double-click "Import Pupil Names.bat") only the pupils and their details are added, no attendance registers;
+ * running it later without --names-only adds the registers for the pupils already there.
+ *
  * What each workbook must contain (the layout the school's scanned-register sheets use):
  *   sheet "Pupils"             First Name, Surname, Gender, Date of Birth, Status, Class 2026, Check / Notes (and optionally
  *                              No / Register No, DOB as written, Transferred In From)
@@ -208,15 +211,16 @@ const STATUS: Record<string, string> = { P: 'present', A: 'absent', L: 'late', E
 
 interface Plan { book: Book; classId: number; create: Pupil[]; have: Map<string, number>; skipDates: string[]; newDates: string[]; unknownCodes: string[]; ownedBy: number }
 
-async function plan(api: Api, book: Book, classes: any[]): Promise<Plan> {
+async function plan(api: Api, book: Book, classes: any[], namesOnly: boolean): Promise<Plan> {
   const cls = classes.find((c) => key(c.name) === key(book.className));
   if (!cls) throw new Error(`${path.basename(book.file)}: the portal has no class called "${book.className}" (it has: ${classes.map((c) => c.name).join(', ')})`);
   const people = await api.sql("SELECT id, name, class_id, archived FROM users WHERE role = 'student'");
   const have = new Map<string, number>();
   for (const p of people) if (p.class_id === cls.id || p.archived) have.set(key(p.name), p.id);
   const create = book.pupils.filter((p) => !have.has(key(p.name)));
-  const existing = new Set((await api.sql('SELECT date FROM attendance WHERE class_id = ?', [cls.id])).map((r: any) => r.date));
-  const dates = [...new Set(book.attendance.map((a) => a.date))].sort();
+  // names and details only: the register days are not looked at, so none are added
+  const existing = new Set(namesOnly ? [] : (await api.sql('SELECT date FROM attendance WHERE class_id = ?', [cls.id])).map((r: any) => r.date));
+  const dates = namesOnly ? [] : [...new Set(book.attendance.map((a) => a.date))].sort();
   const unknownCodes = [...new Set(book.attendance.map((a) => a.code).filter((c) => !STATUS[c] && c !== 'N'))];
   return { book, classId: cls.id, create, have, skipDates: dates.filter((d) => existing.has(d)), newDates: dates.filter((d) => !existing.has(d)), unknownCodes, ownedBy: api.adminId };
 }
@@ -229,14 +233,18 @@ const profileNote = (p: Pupil) => [
   p.leftWhy,
 ].filter(Boolean).join(' | ');
 
-function describe(pl: Plan, base: string) {
+function describe(pl: Plan, namesOnly: boolean) {
   const b = pl.book;
   const lines: string[] = [];
   lines.push(`\n${path.basename(b.file)}  ->  class ${b.className}`);
-  lines.push(`  pupils on the list: ${b.pupils.filter((p) => !p.left).length}` + (b.pupils.some((p) => p.left) ? `, and ${b.pupils.filter((p) => p.left).length} who left the class (added and closed so their days stay in the register)` : ''));
+  lines.push(`  pupils on the list: ${b.pupils.filter((p) => !p.left).length}` + (b.pupils.some((p) => p.left) ? `, and ${b.pupils.filter((p) => p.left).length} who left the class (added as closed accounts${namesOnly ? '' : ' so their days stay in the register'})` : ''));
   lines.push(`  new pupils to add: ${pl.create.length}   already in the portal (left as they are): ${b.pupils.length - pl.create.length}`);
-  lines.push(`  school days in the register: ${pl.newDates.length + pl.skipDates.length}  (to add: ${pl.newDates.length}${pl.skipDates.length ? `, already there: ${pl.skipDates.length}` : ''})` + (pl.newDates.length ? `, ${pl.newDates[0]} to ${pl.newDates[pl.newDates.length - 1]}` : ''));
-  lines.push(`  "N" (admitted that day) is ${b.admitted === 'skip' ? 'left out of the count, as the register does' : 'counted as present, as the register does'}`);
+  if (namesOnly) {
+    lines.push('  attendance registers: NOT loaded (names and details only)');
+  } else {
+    lines.push(`  school days in the register: ${pl.newDates.length + pl.skipDates.length}  (to add: ${pl.newDates.length}${pl.skipDates.length ? `, already there: ${pl.skipDates.length}` : ''})` + (pl.newDates.length ? `, ${pl.newDates[0]} to ${pl.newDates[pl.newDates.length - 1]}` : ''));
+    lines.push(`  "N" (admitted that day) is ${b.admitted === 'skip' ? 'left out of the count, as the register does' : 'counted as present, as the register does'}`);
+  }
   for (const s of b.skipped) lines.push(`  SKIPPED  ${s}`);
   for (const w of b.warnings.slice(0, 5)) lines.push(`  note     ${w}`);
   if (pl.unknownCodes.length) lines.push(`  note     status codes not understood and left out: ${pl.unknownCodes.join(', ')}`);
@@ -245,7 +253,6 @@ function describe(pl: Plan, base: string) {
     lines.push(`  to check with the school (their notes are kept in the pupil's profile):`);
     for (const p of check) lines.push(`    ${String(p.no ?? '').padStart(2)} ${p.name}: ${[p.check, p.dobWritten && `date of birth as written ${p.dobWritten}`, p.left && p.leftWhy].filter(Boolean).join('; ')}`);
   }
-  void base;
   return lines.join('\n');
 }
 
@@ -297,9 +304,18 @@ async function apply(api: Api, pl: Plan): Promise<{ pupils: number; registers: n
 // ── asking questions ─────────────────────────────────────────────────────────
 
 const rl = () => readline.createInterface({ input: process.stdin, output: process.stdout });
+// When the answers are piped in (not typed in a window, as in the automated test) all of them arrive at once, so read them all
+// first and hand them out one question at a time; a window the person types in is handled question by question below.
+let piped: string[] | null = null;
+async function pipedAnswer(question: string): Promise<string> {
+  process.stdout.write(question + '\n');
+  if (!piped) { let all = ''; for await (const chunk of process.stdin) all += chunk; piped = all.split(/\r?\n/); }
+  return (piped.shift() ?? '').trim();
+}
 function ask(question: string, hidden = false): Promise<string> {
+  if (!process.stdin.isTTY) return pipedAnswer(question);
   return new Promise((resolve) => {
-    if (!hidden || !process.stdin.isTTY) { const i = rl(); i.question(question, (a) => { i.close(); resolve(a.trim()); }); return; }
+    if (!hidden) { const i = rl(); i.question(question, (a) => { i.close(); resolve(a.trim()); }); return; }
     process.stdout.write(question);
     let value = '';
     const stdin = process.stdin as any;
@@ -327,7 +343,7 @@ async function main(): Promise<number> {
   const args = process.argv.slice(2);
   const has = (n: string) => { const i = args.indexOf(`--${n}`); if (i < 0) return false; args.splice(i, 1); return true; };           // --yes
   const val = (n: string) => { const i = args.indexOf(`--${n}`); if (i < 0) return undefined; const v = args[i + 1]; args.splice(i, 2); return v; }; // --url X
-  const url = val('url'), email = val('email'), pw = val('password') ?? process.env.IMPORT_PASSWORD, yes = has('yes'), dry = has('dry-run');
+  const url = val('url'), email = val('email'), pw = val('password') ?? process.env.IMPORT_PASSWORD, yes = has('yes'), dry = has('dry-run'), namesOnly = has('names-only');
   let files = args.filter((a) => !a.startsWith('--'));
   if (!files.length) {
     files = findWorkbooks();
@@ -345,10 +361,10 @@ async function main(): Promise<number> {
   const api = await connect(base, mail, secret);
   const classes = (await api.call('GET', '/admin/classes')).data as any[];
   const plans: Plan[] = [];
-  for (const b of books) plans.push(await plan(api, b, classes));
+  for (const b of books) plans.push(await plan(api, b, classes, namesOnly));
 
   console.log(`\nPortal: ${base}\nThis will ADD the following. Nothing that is already in the portal is changed or removed.`);
-  for (const p of plans) console.log(describe(p, base));
+  for (const p of plans) console.log(describe(p, namesOnly));
   const nothing = plans.every((p) => !p.create.length && !p.newDates.length);
   if (nothing) { console.log('\nEverything in these sheets is already in the portal. Nothing to do.'); return 0; }
   if (dry) { console.log('\nDry run: nothing was changed.'); return 0; }
@@ -363,7 +379,7 @@ async function main(): Promise<number> {
   for (const p of plans) {
     try {
       const done = await apply(api, p);
-      console.log(`\n${path.basename(p.book.file)}: added ${done.pupils} pupil(s) and ${done.registers} register day(s)${done.closed ? `, closed ${done.closed} who left` : ''}.`);
+      console.log(`\n${path.basename(p.book.file)}: added ${done.pupils} pupil(s)${namesOnly ? '' : ` and ${done.registers} register day(s)`}${done.closed ? `, closed ${done.closed} who left` : ''}.`);
     } catch (err: any) {
       bad++;
       console.error(`\n!! ${path.basename(p.book.file)}: stopped part way: ${err.message}\n   Nothing already added was removed. Fix the problem and run this again: it carries on where it stopped.`);

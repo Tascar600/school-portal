@@ -90,6 +90,20 @@ test('import-register: class list and register go into the right classes, once, 
       matrix: { dates: ['2026-09-08', '2026-09-09'], rows: [{ no: 1, first: 'ELLA', last: 'NEWCOMER', g: 'F', marks: ['N', 'P'] }] },
       attendance: [[1, 'ELLA', 'NEWCOMER', '2026-09-08', 'N'], [1, 'ELLA', 'NEWCOMER', '2026-09-09', 'P']],
     });
+    const G1 = path.join(dir, 'grade1_Pupils_and_Attendance.xlsx');
+    await makeBook(G1, {
+      cls: 'Grade 1', nRule: 'not counted',
+      pupils: [{ no: 1, first: 'FINN', last: 'NAMESONLY', gender: 'Male', dob: '2019-03-04', written: '04.03.19', check: 'Spelling of surname to confirm' }],
+      matrix: { dates: ['2026-09-08', '2026-09-09'], rows: [{ no: 1, first: 'FINN', last: 'NAMESONLY', g: 'M', marks: ['P', 'A'] }] },
+      attendance: [[1, 'FINN', 'NAMESONLY', '2026-09-08', 'P'], [1, 'FINN', 'NAMESONLY', '2026-09-09', 'A']],
+    });
+    const G2 = path.join(dir, 'grade2_Pupils_and_Attendance.xlsx');
+    await makeBook(G2, {
+      cls: 'Grade 2', nRule: 'not counted',
+      pupils: [{ no: 1, first: 'GINA', last: 'TYPEDIN', gender: 'Female' }],
+      matrix: { dates: ['2026-09-08'], rows: [{ no: 1, first: 'GINA', last: 'TYPEDIN', g: 'F', marks: ['P'] }] },
+      attendance: [[1, 'GINA', 'TYPEDIN', '2026-09-08', 'P']],
+    });
     const wrongClass = path.join(dir, 'nowhere_Pupils_and_Attendance.xlsx');
     await makeBook(wrongClass, { cls: 'Grade 9', nRule: 'not counted', pupils: [{ no: 1, first: 'ZED', last: 'ZERO', gender: 'Male' }], matrix: { dates: ['2026-09-08'], rows: [] }, attendance: [[1, 'ZED', 'ZERO', '2026-09-08', 'P']] });
 
@@ -107,8 +121,9 @@ test('import-register: class list and register go into the right classes, once, 
     assert.ok(login.token, 'the test Administrator could not log in: ' + JSON.stringify(login));
     const sql = async (q, params = []) => (await (await fetch(url + '/api/admin/sql', { method: 'POST', headers: { 'content-type': 'application/json', Authorization: 'Bearer ' + login.token }, body: JSON.stringify({ sql: q, params }) })).json()).rows;
     // The importer runs as a separate program, waited for without blocking this test's own network connections.
-    const importer = (args) => new Promise((resolve) => {
+    const importer = (args, typed = '') => new Promise((resolve) => {
       const p = spawn(process.execPath, [TSX, 'scripts/import-register.ts', ...args], { cwd: BACKEND });
+      p.stdin.end(typed); // what a person would type in the window, one answer per line
       let stdout = '', stderr = '';
       p.stdout.on('data', (d) => { stdout += d; }); p.stderr.on('data', (d) => { stderr += d; });
       p.on('close', (status) => resolve({ status, stdout, stderr }));
@@ -189,6 +204,38 @@ test('import-register: class list and register go into the right classes, once, 
     assert.match(again.stdout, /Everything in these sheets is already in the portal/);
     assert.equal(await count(), 6);
     assert.equal((await sql('SELECT COUNT(*) n FROM attendance'))[0].n, 5);
+
+    // names and details only: the pupil and their profile go in, no register at all
+    const nOnly = await run([G1], ['--names-only', '--dry-run']);
+    assert.equal(nOnly.status, 0, nOnly.stderr);
+    assert.match(nOnly.stdout, /attendance registers: NOT loaded/);
+    assert.doesNotMatch(nOnly.stdout, /school days in the register|"N"/);
+    assert.equal(await count(), 6, 'a dry run adds nothing');
+    const names = await run([G1], ['--names-only', '--yes']);
+    assert.equal(names.status, 0, names.stdout + names.stderr);
+    assert.match(names.stdout, /added 1 pupil\(s\)\./);
+    assert.doesNotMatch(names.stdout, /register day/);
+    const finn = await pupil('FINN NAMESONLY');
+    assert.equal(finn.class_id, cid('Grade 1')); assert.equal(finn.gender, 'M'); assert.equal(finn.dob, '2019-03-04');
+    assert.match(finn.notes, /CHECK: Spelling of surname to confirm/);
+    assert.equal((await sql('SELECT COUNT(*) n FROM attendance'))[0].n, 5, 'no register was added');
+    // the registers can still be added afterwards, for the pupil who is already there
+    const laterRegs = await run([G1], ['--yes']);
+    assert.equal(laterRegs.status, 0, laterRegs.stdout + laterRegs.stderr);
+    assert.match(laterRegs.stdout, /added 0 pupil\(s\) and 2 register day\(s\)/);
+    assert.equal(await count(), 7, 'the pupil was not added a second time');
+    assert.equal((await sql('SELECT COUNT(*) n FROM attendance'))[0].n, 7);
+
+    // answers typed in the window (address, email, password, then the confirmation word): anything but the word cancels
+    const cancelled = await importer([G2, '--names-only'], `${url}\npunhamasiwa@gmail.com\n1234\nno\n`);
+    assert.equal(cancelled.status, 0, cancelled.stdout + cancelled.stderr);
+    assert.match(cancelled.stdout, /Cancelled\. Nothing was changed/);
+    assert.equal(await count(), 7, 'cancelling adds nothing');
+    const typed = await importer([G2, '--names-only'], `${url}\npunhamasiwa@gmail.com\n1234\nyes\n`);
+    assert.equal(typed.status, 0, typed.stdout + typed.stderr);
+    assert.match(typed.stdout, /added 1 pupil\(s\)\./);
+    assert.equal(await count(), 8);
+    assert.equal((await pupil('GINA TYPEDIN')).class_id, cid('Grade 2'));
 
     // something already in the portal is never overwritten
     await sql("UPDATE users SET name = name WHERE id = ?", [anna.id]);

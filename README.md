@@ -282,6 +282,8 @@ The school's class lists and term registers can be loaded into the live portal f
 npm run import:register -- "C:\path\Chakari_ECD_A_2026_Pupils_and_Attendance.xlsx" "C:\path\Chakari_ECD_B_2026_Pupils_and_Attendance.xlsx"
 ```
 
+**Names and details only (no attendance):** double-click **`Import Pupil Names.bat`** instead (or add `--names-only`). It finds the `..._Pupils_and_Attendance.xlsx` sheets on the Desktop and in Downloads by itself, adds the pupils with their gender, date of birth, notes and registration number, and loads **no registers**. The registers can still be added later with `Import Class Registers.bat`: the pupils already there are not added twice.
+
 It runs **on your own computer** and talks to the portal over the internet, so you log in with your own Administrator account (it asks for the portal's address, the email, and the password, which is not shown as you type). Choose your own password on the portal first: the importer refuses an account that still has to change its starting password.
 
 * **It shows the plan first** (pupils to add, register days to add, anything it will skip) and changes nothing until you type `IMPORT`. `--dry-run` shows the plan and stops.
@@ -289,7 +291,8 @@ It runs **on your own computer** and talks to the portal over the internet, so y
 * **Pupils are added as closed accounts** with a registration number, like any pupil created by the Administrator. Gender, date of birth and the day they joined are filled in; a date of birth that was unclear in the scan is not guessed, but written in the pupil's notes with the sheet's own remark.
 * **Registers:** one register for each school day in the sheet, owned by the Administrator. Days with no marks (holidays) get no register. `N` (admitted that day) is handled as each sheet says: left out of the count, or counted as present.
 * **Pupils marked `T` (transferred)** are closed and recorded as having left, with their attendance up to that day kept.
-* **A row with no name** (for example "(NAME MISSING)") is skipped and reported; add the name in Excel and run it again.
+* **A row with no name** (for example "(NAME MISSING)") is skipped and reported; add the name in Excel and run it again, or add that pupil by hand in the portal.
+* **Only clear dates of birth are entered.** The sheet's own "Date of Birth" column is used; a date written in the scan that the sheet marks as unclear is kept in the pupil's notes, not entered.
 * **Safe to run again:** pupils and register days already in the portal are not added twice, and anything the school has edited in the portal is never overwritten.
 * **Check the notes:** every doubtful row in the sheet ("Check / Notes") is copied to the pupil's notes beginning `CHECK:`, so the school can find and correct them.
 
