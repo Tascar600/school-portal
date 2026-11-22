@@ -43,6 +43,7 @@ import { auditTrail } from './middleware/audit';
 import { startAutomaticCopies } from './utils/backup';
 import { startEmailedBackups } from './utils/emailBackup';
 import { restoreIfNeeded, startOffsiteBackups, offsiteSetupWarnings, REFUSAL } from './utils/offsiteBackup';
+import { applyEmergencyReset } from './utils/emergencyReset';
 import auditRoutes from './routes/audit';
 import examRoutes from './routes/exams';
 import parentRoutes from './routes/parents';
@@ -170,6 +171,16 @@ async function start(): Promise<void> {
   }
 
   await initDatabase();
+
+  // Emergency way back in (README, "If a password is forgotten"): only when RESET_STARTING_ACCOUNTS is set to a new word
+  try {
+    const done = await applyEmergencyReset();
+    if (done) {
+      const who = done.reset.map((r) => `${r.role} (${r.email})`).join(' and ') || 'no account found';
+      console.error(`\n!! RESET_STARTING_ACCOUNTS was used: ${who} put back to the starting password.`);
+      console.error('!! Log in now and choose a new password. Everyone logged in before is signed out. You can remove the RESET_STARTING_ACCOUNTS setting.\n');
+    }
+  } catch (err: any) { console.error('RESET_STARTING_ACCOUNTS could not be applied:', err.message); }
   if (storageIsTemporary()) {
     console.error('\n!! WARNING: this portal keeps its data on the host\'s temporary disk. Pupils, marks, payments and uploads are erased whenever the host\n!! restarts, redeploys or goes to sleep. Attach a permanent disk and set DATA_DIR to its mount path (README, "Deploying (Render)").\n');
   }

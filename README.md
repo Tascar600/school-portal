@@ -27,7 +27,8 @@ The database does not auto-seed fake teachers or pupils. On a fresh start only t
 |-----------|-----------|
 | Anyone forgot their password | On the log in page press **Forgot your password?** and type their email or registration number. The request appears in the Administrator's **Admin Panel → Passwords** tab. The Administrator confirms who they are and presses **Give temporary password**. The person logs in with it and is made to choose their own straight away. |
 | You think someone else knows your password | Press **Password** at the top right and choose a new one. Every other device you were logged in on is logged out immediately. |
-| The Administrator forgot theirs and nobody else can log in | Switch the portal off, then run `cd backend` and `npm run reset-password -- admin@example.com NewPassword1`, then start the portal again. |
+| The Administrator forgot theirs and nobody else can log in, **on your own computer** | Switch the portal off, then run `cd backend` and `npm run reset-password -- admin@example.com NewPassword1`, then start the portal again. |
+| The same, **on a host such as Render** (where the portal cannot be switched off) | In the host's settings (Render → Environment) add `RESET_STARTING_ACCOUNTS` with any word you have not used before, for example `reset1`, and save so the portal restarts. The Administrator and the Bursar are put back to the starting passwords (`1234` and `12345678`), a closed account is opened again, and anyone logged in is signed out. **Log in at once and choose a new password for both**, because those starting passwords are public. No data is lost. It works once for each different word, so leaving the setting in place does not keep resetting passwords (remove it when you are in). Other accounts are not touched: give them temporary passwords from **Admin Panel → Passwords**. |
 
 ---
 
@@ -281,6 +282,7 @@ The first time it also loads a complete school, which takes about two minutes: 9
 | `npm run seed:sample` | Loads the sample school and runs the feature check (local only) |
 | `npm run demo` | Starts a complete demo school on this computer, with no internet (see "Demo school") |
 | `npm run seed:demo` | Adds the bigger demo data (10 pupils per class, fees, homework, quizzes) to a school that has had `seed:sample` (`npm run demo` does both) |
+| `npm run test:reset` | Starts throw-away portals and checks the emergency reset (`RESET_STARTING_ACCOUNTS`): both accounts back to the starting passwords, data kept, once per word |
 | `npm run test:backup` | Checks the off-site backup against a pretend GitHub: encryption, upload, restore, refusing to start, and a full redeploy |
 | `npm run backup:check` | Downloads and decrypts the latest off-site backup and says what is in it, changing nothing (see "Off-site backup to GitHub") |
 | `npm run capture-manual` | Takes the pictures used in the PDF manuals |
@@ -306,6 +308,7 @@ Settings (environment variables, all optional):
 | `AUTH_RATE_LIMIT` | Log in / sign-up requests allowed per 15 minutes **for each visitor** (default 100; the page-load check counts too). Raise it **only for local testing** |
 | `TRUST_PROXY` | Which addresses are proxies, so each visitor gets their own log in limit. On a host (Render) the portal already trusts the private network and Cloudflare's published ranges, so leave this alone. Override with a number (that many proxies), `false`, or a comma-separated list of addresses. The log shows `Visitor address check: the portal sees this visitor as ...` for the first two visitors after each start, and a `WARNING` if that is a proxy rather than the visitor |
 | `FIRST_LOGIN_PASSWORD_CHANGE=off` | Do not make the Administrator and Bursar choose a password on first log in. **Only for a fresh local test database** |
+| `RESET_STARTING_ACCOUNTS` | Emergency way back in: set it to a new word and restart, and the Administrator and Bursar go back to the starting passwords (see "If a password is forgotten"). Works once per word; remove it afterwards |
 | `SMS_WEBHOOK_URL`, `SMS_WEBHOOK_TOKEN`, `SMS_SENDER_ID` | Turn on automatic text messages (see "Text messages") |
 | `BACKUP_EMAIL_TO`, `SMTP_HOST`, `SMTP_USER`, `SMTP_PASS`, `SMTP_PORT`, `SMTP_FROM` | Turn on emailed backups (see "Emailed backups"). `SMTP_PORT` defaults to 465; `SMTP_FROM` to `SMTP_USER` |
 | `BACKUP_GITHUB_TOKEN`, `BACKUP_GITHUB_REPO`, `BACKUP_PASSPHRASE` | Turn on the encrypted off-site backup to a private GitHub repository, and the automatic restore after a wipe (see "Off-site backup to GitHub"). All three are needed; with any missing it does nothing. Optional: `BACKUP_BRANCH` (default `data-backup`), `BACKUP_FILE` (default `snapshot.bin`), `BACKUP_INTERVAL_MS` (default `60000`) |
