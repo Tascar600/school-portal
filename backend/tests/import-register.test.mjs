@@ -46,6 +46,20 @@ async function makeBook(file, { cls, nRule, pupils, matrix, attendance }) {
   await wb.xlsx.writeFile(file);
 }
 
+/** A class list on its own (no attendance sheets), laid out like the printed class registers: the extra details are in the columns. */
+async function makeDetails(file, cls, rows) {
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet('Pupils');
+  ws.addRow([`Test School - ${cls} 2026 class list (pupil details)`]);
+  ws.addRow([]);
+  ws.addRow([]);
+  ws.addRow(['Register No', 'First Name', 'Surname', 'Gender', 'Date of Birth', 'Birth Cert No.', 'Religion', 'Day / Boarder', 'Parent / Guardian', 'Contact Phone', 'Residential Address', 'Transferred In From', 'Class 2026', 'Status', 'Check / Notes']);
+  rows.forEach((r, i) => ws.addRow([i + 1, r.first, r.last, r.sex ?? '', r.dob ?? '', r.cert ?? '', r.religion ?? '', r.day ?? '', r.parent ?? '', r.phone ?? '', r.address ?? '', r.from ?? '', cls, 'Active', r.note ?? '']));
+  ws.addRow([]);
+  ws.addRow(['Totals']);
+  await wb.xlsx.writeFile(file);
+}
+
 const freePort = () => new Promise((resolve) => { const s = net.createServer(); s.listen(0, '127.0.0.1', () => { const p = s.address().port; s.close(() => resolve(p)); }); });
 
 test('import-register: class list and register go into the right classes, once, and nothing real is touched twice', { timeout: 240000 }, async () => {
@@ -121,8 +135,8 @@ test('import-register: class list and register go into the right classes, once, 
     assert.ok(login.token, 'the test Administrator could not log in: ' + JSON.stringify(login));
     const sql = async (q, params = []) => (await (await fetch(url + '/api/admin/sql', { method: 'POST', headers: { 'content-type': 'application/json', Authorization: 'Bearer ' + login.token }, body: JSON.stringify({ sql: q, params }) })).json()).rows;
     // The importer runs as a separate program, waited for without blocking this test's own network connections.
-    const importer = (args, typed = '') => new Promise((resolve) => {
-      const p = spawn(process.execPath, [TSX, 'scripts/import-register.ts', ...args], { cwd: BACKEND });
+    const importer = (args, typed = '', moreEnv = {}) => new Promise((resolve) => {
+      const p = spawn(process.execPath, [TSX, 'scripts/import-register.ts', ...args], { cwd: BACKEND, env: { ...process.env, ...moreEnv } });
       p.stdin.end(typed); // what a person would type in the window, one answer per line
       let stdout = '', stderr = '';
       p.stdout.on('data', (d) => { stdout += d; }); p.stderr.on('data', (d) => { stderr += d; });
@@ -236,6 +250,56 @@ test('import-register: class list and register go into the right classes, once, 
     assert.match(typed.stdout, /added 1 pupil\(s\)\./);
     assert.equal(await count(), 8);
     assert.equal((await pupil('GINA TYPEDIN')).class_id, cid('Grade 2'));
+
+    // class lists with the extra details (guardian, phone, address ...) and no attendance sheet, found on the "Desktop" with no file named
+    const home = path.join(dir, 'home');
+    fs.mkdirSync(path.join(home, 'Desktop', 'Class Lists'), { recursive: true });
+    const D4 = path.join(home, 'Desktop', 'Class Lists', 'grade4_Pupil_Details.xlsx');
+    await makeDetails(D4, 'Grade 4', [
+      { first: 'HANA', last: 'DETAILS', sex: 'F', dob: '08/11/2017', cert: '24-2046107 T24', religion: 'Christian', day: 'Day', parent: 'Mr Details', phone: '0773 651 279', address: '6 Test Road', from: '02/02/2026 (parental request)' },
+      { first: 'IAN', last: 'DOUBTFUL', sex: 'M', dob: '21.01.2?', phone: '07731 9?? 32', note: 'Phone overwritten - confirm' },
+      { first: 'JOY', last: 'TWONUMBERS', sex: 'F', dob: 'Age 10', phone: '0715999135 / 0717257263' },
+      { first: 'KAY', last: 'KEPTOUT', sex: 'F', phone: '0771448544', note: 'Phone overwritten - confirm' },
+      { first: 'LEE', last: 'CUTOFF', sex: 'M', parent: 'Fortunate Ko...', phone: '0772634173', note: 'Parent surname cut off' },
+      { first: 'MAX', last: 'BOARDER', sex: 'M', day: 'Boarder' },
+      { first: 'NIA', last: 'CERTNOTE', sex: 'F', dob: '31/02/2017', phone: '0783844133', note: 'Birth cert last digits unclear' },
+      { first: '(first name crossed out)', last: 'CROSSED', sex: 'F' },
+      { first: 'TENDAI', last: '(surname not given)', sex: 'M' },
+    ]);
+    const homeEnv = { HOME: home, USERPROFILE: home };
+    const twin = path.join(home, 'Desktop', 'Class Lists', 'grade4_copy_Pupil_Details.xlsx');
+    fs.copyFileSync(D4, twin);
+    const twice = await importer(['--names-only', '--url', url, '--email', 'punhamasiwa@gmail.com', '--password', '1234', '--yes'], '', homeEnv);
+    assert.equal(twice.status, 1, 'two sheets for one class are refused');
+    assert.match(twice.stderr, /Two files are for the class Grade 4/);
+    assert.equal(await count(), 8, 'nothing was added');
+    fs.rmSync(twin);
+    const found = await importer(['--names-only', '--url', url, '--email', 'punhamasiwa@gmail.com', '--password', '1234', '--yes'], '', homeEnv);
+    assert.equal(found.status, 0, found.stdout + found.stderr);
+    assert.match(found.stdout, /Found these class sheets:[\s\S]*grade4_Pupil_Details\.xlsx/);
+    assert.match(found.stdout, /SKIPPED +register no\. 8: the name is incomplete \("\(first name crossed out\) CROSSED"\)/);
+    assert.match(found.stdout, /SKIPPED +register no\. 9: the name is incomplete/);
+    assert.match(found.stdout, /added 7 pupil\(s\)\./);
+    assert.equal(await count(), 15);
+    const full = async (name) => (await sql('SELECT u.class_id, p.category, p.gender, p.dob, p.guardian_name, p.guardian_phone, p.address, p.notes FROM users u JOIN student_profiles p ON p.user_id = u.id WHERE u.name = ?', [name]))[0];
+    const hana = await full('HANA DETAILS');
+    assert.equal(hana.class_id, cid('Grade 4')); assert.equal(hana.category, 'day'); assert.equal(hana.dob, '2017-11-08');
+    assert.equal(hana.guardian_name, 'Mr Details'); assert.equal(hana.guardian_phone, '0773651279', 'spaces are taken out of a whole number'); assert.equal(hana.address, '6 Test Road');
+    assert.match(hana.notes, /Birth cert no\. 24-2046107 T24/); assert.match(hana.notes, /Religion: Christian/); assert.match(hana.notes, /Transferred in: 02\/02\/2026 \(parental request\)/);
+    assert.doesNotMatch(hana.notes, /Phone as written/, 'a number that was entered is not repeated');
+    const ian = await full('IAN DOUBTFUL');
+    assert.equal(ian.guardian_phone, ''); assert.equal(ian.dob, null); assert.match(ian.notes, /Phone as written: 07731 9\?\? 32/); assert.match(ian.notes, /Date of birth as written: 21\.01\.2\?/);
+    const joy = await full('JOY TWONUMBERS');
+    assert.equal(joy.guardian_phone, '0715999135'); assert.match(joy.notes, /Phone as written: 0715999135 \/ 0717257263/); assert.match(joy.notes, /Date of birth as written: Age 10/);
+    const kay = await full('KAY KEPTOUT');
+    assert.equal(kay.guardian_phone, '', 'a number the sheet doubts is not used'); assert.match(kay.notes, /Phone as written: 0771448544/);
+    const lee = await full('LEE CUTOFF');
+    assert.equal(lee.guardian_name, '', 'a cut-off name is not used'); assert.match(lee.notes, /Parent\/guardian as written: Fortunate Ko\.\.\./); assert.equal(lee.guardian_phone, '0772634173');
+    const max = await full('MAX BOARDER');
+    assert.match(max.notes, /Boarder/); assert.equal(max.category, 'day');
+    const nia = await full('NIA CERTNOTE');
+    assert.equal(nia.guardian_phone, '0783844133', 'a remark about the birth certificate does not stop the phone being used');
+    assert.equal(nia.dob, null, '31/02/2017 is not a real date'); assert.match(nia.notes, /Date of birth as written: 31\/02\/2017/);
 
     // something already in the portal is never overwritten
     await sql("UPDATE users SET name = name WHERE id = ?", [anna.id]);

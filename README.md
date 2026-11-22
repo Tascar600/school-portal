@@ -282,7 +282,22 @@ The school's class lists and term registers can be loaded into the live portal f
 npm run import:register -- "C:\path\Chakari_ECD_A_2026_Pupils_and_Attendance.xlsx" "C:\path\Chakari_ECD_B_2026_Pupils_and_Attendance.xlsx"
 ```
 
-**Names and details only (no attendance):** double-click **`Import Pupil Names.bat`** instead (or add `--names-only`). It finds the `..._Pupils_and_Attendance.xlsx` sheets on the Desktop and in Downloads by itself, adds the pupils with their gender, date of birth, notes and registration number, and loads **no registers**. The registers can still be added later with `Import Class Registers.bat`: the pupils already there are not added twice.
+**Names and details only (no attendance):** double-click **`Import Pupil Names.bat`** instead (or add `--names-only`). With no files named, it finds the class sheets by itself (`..._Pupils_and_Attendance.xlsx` or `..._Pupil_Details.xlsx`) on the Desktop, in Downloads, and in any folder there with "class", "register" or "pupil" in its name. It adds every pupil with their details and loads **no registers**, so one run can load every class at once. The registers can still be added later with `Import Class Registers.bat`: the pupils already there are not added twice. Two sheets for the same class are refused (otherwise every pupil would be added twice).
+
+**A class list on its own** needs only the sheet **Pupils** (no "Attendance Import"). Its header row may have these columns, in any order: `Register No`, `First Name`, `Surname`, `Gender` (or `Sex`), `Date of Birth`, `Class 2026`, `Status`, `Category`, `Religion`, `Day / Boarder`, `Birth Cert No.`, `Parent / Guardian`, `Contact Phone`, `Residential Address`, `Transferred In From`, `Check / Notes`. They go into the pupil's profile like this:
+
+| Sheet | In the portal |
+|---|---|
+| First Name, Surname, Class 2026 | the pupil and their class |
+| Gender | gender |
+| Date of Birth | date of birth, **only** when it is a whole real date written day first (`26/06/2022`, `26.06.2022` or `2022-06-26`); anything else (`21.01.2?`, `Age 10`, `02/__/2017`) is quoted in the notes |
+| Parent / Guardian | guardian name (left out, and quoted in the notes, when it ends in `...` or the sheet's remark mentions the parent or guardian) |
+| Contact Phone | guardian phone, **only** when it is a whole number (`0772580110`, spaces allowed) and the sheet's remark does not doubt it (a remark with "phone", "contact" or "number" in it). The fee-reminder texts are sent to this number, so an unclear one is never entered. With two numbers the first good one is entered; whatever is not entered is quoted in the notes as `Phone as written: ...` |
+| Residential Address | address |
+| Category | fee category (`day`, `staff_child`, `beam` or `sponsored`); anything else, or no column, is `day` |
+| Birth Cert No., Religion, Day / Boarder = Boarder, Transferred In From | the notes (the portal has no box for them) |
+| Check / Notes | the notes, starting `CHECK:` |
+| a name that is only a remark, such as `(first name crossed out)` | that row is skipped and listed |
 
 It runs **on your own computer** and talks to the portal over the internet, so you log in with your own Administrator account (it asks for the portal's address, the email, and the password, which is not shown as you type). Choose your own password on the portal first: the importer refuses an account that still has to change its starting password.
 
